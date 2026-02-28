@@ -6,12 +6,13 @@ Fullstack platform with a FastAPI backend and Astro + React frontend.
 
 - Node.js >= 20
 - pnpm (via corepack: `corepack enable`)
-- [Lefthook](https://github.com/evilmartians/lefthook) (`brew install lefthook`)
+- [Lefthook](https://github.com/evilmartians/lefthook)
 
 ## Getting Started
 
 ```bash
 corepack enable
+brew install lefthook
 pnpm -C apps/web install
 lefthook install
 ```
@@ -46,7 +47,6 @@ hexagone/
 │       │   └── app/pages/  # SPA page components
 │       ├── public/         # Static assets
 │       └── astro.config.mjs
-├── biome.json              # Linter/formatter config
 └── lefthook.yml            # Pre-commit hooks
 ```
 
