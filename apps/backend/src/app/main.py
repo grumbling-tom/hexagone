@@ -1,11 +1,22 @@
 """FastAPI application entry point."""
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from src.app.routers.health import router as health_router
+from src.app.settings import settings
 from src.app.utils import configure_logging
 
 configure_logging()
 
 app = FastAPI()
+
+if settings.ENV == "DEV":
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["http://localhost:4321"],
+        allow_methods=["GET"],
+        allow_headers=["*"],
+    )
+
 app.include_router(health_router)
