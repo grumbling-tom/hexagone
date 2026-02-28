@@ -1,24 +1,16 @@
 #!/usr/bin/env bash
-# Assume the GitHubActionsDeployRole to get temporary AWS credentials
+# Assume the HexagoneInfrastructureAdmin to get temporary AWS credentials
 #
-# This script uses the ClankLocalDevelopment IAM user credentials to assume
-# the GitHubActionsDeployRole, which provides the same AWS permissions as
-# the CI/CD pipeline. The temporary credentials expire after 12 hours.
-#
-# Prerequisites:
-# 1. Configure ClankLocalDevelopment IAM user credentials in ~/.aws/credentials
-#    or set AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY environment variables
-# 2. Update the GitHubActionsDeployRole trust policy to allow the IAM user to assume it
+# This script uses the hexagone-local-dev IAM user credentials to assume
+# the HexagoneInfrastructureAdmin, which provides the same AWS permissions
+# as the CI/CD pipeline. The temporary credentials expire after 12 hours.
 #
 # Usage:
 #   # Source the script to set environment variables in your current shell
-#   source scripts/assume-role.sh
+#   AWS_PROFILE=hexagone-local-dev AWS_ACCOUNT_ID=... source scripts/assume-role.sh
 #
 #   # Or eval the output
-#   eval $(scripts/assume-role.sh)
-#
-#   # Or save to a file and source it
-#   scripts/assume-role.sh > /tmp/aws-creds.sh && source /tmp/aws-creds.sh
+#   eval $(AWS_PROFILE=hexagone-local-dev AWS_ACCOUNT_ID=... scripts/assume-role.sh)
 
 set -euo pipefail
 
@@ -41,7 +33,7 @@ if [ $? -ne 0 ]; then
   echo ""
   echo "Possible causes:"
   echo "1. IAM user credentials not configured (check ~/.aws/credentials or AWS_* env vars)"
-  echo "2. GitHubActionsDeployRole trust policy doesn't allow the IAM user to assume it"
+  echo "2. HexagoneInfrastructureAdmin trust policy doesn't allow the IAM user to assume it"
   echo "3. IAM user doesn't have sts:AssumeRole permission for this role"
   exit 1
 fi
