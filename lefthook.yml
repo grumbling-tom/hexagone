@@ -2,7 +2,9 @@ pre-commit:
   parallel: true
   commands:
     biome:
+      root: apps/web/
       glob: "*.{js,ts,jsx,tsx,json,mjs}"
-      run: pnpm -C apps/web exec biome check --no-errors-on-unmatched --files-ignore-unknown=true {staged_files}
+      run: pnpm exec biome check --no-errors-on-unmatched --files-ignore-unknown=true {staged_files}
     typecheck:
-      run: pnpm -C apps/web exec astro check
+      root: apps/web/
+      run: pnpm exec astro check
