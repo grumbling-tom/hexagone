@@ -6,14 +6,28 @@ Fullstack platform with a FastAPI backend and Astro + React frontend.
 
 - Node.js >= 20
 - pnpm (via corepack: `corepack enable`)
+- [Lefthook](https://github.com/evilmartians/lefthook) (`brew install lefthook`)
 
 ## Getting Started
 
 ```bash
 corepack enable
-pnpm install
-pnpm dev
+pnpm -C apps/web install
+lefthook install
 ```
+
+## Commands
+
+All commands run from the repo root using `pnpm -C apps/web`:
+
+| Command | Description |
+|---------|-------------|
+| `pnpm -C apps/web dev` | Start dev server |
+| `pnpm -C apps/web build` | Build for production |
+| `pnpm -C apps/web test` | Run tests (Vitest) |
+| `pnpm -C apps/web test:watch` | Run tests in watch mode |
+| `pnpm -C apps/web exec biome check .` | Check lint + formatting |
+| `pnpm -C apps/web exec biome check --write .` | Auto-fix lint + formatting |
 
 The dev server starts at `http://localhost:4321/`:
 - `/` — Static landing page
@@ -33,31 +47,12 @@ hexagone/
 │       ├── public/         # Static assets
 │       └── astro.config.mjs
 ├── biome.json              # Linter/formatter config
-├── lefthook.yml            # Pre-commit hooks
-└── package.json
+└── lefthook.yml            # Pre-commit hooks
 ```
-
-## Commands
-
-| Command | Description |
-|---------|-------------|
-| `pnpm dev` | Start dev server |
-| `pnpm build` | Build for production |
-| `pnpm test` | Run tests (Vitest) |
-| `pnpm lint` | Check lint + formatting (Biome) |
-| `pnpm lint:fix` | Auto-fix lint + formatting |
-| `pnpm format` | Format files |
 
 ## Testing
 
-Tests are co-located with source files (`*.test.tsx`). Run with:
-
-```bash
-pnpm test              # Single run
-pnpm -C apps/web test:watch  # Watch mode
-```
-
-Uses Vitest + Testing Library + happy-dom.
+Tests are co-located with source files (`*.test.tsx`). Uses Vitest + Testing Library + happy-dom.
 
 ## Pre-commit Hooks
 
@@ -65,10 +60,10 @@ Lefthook runs on every commit:
 - **Biome** — lint + format check on staged files
 - **Typecheck** — `astro check` for type errors
 
-Hooks are installed automatically via the `prepare` script. To manually install:
+Install hooks after cloning:
 
 ```bash
-pnpm lefthook install
+lefthook install
 ```
 
 ## Deployment

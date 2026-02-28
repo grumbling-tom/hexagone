@@ -3,6 +3,6 @@ pre-commit:
   commands:
     biome:
       glob: "*.{js,ts,jsx,tsx,json,mjs}"
-      run: pnpm biome check --no-errors-on-unmatched --files-ignore-unknown=true {staged_files}
+      run: pnpm -C apps/web exec biome check --no-errors-on-unmatched --files-ignore-unknown=true {staged_files}
     typecheck:
       run: pnpm -C apps/web exec astro check
