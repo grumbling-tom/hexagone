@@ -1,11 +1,14 @@
 # Terraform — Hexagone Infrastructure
 
-Provisions AWS infrastructure for the Hexagone frontend:
+Provisions AWS infrastructure for Hexagone:
 
 - **S3 bucket** (`hexagone-web`) — stores built static files, private access only
-- **CloudFront distribution** — CDN with HTTPS, HTTP/2+3, and SPA routing
-- **ACM certificate** — TLS for `haxagone.com` (DNS-validated, us-east-1)
+- **CloudFront distribution** — CDN with HTTPS, HTTP/2+3, SPA routing, and API proxy (`/api/*`)
+- **ACM certificate** — TLS for `hexagone.one` (DNS-validated, us-east-1)
 - **Route53** (optional) — DNS zone and records when `enable_dns = true`
+- **ECR repository** (`hexagone-backend`) — Docker images for the backend Lambda
+- **Lambda function** (`hexagone-backend`) — FastAPI backend via Mangum
+- **API Gateway HTTP API** — routes requests to the Lambda function
 
 ## Prerequisites
 
@@ -26,9 +29,46 @@ terraform apply
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `aws_region` | `eu-west-1` | AWS region for S3 and other regional resources |
-| `domain_name` | `haxagone.com` | Domain for CloudFront and ACM certificate |
-| `enable_dns` | `false` | Create Route53 zone and DNS records |
+| `domain_name` | `hexagone.one` | Domain for CloudFront and ACM certificate |
+| `lambda_image_tag` | `latest` | Docker image tag for the backend Lambda function |
+
+## Deploying the Backend
+
+Build, push the Docker image to ECR, then update the Lambda function:
+
+```bash
+cd apps/backend
+
+# 1. Get the ECR repository URL
+ECR_URL=$(terraform -chdir=../../terraform/production output -raw ecr_repository_url)
+
+# 2. Authenticate Docker with ECR
+aws ecr get-login-password --region eu-west-1 | docker login --username AWS --password-stdin "$ECR_URL"
+
+# 3. Build the Lambda Docker image
+docker build -f Dockerfile.lambda --platform linux/arm64 -t hexagone-backend:latest .
+
+# 4. Tag and push
+IMAGE_TAG=$(git rev-parse --short HEAD)
+docker tag hexagone-backend:latest "$ECR_URL:$IMAGE_TAG"
+docker push "$ECR_URL:$IMAGE_TAG"
+
+# 5. Update the Lambda function to use the new image
+aws lambda update-function-code \
+  --function-name hexagone-backend \
+  --image-uri "$ECR_URL:$IMAGE_TAG" \
+  --region eu-west-1
+
+# 6. Verify
+curl https://hexagone.one/api/health
+```
+
+Alternatively, deploy via Terraform by setting the image tag variable:
+
+```bash
+cd terraform/production
+terraform apply -var="lambda_image_tag=$IMAGE_TAG"
+```
 
 ## Deploying Frontend Assets
 

@@ -22,7 +22,7 @@ def create_app(settings: Settings = settings) -> FastAPI:
             allow_headers=["*"],
         )
 
-    app.include_router(health_router)
+    app.include_router(health_router, prefix="/api")
     return app
 
 
