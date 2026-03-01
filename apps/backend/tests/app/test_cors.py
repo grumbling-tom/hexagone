@@ -21,7 +21,7 @@ def test_cors_blocks_disallowed_origin():
 
 
 def test_cors_not_applied_in_prod():
-    app = create_app(Settings(ENV="PROD"))
+    app = create_app(Settings(ENV="PROD", DATABASE_URL="postgresql://u:p@host:5432/db"))
     client = TestClient(app)
     response = client.get("/api/health", headers={"origin": "http://localhost:4321"})
     assert "access-control-allow-origin" not in response.headers

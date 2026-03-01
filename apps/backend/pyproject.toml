@@ -9,6 +9,9 @@ dependencies = [
     "mangum>=0.19.0",
     "pydantic-settings>=2.0.0",
     "structlog>=24.1.0",
+    "sqlalchemy>=2.0.0",
+    "psycopg2-binary>=2.9.0",
+    "alembic>=1.13.0",
 ]
 
 [dependency-groups]
@@ -76,7 +79,7 @@ convention = "google"
 # D417: False positive - incorrectly requires 'self' in docstrings with PEP 695 syntax
 add-ignore = ["D100", "D104", "D101", "D417"]
 match = "(?!test_).*\\.py"
-match-dir = "^(?!(\\.git|\\.tox|build|dist|__pycache__)).*"
+match-dir = "^(?!(\\.git|\\.tox|build|dist|__pycache__|alembic)).*"
 
 [tool.pyright]
 pythonVersion = "3.14"
@@ -86,4 +89,5 @@ exclude = [
     "**/__pycache__",
     ".git",
     ".venv",
+    "src/alembic",
 ]

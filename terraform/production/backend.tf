@@ -67,6 +67,33 @@ resource "aws_iam_role_policy" "lambda_logging" {
   })
 }
 
+resource "aws_iam_role_policy" "lambda_vpc_execution" {
+  name = "HexagoneLambdaVPCExecution"
+  role = aws_iam_role.lambda_exec.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "ec2:CreateNetworkInterface",
+          "ec2:DeleteNetworkInterface",
+          "ec2:DescribeNetworkInterfaces",
+          "ec2:AssignPrivateIpAddresses",
+          "ec2:UnassignPrivateIpAddresses"
+        ]
+        Resource = "*",
+        Condition = {
+          ArnLikeIfExists = {
+            "ec2:Vpc" : aws_vpc.main.arn
+          }
+        }
+      }
+    ]
+  })
+}
+
 # ---------------------------------------------------------------------------
 # CloudWatch log groups
 # ---------------------------------------------------------------------------
@@ -94,9 +121,15 @@ resource "aws_lambda_function" "backend" {
   timeout       = 30
   memory_size   = 512
 
+  vpc_config {
+    subnet_ids         = aws_subnet.private[*].id
+    security_group_ids = [aws_security_group.lambda.id]
+  }
+
   environment {
     variables = {
-      ENV = "PROD"
+      ENV          = "PROD"
+      DATABASE_URL = local.DATABASE_URL
     }
   }
 }
@@ -156,4 +189,40 @@ resource "aws_lambda_permission" "api_gateway" {
   function_name = aws_lambda_function.backend.function_name
   principal     = "apigateway.amazonaws.com"
   source_arn    = "${aws_apigatewayv2_api.backend.execution_arn}/*/*"
+}
+
+# ---------------------------------------------------------------------------
+# DB Ops Lambda function
+# ---------------------------------------------------------------------------
+
+resource "aws_cloudwatch_log_group" "lambda_db_ops" {
+  name              = "/aws/lambda/hexagone-db-ops"
+  retention_in_days = 7
+}
+
+resource "aws_lambda_function" "db_ops" {
+  function_name = "hexagone-db-ops"
+  role          = aws_iam_role.lambda_exec.arn
+  package_type  = "Image"
+  image_uri     = "${aws_ecr_repository.backend.repository_url}:${var.lambda_image_tag}"
+  architectures = ["arm64"]
+  timeout       = 300 # 5 minutes for database operations
+  memory_size   = 512
+
+  vpc_config {
+    subnet_ids         = aws_subnet.private[*].id
+    security_group_ids = [aws_security_group.lambda.id]
+  }
+
+  environment {
+    variables = {
+      ENV          = "PROD"
+      DATABASE_URL = local.DATABASE_URL
+    }
+  }
+
+  # Override the CMD to use the database operations handler
+  image_config {
+    command = ["src.app.handlers.db.handler"]
+  }
 }

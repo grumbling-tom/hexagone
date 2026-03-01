@@ -26,8 +26,21 @@ deploy-backend:
 		--function-name hexagone-backend \
 		--image-uri "$(ECR_URL):$(IMAGE_TAG)" \
 		--region $(AWS_REGION)
+	aws lambda update-function-code \
+		--function-name hexagone-db-ops \
+		--image-uri "$(ECR_URL):$(IMAGE_TAG)" \
+		--region $(AWS_REGION)
 	@echo "Deployed backend image: $(ECR_URL):$(IMAGE_TAG)"
+
+## deploy-db-migrate: Run database migrations via the db-ops Lambda
+.PHONY: deploy-db-migrate
+deploy-db-migrate:
+	aws lambda invoke \
+		--function-name hexagone-db-ops \
+		--payload '{"action":"migrate"}' \
+		--region $(AWS_REGION) \
+		/dev/stdout
 
 ## deploy: Deploy both frontend and backend
 .PHONY: deploy
-deploy: deploy-frontend deploy-backend
+deploy: deploy-frontend deploy-backend deploy-db-migrate
