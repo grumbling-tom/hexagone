@@ -31,12 +31,11 @@ from .filters import (
     NotInFilter,
     RangeFilter,
 )
+from .models import User, UserSession
 from .repository import Repository
 
 __all__ = [
-    # Database
     "BaseModel",
-    # Filters
     "EqualsFilter",
     "Filter",
     "GreaterThanFilter",
@@ -49,9 +48,10 @@ __all__ = [
     "NotEqualsFilter",
     "NotInFilter",
     "RangeFilter",
-    # Repository
     "Repository",
     "SessionLocal",
+    "User",
+    "UserSession",
     "check_database_health",
     "engine",
     "get_db",
