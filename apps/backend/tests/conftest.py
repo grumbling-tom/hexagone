@@ -8,9 +8,9 @@ from fastapi.testclient import TestClient
 from sqlalchemy import StaticPool, create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
+from src.app.dependencies import get_db
 from src.app.main import app
 from src.app.repository import BaseModel, User
-from src.app.repository.database import get_db
 from src.app.services.password import hash_password
 from src.app.services.user_session import create_session
 
@@ -64,8 +64,6 @@ def client(test_db: Session, test_user: User) -> Generator[TestClient]:
 
     with (
         patch("src.app.middleware.get_db", override_get_db),
-        patch("src.app.routers.users.get_db", override_get_db),
-        patch("src.app.routers.user_sessions.get_db", override_get_db),
         TestClient(app) as c,
     ):
         c.cookies.set("sessionid", session.uid)
@@ -85,8 +83,6 @@ def unauthenticated_client(test_db: Session) -> Generator[TestClient]:
 
     with (
         patch("src.app.middleware.get_db", override_get_db),
-        patch("src.app.routers.users.get_db", override_get_db),
-        patch("src.app.routers.user_sessions.get_db", override_get_db),
         TestClient(app) as c,
     ):
         yield c
