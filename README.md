@@ -9,6 +9,8 @@ Fullstack platform with a FastAPI backend and Astro + React frontend.
 - Python >= 3.14
 - [uv](https://docs.astral.sh/uv/)
 - [Lefthook](https://github.com/evilmartians/lefthook)
+- [Terraform >= 1.6.0](https://developer.hashicorp.com/terraform/install) (for infrastructure)
+- [AWS CLI](https://aws.amazon.com/cli/) (for deployment)
 
 ## Getting Started
 
@@ -74,6 +76,8 @@ hexagone/
 │       │   ├── routers/      # Route handlers
 │       │   └── utils/        # Logging, helpers
 │       └── tests/
+├── terraform/
+│   └── production/           # AWS infrastructure (S3, CloudFront, ACM, Route53)
 └── lefthook.yml              # Pre-commit hooks
 ```
 
@@ -89,6 +93,8 @@ Lefthook runs on every commit:
 - **Typecheck** — `astro check` for type errors
 - **Ruff** — lint + format check on staged Python files
 - **Pyright** — type checking for the API
+- **Terraform fmt** — formatting check on `.tf` files
+- **Terraform validate** — config validation (requires `terraform init`)
 
 Install hooks after cloning:
 
@@ -98,8 +104,17 @@ lefthook install
 
 ## Deployment
 
-The frontend builds to static HTML. The hosting provider needs a rewrite rule to support SPA routing:
+Infrastructure is managed with Terraform in `terraform/production/`. See [`terraform/README.md`](terraform/README.md) for full details.
 
-```
-/app/* → /app/index.html
+```bash
+# Build frontend
+pnpm -C apps/web build
+
+# Deploy to S3
+aws s3 sync apps/web/dist/ s3://hexagone-web --delete
+
+# Invalidate CDN cache
+aws cloudfront create-invalidation \
+  --distribution-id $(terraform -chdir=terraform/production output -raw cloudfront_distribution_id) \
+  --paths "/*"
 ```

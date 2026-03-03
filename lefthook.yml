@@ -19,3 +19,11 @@ pre-commit:
     pyright:
       root: apps/backend/
       run: uv run pyright
+    terraform-fmt:
+      root: terraform/
+      glob: "*.tf"
+      run: terraform fmt -check -diff -recursive
+    terraform-validate:
+      root: terraform/production/
+      glob: "*.tf"
+      run: terraform validate
