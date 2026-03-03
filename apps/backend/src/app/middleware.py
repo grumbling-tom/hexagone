@@ -11,25 +11,14 @@ from src.app.context import current_user, current_user_session
 from src.app.repository.database import get_db
 from src.app.services.user_session import validate_session
 from src.app.settings import settings
-from src.app.utils import get_logger
+from src.app.utils import get_client_ip, get_logger
 
 logger = get_logger(__name__)
 
 EXEMPT_ROUTES: set[tuple[str, str]] = {
     ("POST", "/api/v1/users"),
     ("POST", "/api/v1/user-sessions"),
-    ("DELETE", "/api/v1/user-sessions/current"),
 }
-
-
-def _get_client_ip(request: Request) -> str:
-    """Extract client IP from X-Forwarded-For header or request.client."""
-    forwarded_for = request.headers.get("x-forwarded-for")
-    if forwarded_for:
-        return forwarded_for.split(",")[0].strip()
-    if request.client:
-        return request.client.host
-    return "unknown"
 
 
 class SessionValidationMiddleware(BaseHTTPMiddleware):
@@ -56,7 +45,7 @@ class SessionValidationMiddleware(BaseHTTPMiddleware):
             )
 
         user_agent = request.headers.get("user-agent", "")
-        ip_address = _get_client_ip(request)
+        ip_address = get_client_ip(request)
 
         with contextmanager(get_db)() as db:
             session = validate_session(db, session_id, user_agent, ip_address)

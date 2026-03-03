@@ -14,7 +14,7 @@ from src.app.services.user_session import (
     validate_session,
 )
 from src.app.settings import settings
-from src.app.utils import BaseSchema
+from src.app.utils import BaseSchema, get_client_ip
 
 if TYPE_CHECKING:
     from src.app.repository import User
@@ -36,17 +36,8 @@ class UserSessionResponse(BaseSchema):
     email: str
 
 
-def _get_client_ip(request: Request) -> str:
-    forwarded_for = request.headers.get("x-forwarded-for")
-    if forwarded_for:
-        return forwarded_for.split(",")[0].strip()
-    if request.client:
-        return request.client.host
-    return "unknown"
-
-
 @router.post("/user-sessions")
-def login(
+def create_user_session(
     body: CreateUserSessionRequest,
     request: Request,
     response: Response,
@@ -58,7 +49,7 @@ def login(
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
     user_agent = request.headers.get("user-agent", "")
-    ip_address = _get_client_ip(request)
+    ip_address = get_client_ip(request)
     session = create_session(db, user.uid, user_agent, ip_address)
 
     response.set_cookie(
@@ -74,7 +65,7 @@ def login(
 
 
 @router.delete("/user-sessions/current", status_code=204)
-def logout(
+def delete_current_session(
     request: Request,
     response: Response,
     db: Annotated[Session, Depends(get_db)],
@@ -85,7 +76,7 @@ def logout(
 
     if session_id:
         user_agent = request.headers.get("user-agent", "")
-        ip_address = _get_client_ip(request)
+        ip_address = get_client_ip(request)
 
         session = validate_session(db, session_id, user_agent, ip_address)
         if session:

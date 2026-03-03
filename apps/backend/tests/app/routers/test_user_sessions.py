@@ -44,4 +44,4 @@ def test_logout_with_session(client: TestClient):
 
 def test_logout_without_session(unauthenticated_client: TestClient):
     response = unauthenticated_client.delete("/api/v1/user-sessions/current")
-    assert response.status_code == 204
+    assert response.status_code == 401

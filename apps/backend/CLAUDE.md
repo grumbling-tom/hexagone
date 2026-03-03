@@ -30,6 +30,12 @@ GET    /api/v1/user/session       # singular nouns
 DELETE /api/v1/logout             # verb as path segment
 ```
 
+## Code Sharing
+
+Prefer extracting shared logic into a common module higher in the directory
+tree (e.g. `src/app/utils/`) rather than duplicating helper functions across
+files. When you see the same function in two or more places, consolidate it.
+
 ## Router Organisation
 
 One router file per entity in `src/app/routers/`. The router defines paths
