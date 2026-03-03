@@ -75,6 +75,35 @@ resource "aws_cloudfront_distribution" "web" {
     origin_access_control_id = aws_cloudfront_origin_access_control.web.id
   }
 
+  origin {
+    domain_name = "${aws_apigatewayv2_api.backend.id}.execute-api.${data.aws_region.current.name}.amazonaws.com"
+    origin_id   = "api"
+
+    custom_origin_config {
+      http_port              = 80
+      https_port             = 443
+      origin_protocol_policy = "https-only"
+      origin_ssl_protocols   = ["TLSv1.2"]
+    }
+  }
+
+  # API cache behavior — proxy to API Gateway.
+  ordered_cache_behavior {
+    path_pattern           = "/api/*"
+    target_origin_id       = "api"
+    viewer_protocol_policy = "redirect-to-https"
+    allowed_methods        = ["DELETE", "GET", "HEAD", "OPTIONS", "PATCH", "POST", "PUT"]
+    cached_methods         = ["GET", "HEAD"]
+    compress               = true
+
+    # Managed-CachingDisabled policy.
+    cache_policy_id = "4135ea2d-6df8-44a3-9df3-4b5a84be39ad"
+
+    # Managed-AllViewerExceptHostHeader origin request policy.
+    # Forwards all viewer headers except Host (required for API Gateway TLS).
+    origin_request_policy_id = "b689b0a8-53d0-40ab-baf2-68738e2966ac"
+  }
+
   # Default cache behavior — static assets.
   default_cache_behavior {
     target_origin_id       = "s3"

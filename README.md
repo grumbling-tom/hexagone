@@ -106,15 +106,8 @@ lefthook install
 
 Infrastructure is managed with Terraform in `terraform/production/`. See [`terraform/README.md`](terraform/README.md) for full details.
 
-```bash
-# Build frontend
-pnpm -C apps/web build
-
-# Deploy to S3
-aws s3 sync apps/web/dist/ s3://hexagone-web --delete
-
-# Invalidate CDN cache
-aws cloudfront create-invalidation \
-  --distribution-id $(terraform -chdir=terraform/production output -raw cloudfront_distribution_id) \
-  --paths "/*"
-```
+| Command | Description |
+|---------|-------------|
+| `make deploy-frontend` | Build frontend, sync to S3, invalidate CloudFront |
+| `make deploy-backend` | Build Docker image, push to ECR, update Lambda |
+| `make deploy` | Deploy both frontend and backend |

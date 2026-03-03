@@ -3,3 +3,9 @@ variable "domain_name" {
   type        = string
   default     = "hexagone.one"
 }
+
+variable "lambda_image_tag" {
+  description = "Docker image tag for the Lambda function"
+  type        = string
+  default     = "latest"
+}
