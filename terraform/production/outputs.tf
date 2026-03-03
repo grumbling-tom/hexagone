@@ -27,3 +27,8 @@ output "api_gateway_url" {
   description = "API Gateway default URL"
   value       = aws_apigatewayv2_stage.default.invoke_url
 }
+
+output "db_ops_lambda_function_name" {
+  description = "DB Ops Lambda function name"
+  value       = aws_lambda_function.db_ops.function_name
+}

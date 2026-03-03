@@ -1,7 +1,9 @@
 """Application settings loaded from environment variables."""
 
-from typing import Literal
+from typing import Any, Literal
+from urllib.parse import parse_qs, quote_plus, urlencode, urlparse, urlunparse
 
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -10,6 +12,8 @@ class Settings(BaseSettings):
 
     Attributes:
         ENV: The application environment (TEST, DEV, STAGING, PROD).
+        DATABASE_URL: The database connection URL.
+        DEFAULT_PAGE_SIZE: Default number of items per page for pagination.
     """
 
     model_config = SettingsConfigDict(
@@ -17,6 +21,79 @@ class Settings(BaseSettings):
     )
 
     ENV: Literal["TEST", "DEV", "STAGING", "PROD"] = "DEV"
+    DATABASE_URL: str = ""
+    DEFAULT_PAGE_SIZE: int = 20
+
+    @model_validator(mode="before")
+    @classmethod
+    def validate_database_url(cls, data: dict[str, Any]) -> dict[str, Any]:
+        """Validate and set default DATABASE_URL for DEV environment.
+
+        For PROD and STAGING environments, ensures PostgreSQL connections use SSL
+        and URL-encodes credentials to handle special characters.
+
+        Returns:
+            The validated Settings instance.
+
+        Raises:
+            ValueError: If DATABASE_URL is not provided in non-DEV environments.
+        """
+        database_url: str = data.get("DATABASE_URL", "")
+        env = data.get("ENV", "DEV")
+
+        # Process PostgreSQL URLs in PROD/STAGING environments
+        if database_url and env in ("PROD", "STAGING"):
+            parsed = urlparse(database_url)
+
+            if (
+                not parsed.username
+                or not parsed.password
+                or not parsed.hostname
+                or not parsed.port
+            ):
+                msg = (
+                    "DATABASE_URL must include username, password, hostname, and port "
+                    "for PROD/STAGING environments"
+                )
+                raise ValueError(msg)
+
+            # URL-encode username and password to handle special characters
+            encoded_username = quote_plus(parsed.username)
+            encoded_password = quote_plus(parsed.password)
+            encoded_netloc = (
+                f"{encoded_username}:{encoded_password}@{parsed.hostname}:{parsed.port}"
+            )
+
+            # Parse and update query parameters
+            query_params = parse_qs(parsed.query)
+
+            # Add sslmode=require if not already present
+            if "sslmode" not in query_params:
+                query_params["sslmode"] = ["require"]
+
+            # Reconstruct URL with encoded credentials and updated query parameters
+            new_query = urlencode(query_params, doseq=True)
+            data["DATABASE_URL"] = urlunparse(
+                (
+                    parsed.scheme,
+                    encoded_netloc,
+                    parsed.path,
+                    parsed.params,
+                    new_query,
+                    parsed.fragment,
+                )
+            )
+            return data
+
+        if database_url != "":
+            return data
+
+        if env in {"DEV", "TEST"}:
+            data["DATABASE_URL"] = "sqlite:///./sqlite.db"
+            return data
+
+        msg = f"DATABASE_URL must be provided when ENV is '{env}'"
+        raise ValueError(msg)
 
 
 settings = Settings()

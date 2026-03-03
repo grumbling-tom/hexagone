@@ -21,7 +21,7 @@ Provisions AWS infrastructure for Hexagone:
 ```bash
 cd terraform/production
 terraform init
-terraform plan -var="lambda_image_tag=$(git rev-parse --short HEAD)"
+terraform plan -out=tfplan -var="lambda_image_tag=$(git rev-parse --short HEAD)"
 terraform apply
 ```
 

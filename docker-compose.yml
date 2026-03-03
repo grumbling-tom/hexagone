@@ -1,0 +1,64 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: hexagone-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  hexagone-lambda-db-ops:
+    build:
+      context: apps/backend
+      dockerfile: Dockerfile.lambda
+    container_name: hexagone-lambda-db-ops
+    command: ["src.app.handlers.db.handler"]
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/postgres
+    ports:
+      - "9001:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./apps/backend/src:/var/task/src
+    post_start:
+      - command: curl -X POST "http://localhost:8080/2015-03-31/functions/function/invocations" -d '{"action":"migrate"}'
+        user: root
+
+  hexagone-backend:
+    build:
+      context: apps/backend
+      dockerfile: Dockerfile.lambda
+    container_name: hexagone-backend
+    command:
+      - uv
+      - run
+      - uvicorn
+      - src.app.main:app
+      - --host
+      - "0.0.0.0"
+      - --port
+      - "8000"
+      - --reload
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/postgres
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./apps/backend/src:/var/task/src
+
+volumes:
+  postgres_data:
