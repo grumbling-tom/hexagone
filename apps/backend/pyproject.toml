@@ -1,0 +1,88 @@
+[project]
+name = "hexagone-backend"
+version = "0.1.0"
+description = "Hexagone API backend"
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = [
+    "fastapi[standard]>=0.121.0",
+    "pydantic-settings>=2.0.0",
+    "structlog>=24.1.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3.4",
+    "httpx>=0.28.1",
+    "ruff>=0.8.4",
+    "pydocstyle[toml]>=6.3.0",
+    "pyright>=1.1.390",
+]
+
+[tool.uv]
+# https://github.com/astral-sh/uv/issues/11175
+package = true
+
+[tool.setuptools]
+packages = ["src"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py314"
+
+[tool.ruff.lint]
+select = [
+    "E",
+    "W",
+    "F",
+    "I",
+    "N",
+    "UP",
+    "ANN",
+    "B",
+    "C4",
+    "DTZ",
+    "T10",
+    "EM",
+    "ISC",
+    "ICN",
+    "PIE",
+    "PT",
+    "Q",
+    "RSE",
+    "RET",
+    "SIM",
+    "TCH",
+    "ARG",
+    "PTH",
+    "PL",
+    "TRY",
+    "RUF",
+]
+ignore = [
+    "TC002",  # FastAPI's dependency injection pattern requires imports that _appear_ used only in type hints, but are in fact used at runtime.
+    "TC003",  # See above
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = ["ANN", "ARG", "PLR2004"]
+
+[tool.pydocstyle]
+convention = "google"
+# D100: Missing docstring in public module
+# D104: Missing docstring in public package
+# D101: False positive with PEP 695 type parameter syntax (Python 3.12+)
+# D417: False positive - incorrectly requires 'self' in docstrings with PEP 695 syntax
+add-ignore = ["D100", "D104", "D101", "D417"]
+match = "(?!test_).*\\.py"
+match-dir = "^(?!(\\.git|\\.tox|build|dist|__pycache__)).*"
+
+[tool.pyright]
+pythonVersion = "3.14"
+typeCheckingMode = "strict"
+include = ["src", "tests"]
+exclude = [
+    "**/__pycache__",
+    ".git",
+    ".venv",
+]

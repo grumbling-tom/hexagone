@@ -8,3 +8,14 @@ pre-commit:
     typecheck:
       root: apps/web/
       run: pnpm exec astro check
+    ruff-lint:
+      root: apps/backend/
+      glob: "*.py"
+      run: uv run ruff check
+    ruff-format:
+      root: apps/backend/
+      glob: "*.py"
+      run: uv run ruff format --check
+    pyright:
+      root: apps/backend/
+      run: uv run pyright
