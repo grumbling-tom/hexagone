@@ -44,6 +44,23 @@ relative to its entity name; the version prefix is applied in `main.py`.
 - `routers/users.py`          → routes: `/users`, `/users/current`, `/users/{uid}`
 - `routers/user_sessions.py`  → routes: `/user-sessions`, `/user-sessions/current`
 
+## Database Migrations
+
+Migration files live in `src/alembic/versions/` and use 4-digit zero-padded
+numeric prefixes: `XXXX_descriptive_name.py` (e.g. `0001_add_users_table.py`).
+
+Generate new migrations with:
+
+```
+uv run alembic revision --autogenerate -m "XXXX_description"
+```
+
+Rules:
+- One migration per PR — during development, iterate on the same migration
+  rather than creating multiple
+- Numbering must match Alembic revision chain order
+- Validation is enforced via pre-commit hook (`validate-migrations` in lefthook)
+
 ## Authentication
 
 Authentication uses FastAPI dependency injection, not middleware. Routes that
