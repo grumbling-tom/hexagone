@@ -1,7 +1,10 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import Dashboard from "@/app/pages/Dashboard";
 import Settings from "@/app/pages/Settings";
 import Nav from "@/components/Nav";
+
+const queryClient = new QueryClient();
 
 export function AppRoutes() {
 	return (
@@ -18,8 +21,10 @@ export function AppRoutes() {
 
 export default function App() {
 	return (
-		<BrowserRouter basename="/app">
-			<AppRoutes />
-		</BrowserRouter>
+		<QueryClientProvider client={queryClient}>
+			<BrowserRouter basename="/app">
+				<AppRoutes />
+			</BrowserRouter>
+		</QueryClientProvider>
 	);
 }
