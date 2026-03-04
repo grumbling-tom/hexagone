@@ -41,5 +41,23 @@ files. When you see the same function in two or more places, consolidate it.
 One router file per entity in `src/app/routers/`. The router defines paths
 relative to its entity name; the version prefix is applied in `main.py`.
 
-- `routers/users.py`          → routes: `/users`, `/users/me`, `/users/{uid}`
+- `routers/users.py`          → routes: `/users`, `/users/current`, `/users/{uid}`
 - `routers/user_sessions.py`  → routes: `/user-sessions`, `/user-sessions/current`
+
+## Authentication
+
+Authentication uses FastAPI dependency injection, not middleware. Routes that
+require a logged-in user declare a dependency on `authenticated_user`:
+
+```python
+from src.app.dependencies import authenticated_user
+
+@router.get("/things")
+def list_things(
+    user: Annotated[User, Depends(authenticated_user)],
+) -> list[ThingResponse]:
+    ...
+```
+
+Routes that are public (e.g. registration, login) simply omit the dependency.
+Do not use middleware or route-level exemption lists for auth.

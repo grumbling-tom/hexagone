@@ -1,7 +1,6 @@
 """Shared test fixtures."""
 
 from collections.abc import Generator
-from unittest.mock import patch
 
 import pytest
 from fastapi.testclient import TestClient
@@ -62,10 +61,7 @@ def client(test_db: Session, test_user: User) -> Generator[TestClient]:
 
     session = create_session(test_db, test_user.uid, "testclient", "testclient")
 
-    with (
-        patch("src.app.middleware.get_db", override_get_db),
-        TestClient(app) as c,
-    ):
+    with TestClient(app) as c:
         c.cookies.set("sessionid", session.uid)
         yield c
 
@@ -81,10 +77,7 @@ def unauthenticated_client(test_db: Session) -> Generator[TestClient]:
 
     app.dependency_overrides[get_db] = override_get_db
 
-    with (
-        patch("src.app.middleware.get_db", override_get_db),
-        TestClient(app) as c,
-    ):
+    with TestClient(app) as c:
         yield c
 
     app.dependency_overrides.clear()
