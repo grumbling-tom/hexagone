@@ -1,5 +1,6 @@
 """Application settings loaded from environment variables."""
 
+from pathlib import Path
 from typing import Any, Literal
 from urllib.parse import parse_qs, quote_plus, urlencode, urlparse, urlunparse
 
@@ -96,7 +97,10 @@ class Settings(BaseSettings):
             return data
 
         if env in {"DEV", "TEST"}:
-            data["DATABASE_URL"] = "sqlite:///./sqlite.db"
+            # FIXME: Kinda grim hard-coding, but Good Enough™.
+            data["DATABASE_URL"] = (
+                f"sqlite:///{Path.cwd() / 'apps' / 'backend' / 'sqlite.db'}"
+            )
             return data
 
         msg = f"DATABASE_URL must be provided when ENV is '{env}'"
