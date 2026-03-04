@@ -1,10 +1,17 @@
 pre-commit:
-  parallel: true
+  piped: true
   commands:
+    gen-api-client:
+      priority: 0
+      glob: "*.{py,ts,json}"
+      run: >
+        pnpm -C apps/web api:gen
+      stage_fixed: true
     biome:
       root: apps/web/
       glob: "*.{js,ts,jsx,tsx,json,mjs}"
-      run: pnpm exec biome check --no-errors-on-unmatched --files-ignore-unknown=true {staged_files}
+      run: pnpm exec biome check --fix --no-errors-on-unmatched --files-ignore-unknown=true {staged_files}
+      stage_fixed: true
     typecheck:
       root: apps/web/
       run: pnpm exec astro check

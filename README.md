@@ -34,6 +34,9 @@ Commands run from the repo root using `pnpm -C apps/web`:
 | `pnpm -C apps/web test:watch` | Run tests in watch mode |
 | `pnpm -C apps/web exec biome check .` | Check lint + formatting |
 | `pnpm -C apps/web exec biome check --write .` | Auto-fix lint + formatting |
+| `pnpm -C apps/web api:gen-spec` | Export OpenAPI spec from backend |
+| `pnpm -C apps/web api:gen-client` | Generate typed API client from spec |
+| `pnpm -C apps/web api:gen` | Generate OpenAPI spec and typed API client |
 
 The dev server starts at `http://localhost:4321/`:
 - `/` — Static landing page
