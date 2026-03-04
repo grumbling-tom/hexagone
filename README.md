@@ -28,7 +28,7 @@ Commands run from the repo root using `pnpm -C apps/web`:
 
 | Command | Description |
 |---------|-------------|
-| `pnpm -C apps/web dev` | Start dev server |
+| `PUBLIC_API_URL=http://localhost:8000/api pnpm -C apps/web dev` | Start dev server |
 | `pnpm -C apps/web build` | Build for production |
 | `pnpm -C apps/web test` | Run tests (Vitest) |
 | `pnpm -C apps/web test:watch` | Run tests in watch mode |
