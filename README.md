@@ -51,6 +51,10 @@ Commands run from `apps/backend/`:
 | `uv run ruff check .` | Lint |
 | `uv run ruff format --check .` | Check formatting |
 | `uv run pyright` | Type checking |
+| `uv run alembic upgrade head` | Run database migrations |
+| `uv run alembic revision --autogenerate -m "XXXX_description"` | Generate a new migration |
+
+In dev mode (`ENV` unset or `DEV`), the backend uses a local SQLite database (`sqlite.db`) automatically — no external database setup required.
 
 The dev server starts at `http://localhost:8000/`:
 - `/health` — Health check endpoint
@@ -93,6 +97,7 @@ Lefthook runs on every commit:
 - **Typecheck** — `astro check` for type errors
 - **Ruff** — lint + format check on staged Python files
 - **Pyright** — type checking for the API
+- **Validate migrations** — checks migration file numbering and one-per-PR rule
 - **Terraform fmt** — formatting check on `.tf` files
 - **Terraform validate** — config validation (requires `terraform init`)
 
