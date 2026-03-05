@@ -19,6 +19,10 @@ pre-commit:
     pyright:
       root: apps/backend/
       run: uv run pyright
+    validate-migrations:
+      root: apps/backend/
+      glob: "*.py"
+      run: uv run python src/scripts/validate_migrations.py
     terraform-fmt:
       root: terraform/
       glob: "*.tf"

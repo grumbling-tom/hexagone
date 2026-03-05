@@ -1,5 +1,6 @@
 """Application settings loaded from environment variables."""
 
+from pathlib import Path
 from typing import Any, Literal
 from urllib.parse import parse_qs, quote_plus, urlencode, urlparse, urlunparse
 
@@ -23,6 +24,13 @@ class Settings(BaseSettings):
     ENV: Literal["TEST", "DEV", "STAGING", "PROD"] = "DEV"
     DATABASE_URL: str = ""
     DEFAULT_PAGE_SIZE: int = 20
+    SESSION_COOKIE_NAME: str = "sessionid"
+    SESSION_EXPIRY_HOURS: int = 24
+
+    @property
+    def session_expiry_seconds(self) -> int:
+        """Compute session expiry in seconds from hours."""
+        return self.SESSION_EXPIRY_HOURS * 3600
 
     @model_validator(mode="before")
     @classmethod
@@ -89,7 +97,10 @@ class Settings(BaseSettings):
             return data
 
         if env in {"DEV", "TEST"}:
-            data["DATABASE_URL"] = "sqlite:///./sqlite.db"
+            # FIXME: Kinda grim hard-coding, but Good Enough™.
+            data["DATABASE_URL"] = (
+                f"sqlite:///{Path.cwd() / 'apps' / 'backend' / 'sqlite.db'}"
+            )
             return data
 
         msg = f"DATABASE_URL must be provided when ENV is '{env}'"
