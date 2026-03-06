@@ -4,6 +4,7 @@ from fastapi import APIRouter, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from src.app.routers.health import router as health_router
+from src.app.routers.uploads import router as uploads_router
 from src.app.routers.user_sessions import router as user_sessions_router
 from src.app.routers.users import router as users_router
 from src.app.settings import Settings, settings
@@ -20,7 +21,7 @@ def create_app(settings: Settings = settings) -> FastAPI:
         app.add_middleware(
             CORSMiddleware,
             allow_origins=["http://localhost:4321"],
-            allow_methods=["GET", "POST", "DELETE"],
+            allow_methods=["GET", "POST", "PUT", "DELETE"],
             allow_headers=["*"],
             allow_credentials=True,
         )
@@ -28,6 +29,7 @@ def create_app(settings: Settings = settings) -> FastAPI:
     api_v1_router = APIRouter(prefix="/api/v1")
     api_v1_router.include_router(users_router, tags=["users"])
     api_v1_router.include_router(user_sessions_router, tags=["user-sessions"])
+    api_v1_router.include_router(uploads_router, tags=["uploads"])
 
     app.include_router(health_router, prefix="/api", tags=["health"])
     app.include_router(api_v1_router)

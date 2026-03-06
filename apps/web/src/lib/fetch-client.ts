@@ -24,7 +24,10 @@ export async function fetchClient<T>(config: {
   method: string;
   headers?: HeadersInit;
   data?: unknown;
-  params?: Record<string, string>;
+  params?: Record<
+    string,
+    string | number | boolean | string[] | null | undefined
+  >;
   signal?: AbortSignal;
 }): Promise<T> {
   const url = new URL(
@@ -34,7 +37,14 @@ export async function fetchClient<T>(config: {
 
   if (config.params) {
     for (const [key, value] of Object.entries(config.params)) {
-      url.searchParams.set(key, value);
+      if (value == null) continue;
+      if (Array.isArray(value)) {
+        for (const item of value) {
+          url.searchParams.append(key, item);
+        }
+      } else {
+        url.searchParams.set(key, String(value));
+      }
     }
   }
 

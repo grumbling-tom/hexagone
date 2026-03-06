@@ -4,6 +4,11 @@ from fastapi import Cookie, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 
 from src.app.repository.database import get_db
+from src.app.services.storage import (
+    LocalStorageBackend,
+    S3StorageBackend,
+    StorageBackend,
+)
 from src.app.services.user_session import validate_session
 from src.app.settings import settings
 from src.app.utils import get_client_ip
@@ -11,7 +16,14 @@ from src.app.utils import get_client_ip
 if TYPE_CHECKING:
     from src.app.repository.models import User
 
-__all__ = ["authenticated_user", "get_db"]
+__all__ = ["authenticated_user", "get_db", "get_storage_backend"]
+
+
+def get_storage_backend() -> StorageBackend:
+    """Return the appropriate storage backend for the current environment."""
+    if settings.ENV == "DEV":
+        return LocalStorageBackend()
+    return S3StorageBackend()
 
 
 def authenticated_user(

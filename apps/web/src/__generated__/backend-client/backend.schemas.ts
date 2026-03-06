@@ -4,6 +4,12 @@
  * Backend
  * OpenAPI spec version: 0.1.0
  */
+export type ListUploadsParams = {
+page_size?: number;
+cursor?: string | null;
+statuses?: string[] | null;
+};
+
 export type GetHealth200 = {[key: string]: string};
 
 export type ValidationErrorLocItem = string | number;
@@ -34,6 +40,43 @@ export interface UserResponse {
   uid: string;
 }
 
+export type UploadResponseRequiredHeadersAnyOf = {[key: string]: string};
+
+export type UploadResponseRequiredHeaders = UploadResponseRequiredHeadersAnyOf | null;
+
+export type UploadResponsePresignedUrl = string | null;
+
+/**
+ * Response body for upload endpoints.
+ */
+export interface UploadResponse {
+  created_at: string;
+  current_status: string;
+  file_size: number;
+  original_filename: string;
+  presigned_url?: UploadResponsePresignedUrl;
+  required_headers?: UploadResponseRequiredHeaders;
+  s3_key: string;
+  uid: string;
+}
+
+export type PaginatedResultUploadResponsePreviousCursor = string | null;
+
+export type PaginatedResultUploadResponseNextCursor = string | null;
+
+export interface PaginatedResultUploadResponse {
+  has_next: boolean;
+  has_previous: boolean;
+  items: UploadResponse[];
+  next_cursor: PaginatedResultUploadResponseNextCursor;
+  /** Number of items returned in this page.
+
+Returns:
+    The length of the items list. */
+  readonly page_size: number;
+  previous_cursor: PaginatedResultUploadResponsePreviousCursor;
+}
+
 export interface HTTPValidationError {
   detail?: ValidationError[];
 }
@@ -52,5 +95,13 @@ export interface CreateUserSessionRequest {
 export interface CreateUserRequest {
   email: string;
   password: string;
+}
+
+/**
+ * Request body for creating a new upload.
+ */
+export interface CreateUploadRequest {
+  file_size: number;
+  original_filename: string;
 }
 

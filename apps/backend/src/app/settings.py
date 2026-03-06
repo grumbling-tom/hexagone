@@ -26,6 +26,10 @@ class Settings(BaseSettings):
     DEFAULT_PAGE_SIZE: int = 20
     SESSION_COOKIE_NAME: str = "sessionid"
     SESSION_EXPIRY_HOURS: int = 24
+    GPX_UPLOAD_BUCKET: str = "hexagone-gpx-uploads"
+    GPX_UPLOAD_REGION: str = "eu-west-2"
+    PRESIGNED_URL_EXPIRY_SECONDS: int = 300
+    GIT_SHA: str = "unknown"
 
     @property
     def session_expiry_seconds(self) -> int:

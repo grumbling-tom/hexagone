@@ -23,11 +23,13 @@ pre-commit:
     ruff-lint:
       root: apps/backend/
       glob: "*.py"
-      run: uv run ruff check
+      run: uv run ruff check --fix
+      stage_fixed: true
     ruff-format:
       root: apps/backend/
       glob: "*.py"
-      run: uv run ruff format --check
+      run: uv run ruff format
+      stage_fixed: true
     pyright:
       root: apps/backend/
       run: uv run pyright

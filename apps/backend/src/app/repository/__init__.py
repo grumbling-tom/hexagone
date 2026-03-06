@@ -31,7 +31,7 @@ from .filters import (
     NotInFilter,
     RangeFilter,
 )
-from .models import User, UserSession
+from .models import Upload, UploadStatus, UploadStatusValue, User, UserSession
 from .repository import Repository
 
 __all__ = [
@@ -50,6 +50,9 @@ __all__ = [
     "RangeFilter",
     "Repository",
     "SessionLocal",
+    "Upload",
+    "UploadStatus",
+    "UploadStatusValue",
     "User",
     "UserSession",
     "check_database_health",
