@@ -63,7 +63,7 @@ a {
   text-underline-offset: 3px;
 }
 
-/* Landing */
+/** @define landing */
 .landing {
   display: flex;
   flex-direction: column;
@@ -76,7 +76,7 @@ a {
   margin: 0 auto;
 }
 
-/* Nav */
+/** @define nav */
 .nav {
   display: flex;
   flex-wrap: wrap;
@@ -96,7 +96,7 @@ a {
   }
 }
 
-/* Page */
+/** @define page */
 .page {
   padding: 1rem 1.5rem;
   max-width: 48rem;
@@ -108,7 +108,7 @@ a {
   }
 }
 
-/* Health Status */
+/** @define health-status */
 .health-status {
   display: inline-flex;
   align-items: center;
@@ -126,7 +126,7 @@ a {
   background-color: red;
 }
 
-/* Button */
+/** @define button */
 .button {
   font-family: "Architects Daughter", cursive;
   font-size: 1rem;
