@@ -91,6 +91,28 @@ Rules:
 - Numbering must match Alembic revision chain order
 - Validation is enforced via pre-commit hook (`validate-migrations` in lefthook)
 
+## Query Parameters
+
+Define query parameters as a Pydantic schema (inheriting `BaseSchema`) and
+inject with `Annotated[MyParams, Query()]`. Use `Query()`, **not** `Depends()`,
+so FastAPI correctly parses list query params (e.g. `?statuses=A&statuses=B`).
+
+```python
+from fastapi import Query
+from pydantic import Field
+
+class ListThingsParams(BaseSchema):
+    page_size: int = Field(default=settings.DEFAULT_PAGE_SIZE, gt=0, le=100)
+    cursor: str | None = Field(default=None)
+    statuses: list[StatusEnum] | None = Field(default=None)
+
+@router.get("/things")
+def list_things(
+    params: Annotated[ListThingsParams, Query()],
+) -> PaginatedResult[ThingResponse]:
+    ...
+```
+
 ## Authentication
 
 Authentication uses FastAPI dependency injection, not middleware. Routes that

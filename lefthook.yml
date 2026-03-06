@@ -4,8 +4,7 @@ pre-commit:
     gen-api-client:
       priority: 0
       glob: "*.{py,ts,json}"
-      run: >
-        pnpm -C apps/web api:gen
+      run: pnpm -C apps/web api:gen
       stage_fixed: true
     biome:
       root: apps/web/

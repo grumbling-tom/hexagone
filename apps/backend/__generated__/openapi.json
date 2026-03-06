@@ -281,6 +281,8 @@
             "required": false,
             "schema": {
               "type": "integer",
+              "maximum": 100,
+              "exclusiveMinimum": 0,
               "default": 20,
               "title": "Page Size"
             }
@@ -310,7 +312,7 @@
                 {
                   "type": "array",
                   "items": {
-                    "type": "string"
+                    "$ref": "#/components/schemas/UploadStatusValue"
                   }
                 },
                 {
@@ -557,6 +559,17 @@
         ],
         "title": "UploadResponse",
         "description": "Response body for upload endpoints."
+      },
+      "UploadStatusValue": {
+        "type": "string",
+        "enum": [
+          "UPLOAD_PENDING",
+          "UPLOAD_RECEIVED",
+          "UPLOAD_SUCCESS",
+          "UPLOAD_INVALID"
+        ],
+        "title": "UploadStatusValue",
+        "description": "Allowed status values for upload processing."
       },
       "UserResponse": {
         "properties": {

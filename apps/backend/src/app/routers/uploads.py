@@ -2,7 +2,8 @@
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, Query
+from pydantic import Field
 from sqlalchemy.orm import Session
 
 from src.app.dependencies import (
@@ -15,6 +16,7 @@ from src.app.services.storage import StorageBackend
 from src.app.services.upload import UploadResponse
 from src.app.services.upload import create_upload as create_upload_service
 from src.app.services.upload import list_uploads as list_uploads_service
+from src.app.settings import settings
 from src.app.utils import BaseSchema, PaginatedResult
 
 router = APIRouter()
@@ -25,6 +27,18 @@ class CreateUploadRequest(BaseSchema):
 
     original_filename: str
     file_size: int
+
+
+class ListUploadsParams(BaseSchema):
+    """Query parameters for listing uploads."""
+
+    page_size: int = Field(
+        default=settings.DEFAULT_PAGE_SIZE,
+        gt=0,
+        le=100,
+    )
+    cursor: str | None = Field(default=None)
+    statuses: list[UploadStatusValue] | None = Field(default=None)
 
 
 @router.post("/uploads", status_code=201, operation_id="createUpload")
@@ -45,29 +59,22 @@ def create_upload(
 
 
 @router.get("/uploads", operation_id="listUploads")
-def list_uploads(  # noqa: PLR0913
+def list_uploads(
     user: Annotated[User, Depends(authenticated_user)],
     db: Annotated[Session, Depends(get_db)],
     storage: Annotated[StorageBackend, Depends(get_storage_backend)],
-    page_size: int = 20,
-    cursor: str | None = None,
-    statuses: Annotated[list[str] | None, Query()] = None,
+    params: Annotated[ListUploadsParams, Query()],
 ) -> PaginatedResult[UploadResponse]:
     """List the authenticated user's uploads, filtered by status."""
-    if statuses is not None:
-        valid = {v.value for v in UploadStatusValue}
-        for s in statuses:
-            if s not in valid:
-                raise HTTPException(
-                    status_code=422,
-                    detail=f"Invalid status value: {s}",
-                )
+    statuses: list[str] | None = None
+    if params.statuses is not None:
+        statuses = [s.value for s in params.statuses]
 
     return list_uploads_service(
         db=db,
         user=user,
         storage=storage,
-        page_size=page_size,
-        cursor=cursor,
+        page_size=params.page_size,
+        cursor=params.cursor,
         statuses=statuses,
     )

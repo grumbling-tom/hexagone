@@ -7,7 +7,7 @@
 export type ListUploadsParams = {
 page_size?: number;
 cursor?: string | null;
-statuses?: string[] | null;
+statuses?: UploadStatusValue[] | null;
 };
 
 export type GetHealth200 = {[key: string]: string};
@@ -39,6 +39,20 @@ export interface UserResponse {
   email: string;
   uid: string;
 }
+
+/**
+ * Allowed status values for upload processing.
+ */
+export type UploadStatusValue = typeof UploadStatusValue[keyof typeof UploadStatusValue];
+
+
+// eslint-disable-next-line @typescript-eslint/no-redeclare
+export const UploadStatusValue = {
+  UPLOAD_PENDING: 'UPLOAD_PENDING',
+  UPLOAD_RECEIVED: 'UPLOAD_RECEIVED',
+  UPLOAD_SUCCESS: 'UPLOAD_SUCCESS',
+  UPLOAD_INVALID: 'UPLOAD_INVALID',
+} as const;
 
 export type UploadResponseRequiredHeadersAnyOf = {[key: string]: string};
 
