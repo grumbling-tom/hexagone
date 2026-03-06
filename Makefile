@@ -37,7 +37,7 @@ deploy-backend:
 deploy-db-migrate:
 	aws lambda invoke \
 		--function-name hexagone-db-ops \
-		--payload '{"action":"migrate"}' \
+		--payload $$(echo '{"action":"migrate"}' | base64) \
 		--region $(AWS_REGION) \
 		/dev/stdout
 

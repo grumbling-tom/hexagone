@@ -30,11 +30,41 @@ GET    /api/v1/user/session       # singular nouns
 DELETE /api/v1/logout             # verb as path segment
 ```
 
+## Operation IDs
+
+Every FastAPI route must set an explicit `operation_id` in camelCase. This
+controls the generated TypeScript hook names (via orval) on the frontend.
+Use the pattern `{verb}{Resource}`, e.g.:
+
+```python
+@router.get("/health", operation_id="getHealth")
+@router.post("/users", status_code=201, operation_id="createUser")
+@router.get("/users/current", operation_id="getCurrentUser")
+@router.delete("/user-sessions/current", status_code=204, operation_id="deleteCurrentSession")
+```
+
+Without an explicit `operation_id`, FastAPI generates verbose IDs like
+`health_api_health_get`, which produce clunky hook names like
+`useHealthApiHealthGet`.
+
 ## Code Sharing
 
 Prefer extracting shared logic into a common module higher in the directory
 tree (e.g. `src/app/utils/`) rather than duplicating helper functions across
 files. When you see the same function in two or more places, consolidate it.
+
+## Router Tags
+
+Every router must be registered with a `tags` parameter in `main.py`. Orval
+uses tags to group generated TypeScript modules — without them, endpoints
+fall into a generic `default` module. Use the entity name as the tag:
+
+```python
+api_v1_router.include_router(users_router, tags=["users"])
+app.include_router(health_router, prefix="/api", tags=["health"])
+```
+
+This is enforced by `test_all_operations_have_tags` in `tests/app/test_openapi.py`.
 
 ## Router Organisation
 

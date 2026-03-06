@@ -36,7 +36,7 @@ class UserSessionResponse(BaseSchema):
     email: str
 
 
-@router.post("/user-sessions")
+@router.post("/user-sessions", operation_id="createUserSession")
 def create_user_session(
     body: CreateUserSessionRequest,
     request: Request,
@@ -64,7 +64,9 @@ def create_user_session(
     return UserSessionResponse(uid=user.uid, email=user.email)
 
 
-@router.delete("/user-sessions/current", status_code=204)
+@router.delete(
+    "/user-sessions/current", status_code=204, operation_id="deleteCurrentSession"
+)
 def delete_current_session(
     request: Request,
     response: Response,
