@@ -1,0 +1,38 @@
+/* Reset */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  font-family:
+    system-ui,
+    -apple-system,
+    sans-serif;
+}
+
+/* Nav */
+.nav {
+  display: flex;
+  gap: 1rem;
+  padding: 1rem;
+}
+
+/* Health Status */
+.health-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.health-status__dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+}
+.health-status__dot--connected {
+  background-color: green;
+}
+.health-status__dot--disconnected {
+  background-color: red;
+}
