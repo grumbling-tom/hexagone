@@ -1,13 +1,13 @@
-import { useHealthCheck } from "@/hooks/useHealthCheck";
+import { useHealthApiHealthGet } from "@/__generated__/backend-client/default/default";
 
 export default function HealthStatus() {
-	const { status } = useHealthCheck();
+	const { data, isLoading, isError } = useHealthApiHealthGet();
 
-	if (status === "loading") {
+	if (isLoading) {
 		return <output>Checking...</output>;
 	}
 
-	const connected = status === "connected";
+	const connected = !isError && data?.status === "ok";
 
 	return (
 		<output
