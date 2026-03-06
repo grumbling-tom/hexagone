@@ -1,4 +1,6 @@
-const API_BASE_URL = import.meta.env.PUBLIC_API_URL ?? "/api";
+const PUBLIC_BACKEND_BASE_URL = (
+	import.meta.env.PUBLIC_BACKEND_BASE_URL ?? ""
+).replace(/\/+$/, "");
 
 export async function fetchClient<T>(config: {
 	url: string;
@@ -8,7 +10,10 @@ export async function fetchClient<T>(config: {
 	params?: Record<string, string>;
 	signal?: AbortSignal;
 }): Promise<T> {
-	const url = new URL(`${API_BASE_URL}${config.url}`, window.location.origin);
+	const url = new URL(
+		`${PUBLIC_BACKEND_BASE_URL}${config.url}`,
+		window.location.origin,
+	);
 
 	if (config.params) {
 		for (const [key, value] of Object.entries(config.params)) {

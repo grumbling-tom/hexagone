@@ -26,19 +26,20 @@ lefthook install
 
 Commands run from the repo root using `pnpm -C apps/web`:
 
-| Command | Description |
-|---------|-------------|
-| `PUBLIC_API_URL=http://localhost:8000/api pnpm -C apps/web dev` | Start dev server |
-| `pnpm -C apps/web build` | Build for production |
-| `pnpm -C apps/web test` | Run tests (Vitest) |
-| `pnpm -C apps/web test:watch` | Run tests in watch mode |
-| `pnpm -C apps/web exec biome check .` | Check lint + formatting |
-| `pnpm -C apps/web exec biome check --write .` | Auto-fix lint + formatting |
-| `pnpm -C apps/web api:gen-spec` | Export OpenAPI spec from backend |
-| `pnpm -C apps/web api:gen-client` | Generate typed API client from spec |
-| `pnpm -C apps/web api:gen` | Generate OpenAPI spec and typed API client |
+| Command                                                              | Description                                |
+| -------------------------------------------------------------------- | ------------------------------------------ |
+| `PUBLIC_BACKEND_BASE_URL=http://localhost:8000 pnpm -C apps/web dev` | Start dev server                           |
+| `pnpm -C apps/web build`                                             | Build for production                       |
+| `pnpm -C apps/web test`                                              | Run tests (Vitest)                         |
+| `pnpm -C apps/web test:watch`                                        | Run tests in watch mode                    |
+| `pnpm -C apps/web exec biome check .`                                | Check lint + formatting                    |
+| `pnpm -C apps/web exec biome check --write .`                        | Auto-fix lint + formatting                 |
+| `pnpm -C apps/web api:gen-spec`                                      | Export OpenAPI spec from backend           |
+| `pnpm -C apps/web api:gen-client`                                    | Generate typed API client from spec        |
+| `pnpm -C apps/web api:gen`                                           | Generate OpenAPI spec and typed API client |
 
 The dev server starts at `http://localhost:4321/`:
+
 - `/` — Static landing page
 - `/app` — React SPA (client-side routing)
 
@@ -46,20 +47,21 @@ The dev server starts at `http://localhost:4321/`:
 
 Commands run from `apps/backend/`:
 
-| Command | Description |
-|---------|-------------|
-| `uv sync` | Install dependencies |
-| `uv run fastapi dev src/app/main.py` | Start dev server (port 8000) |
-| `uv run pytest` | Run tests |
-| `uv run ruff check .` | Lint |
-| `uv run ruff format --check .` | Check formatting |
-| `uv run pyright` | Type checking |
-| `uv run alembic upgrade head` | Run database migrations |
-| `uv run alembic revision --autogenerate -m "XXXX_description"` | Generate a new migration |
+| Command                                                        | Description                  |
+| -------------------------------------------------------------- | ---------------------------- |
+| `uv sync`                                                      | Install dependencies         |
+| `uv run fastapi dev src/app/main.py`                           | Start dev server (port 8000) |
+| `uv run pytest`                                                | Run tests                    |
+| `uv run ruff check .`                                          | Lint                         |
+| `uv run ruff format --check .`                                 | Check formatting             |
+| `uv run pyright`                                               | Type checking                |
+| `uv run alembic upgrade head`                                  | Run database migrations      |
+| `uv run alembic revision --autogenerate -m "XXXX_description"` | Generate a new migration     |
 
 In dev mode (`ENV` unset or `DEV`), the backend uses a local SQLite database (`sqlite.db`) automatically — no external database setup required.
 
 The dev server starts at `http://localhost:8000/`:
+
 - `/health` — Health check endpoint
 - `/docs` — Interactive API docs (Swagger UI)
 
@@ -96,6 +98,7 @@ hexagone/
 ## Pre-commit Hooks
 
 Lefthook runs on every commit:
+
 - **Biome** — lint + format check on staged JS/TS files
 - **Typecheck** — `astro check` for type errors
 - **Ruff** — lint + format check on staged Python files
@@ -114,8 +117,8 @@ lefthook install
 
 Infrastructure is managed with Terraform in `terraform/production/`. See [`terraform/README.md`](terraform/README.md) for full details.
 
-| Command | Description |
-|---------|-------------|
+| Command                | Description                                       |
+| ---------------------- | ------------------------------------------------- |
 | `make deploy-frontend` | Build frontend, sync to S3, invalidate CloudFront |
-| `make deploy-backend` | Build Docker image, push to ECR, update Lambda |
-| `make deploy` | Deploy both frontend and backend |
+| `make deploy-backend`  | Build Docker image, push to ECR, update Lambda    |
+| `make deploy`          | Deploy both frontend and backend                  |
