@@ -67,11 +67,11 @@ export default function Login() {
       />
 
       <button
-        className="button button--primary auth-form__submit"
+        className={`button button--primary auth-form__submit${login.isPending ? " button--pending" : ""}`}
         type="submit"
         disabled={login.isPending}
       >
-        {login.isPending ? "Logging in..." : "Log in"}
+        {login.isPending ? "Logging in" : "Log in"}
       </button>
 
       <p className="auth-form__footer">

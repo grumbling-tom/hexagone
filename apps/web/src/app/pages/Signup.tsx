@@ -67,11 +67,11 @@ export default function Signup() {
       />
 
       <button
-        className="button button--primary auth-form__submit"
+        className={`button button--primary auth-form__submit${signup.isPending ? " button--pending" : ""}`}
         type="submit"
         disabled={signup.isPending}
       >
-        {signup.isPending ? "Signing up..." : "Sign up"}
+        {signup.isPending ? "Signing up" : "Sign up"}
       </button>
 
       <p className="auth-form__footer">
