@@ -219,6 +219,13 @@ a {
   font-family: var(--font-heading);
   font-size: var(--font-size-h2);
 }
+.auth-loading::after {
+  content: ".";
+  display: inline-block;
+  width: 1.2em;
+  text-align: left;
+  animation: ellipsis 1.2s steps(1) infinite;
+}
 
 /* Nav - logout */
 .nav__logout {

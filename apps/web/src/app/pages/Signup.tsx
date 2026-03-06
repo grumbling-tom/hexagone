@@ -2,8 +2,10 @@ import { useQueryClient } from "@tanstack/react-query";
 import type { SubmitEvent } from "react";
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { useCreateUser } from "@/__generated__/backend-client/users";
-import { getGetCurrentUserQueryKey } from "@/hooks/useAuth";
+import {
+  getGetCurrentUserQueryKey,
+  useCreateUser,
+} from "@/__generated__/backend-client/users";
 
 export default function Signup() {
   const navigate = useNavigate();
