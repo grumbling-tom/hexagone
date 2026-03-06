@@ -1,11 +1,36 @@
 {
-	"plugins": ["stylelint-selector-bem-pattern"],
+	"plugins": [
+		"stylelint-selector-bem-pattern",
+		"stylelint-declaration-strict-value"
+	],
 	"rules": {
 		"plugin/selector-bem-pattern": {
 			"preset": "bem",
 			"componentSelectors": {
 				"initial": "^\\.{componentName}(?:__[a-z][a-z0-9-]*)?(?:--[a-z][a-z0-9-]*)?$"
 			}
+		},
+		"scale-unlimited/declaration-strict-value": [
+			[
+				"/color$/",
+				"background-color",
+				"font-family",
+				"font-size",
+				"box-shadow"
+			],
+			{
+				"ignoreValues": ["inherit", "transparent", "currentColor", "none", "0"],
+				"disableFix": true
+			}
+		]
+	},
+	"overrides": [
+		{
+			"files": ["src/styles/theme.css"],
+			"rules": {
+				"plugin/selector-bem-pattern": null,
+				"scale-unlimited/declaration-strict-value": null
+			}
 		}
-	}
+	]
 }

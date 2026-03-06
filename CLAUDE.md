@@ -11,7 +11,8 @@ All styles use **BEM** (Block Element Modifier) class names. No inline `style` p
 ### Rules
 
 - **Mobile-first**: Write base styles for small screens, then use `@media (min-width: …)` to enhance for larger viewports.
-- **All styles live in** `apps/web/src/styles/main.css`, imported once from `Layout.astro`.
+- **Design tokens** (colors, fonts, spacing, sketchy-border properties) live in `apps/web/src/styles/theme.css` as CSS custom properties on `:root`. Always use `var(--token-name)` instead of hardcoded values.
+- **Component styles** live in `apps/web/src/styles/main.css`. Both files are imported from `Layout.astro` (`theme.css` first).
 - **Block**: kebab-case matching the component's semantic role (e.g. `.health-status`).
 - **Element**: double underscore (e.g. `.health-status__dot`).
 - **Modifier**: double dash (e.g. `.health-status__dot--connected`).

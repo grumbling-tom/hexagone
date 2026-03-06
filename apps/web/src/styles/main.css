@@ -6,11 +6,8 @@
 }
 body {
   margin: 0;
-  font-family:
-    system-ui,
-    -apple-system,
-    sans-serif;
-  background-color: #fafafa;
+  font-family: var(--font-body);
+  background-color: var(--color-bg);
   background-image: repeating-linear-gradient(
     0deg,
     transparent,
@@ -18,46 +15,39 @@ body {
     rgba(0, 0, 0, 0.01) 50px,
     rgba(0, 0, 0, 0.01) 51px
   );
-  color: #333;
+  color: var(--color-text);
 }
 
 /* Typography */
 h1,
 h2,
 h3 {
-  font-family: "Architects Daughter", cursive;
+  font-family: var(--font-heading);
 }
 h1 {
-  font-size: 1.75rem;
+  font-size: var(--font-size-h1);
 }
 h2 {
-  font-size: 1.4rem;
+  font-size: var(--font-size-h2);
 }
 h3 {
-  font-size: 1.15rem;
+  font-size: var(--font-size-h3);
 }
 @media (min-width: 48em) {
   h1 {
-    font-size: 2.5rem;
+    font-size: var(--font-size-h1-lg);
   }
   h2 {
-    font-size: 1.75rem;
+    font-size: var(--font-size-h2-lg);
   }
   h3 {
-    font-size: 1.35rem;
+    font-size: var(--font-size-h3-lg);
   }
-}
-
-/* Sketchy Borders */
-:root {
-  --sketch-border: 2px solid #333;
-  --sketch-radius: 255px 15px 225px 15px / 15px 225px 15px 255px;
-  --sketch-shadow: 4px 4px 0 rgba(0, 0, 0, 0.1);
 }
 
 /* Links */
 a {
-  color: #2563eb;
+  color: var(--color-link);
   text-decoration-style: wavy;
   text-decoration-thickness: 1px;
   text-underline-offset: 3px;
@@ -70,9 +60,9 @@ a {
   align-items: center;
   justify-content: center;
   min-height: 100vh;
-  padding: 1.5rem;
+  padding: var(--space-md);
   text-align: center;
-  max-width: 36rem;
+  max-width: var(--landing-max-width);
   margin: 0 auto;
 }
 
@@ -80,9 +70,9 @@ a {
 .nav {
   display: flex;
   flex-wrap: wrap;
-  gap: 1rem;
-  padding: 1rem 1.5rem;
-  max-width: 48rem;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  max-width: var(--content-max-width);
   margin: 0 auto;
   border-bottom: var(--sketch-border);
   border-bottom-left-radius: 0 0;
@@ -92,19 +82,19 @@ a {
 }
 @media (min-width: 48em) {
   .nav {
-    padding: 1rem 2.5rem;
+    padding: var(--space-sm) var(--space-xl);
   }
 }
 
 /** @define page */
 .page {
-  padding: 1rem 1.5rem;
-  max-width: 48rem;
+  padding: var(--space-sm) var(--space-md);
+  max-width: var(--content-max-width);
   margin: 0 auto;
 }
 @media (min-width: 48em) {
   .page {
-    padding: 2rem 2.5rem;
+    padding: var(--space-lg) var(--space-xl);
   }
 }
 
@@ -112,30 +102,30 @@ a {
 .health-status {
   display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: var(--space-xs);
 }
 .health-status__dot {
-  width: 0.5rem;
-  height: 0.5rem;
+  width: var(--space-xs);
+  height: var(--space-xs);
   border-radius: 50%;
 }
 .health-status__dot--connected {
-  background-color: green;
+  background-color: var(--color-success);
 }
 .health-status__dot--disconnected {
-  background-color: red;
+  background-color: var(--color-danger);
 }
 
 /** @define button */
 .button {
-  font-family: "Architects Daughter", cursive;
-  font-size: 1rem;
-  padding: 0.5rem 1.25rem;
+  font-family: var(--font-heading);
+  font-size: var(--space-sm);
+  padding: var(--space-xs) 1.25rem;
   border: var(--sketch-border);
   border-radius: var(--sketch-radius);
   box-shadow: var(--sketch-shadow);
-  background: #fafafa;
-  color: #333;
+  background: var(--color-bg);
+  color: var(--color-text);
   cursor: pointer;
   transition: transform 0.1s ease;
 }
@@ -143,10 +133,10 @@ a {
   transform: rotate(-1deg) scale(1.02);
 }
 .button--primary {
-  background: #333;
-  color: #fafafa;
+  background: var(--color-text);
+  color: var(--color-bg);
 }
 .button--secondary {
-  background: #fafafa;
-  color: #333;
+  background: var(--color-bg);
+  color: var(--color-text);
 }
