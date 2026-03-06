@@ -6,6 +6,7 @@ import {
   getGetCurrentUserQueryKey,
   useCreateUser,
 } from "@/__generated__/backend-client/users";
+import { HttpStatus } from "@/lib/fetch-client";
 
 export default function Signup() {
   const navigate = useNavigate();
@@ -23,11 +24,13 @@ export default function Signup() {
         navigate("/");
       },
       onError: (err) => {
-        const response = err as unknown as Response;
-        if (response.status === 409) {
-          setError("An account with this email already exists");
-        } else {
-          setError("Something went wrong. Please try again.");
+        switch (err.httpStatus) {
+          case HttpStatus.CONFLICT:
+            // Consider obscuring this error to avoid leaking information about existing accounts.
+            setError("An account with this email already exists");
+            break;
+          default:
+            setError("Something went wrong. Please try again.");
         }
       },
     },

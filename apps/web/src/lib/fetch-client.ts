@@ -2,6 +2,23 @@ const PUBLIC_BACKEND_BASE_URL = (
   import.meta.env.PUBLIC_BACKEND_BASE_URL ?? ""
 ).replace(/\/+$/, "");
 
+export enum HttpStatus {
+  UNAUTHORIZED = 401,
+  CONFLICT = 409,
+}
+
+export class ApiError<T> extends Error {
+  constructor(
+    public httpStatus: HttpStatus,
+    public data: T,
+  ) {
+    super(`Request failed with status ${httpStatus}`);
+    this.name = "ApiError";
+  }
+}
+
+export type ErrorType<E> = ApiError<E>;
+
 export async function fetchClient<T>(config: {
   url: string;
   method: string;
@@ -30,7 +47,8 @@ export async function fetchClient<T>(config: {
   });
 
   if (!response.ok) {
-    throw response;
+    const data = await response.json().catch(() => undefined);
+    throw new ApiError(response.status as HttpStatus, data);
   }
 
   if (response.status === 204) {
