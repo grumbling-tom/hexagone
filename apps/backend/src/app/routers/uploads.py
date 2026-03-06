@@ -1,10 +1,11 @@
 """Upload endpoints."""
 
+from collections.abc import Callable
 from datetime import datetime
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Query
-from pydantic import Field
+from pydantic import Field, ValidationInfo, model_validator
 from sqlalchemy.orm import Session
 
 from src.app.dependencies import (
@@ -35,6 +36,23 @@ class UploadResponse(BaseSchema):
     presigned_url: str | None = None
     required_headers: dict[str, str] | None = None
 
+    @model_validator(mode="wrap")
+    @classmethod
+    def _resolve_presigned_url(
+        cls,
+        data: object,
+        handler: Callable[..., UploadResponse],
+        info: ValidationInfo,
+    ) -> UploadResponse:
+        instance = handler(data)
+        context: dict[str, Any] = info.context or {}
+        storage: StorageBackend | None = context.get("storage")
+        if storage is not None and isinstance(data, Upload):
+            url, headers = maybe_presigned_url(data, storage)
+            instance.presigned_url = url
+            instance.required_headers = headers
+        return instance
+
 
 class CreateUploadRequest(BaseSchema):
     """Request body for creating a new upload."""
@@ -55,24 +73,6 @@ class ListUploadsParams(BaseSchema):
     statuses: list[UploadStatusValue] | None = Field(default=None)
 
 
-def _build_upload_response(
-    upload: Upload,
-    storage: StorageBackend,
-) -> UploadResponse:
-    """Map an Upload ORM instance to an UploadResponse schema."""
-    presigned_url, required_headers = maybe_presigned_url(upload, storage)
-    return UploadResponse(
-        uid=upload.uid,
-        original_filename=upload.original_filename,
-        file_size=upload.file_size,
-        s3_key=upload.s3_key,
-        created_at=upload.created_at,
-        current_status=upload.current_status or "",
-        presigned_url=presigned_url,
-        required_headers=required_headers,
-    )
-
-
 @router.post("/uploads", status_code=201, operation_id="createUpload")
 def create_upload(
     body: CreateUploadRequest,
@@ -87,7 +87,7 @@ def create_upload(
         original_filename=body.original_filename,
         file_size=body.file_size,
     )
-    return _build_upload_response(upload, storage)
+    return UploadResponse.model_validate(upload, context={"storage": storage})
 
 
 @router.get("/uploads", operation_id="listUploads")
@@ -111,7 +111,10 @@ def list_uploads(
     )
 
     return PaginatedResult(
-        items=[_build_upload_response(u, storage) for u in result.items],
+        items=[
+            UploadResponse.model_validate(u, context={"storage": storage})
+            for u in result.items
+        ],
         previous_cursor=result.previous_cursor,
         next_cursor=result.next_cursor,
         has_previous=result.has_previous,

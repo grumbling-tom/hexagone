@@ -75,12 +75,12 @@ class Upload(BaseModel):
     )
 
     @hybrid_property
-    def current_status(self) -> str | None:
+    def current_status(self) -> str:
         """Return the most recent status value, or None if no statuses exist."""
         if not self.statuses:
-            # TODO: Raise an Exception here, rather than silently returning None.
-            # msg = f"Upload {self.uid} has no statuses!"
-            return None
+            msg = f"Upload {self.uid} has no statuses!"
+            raise ValueError(msg)
+
         return self.statuses[-1].status  # TODO: Return an UploadStatusValue enum
 
     @current_status.inplace.expression
