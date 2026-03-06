@@ -2,11 +2,25 @@
 
 import enum
 from datetime import datetime
+from typing import TYPE_CHECKING
 
-from sqlalchemy import Boolean, CheckConstraint, DateTime, ForeignKey, Integer, String
+from sqlalchemy import (
+    Boolean,
+    CheckConstraint,
+    DateTime,
+    ForeignKey,
+    Integer,
+    String,
+    desc,
+    select,
+)
+from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .database import BaseModel
+
+if TYPE_CHECKING:
+    from sqlalchemy import ScalarSelect
 
 
 class UploadStatusValue(enum.StrEnum):
@@ -60,12 +74,27 @@ class Upload(BaseModel):
         lazy="selectin",
     )
 
-    @property
+    @hybrid_property
     def current_status(self) -> str | None:
         """Return the most recent status value, or None if no statuses exist."""
         if not self.statuses:
+            # TODO: Raise an Exception here, rather than silently returning None.
+            # msg = f"Upload {self.uid} has no statuses!"
             return None
-        return self.statuses[-1].status
+        return self.statuses[-1].status  # TODO: Return an UploadStatusValue enum
+
+    @current_status.inplace.expression
+    @classmethod
+    def _current_status_expression(cls) -> ScalarSelect[str]:
+        """SQL-side: correlated subquery for the latest status value."""
+        return (
+            select(UploadStatus.status)
+            .where(UploadStatus.upload_uid == cls.uid)
+            .order_by(desc(UploadStatus.created_at), desc(UploadStatus.uid))
+            .limit(1)
+            .correlate(cls)
+            .scalar_subquery()
+        )
 
 
 class UploadStatus(BaseModel):

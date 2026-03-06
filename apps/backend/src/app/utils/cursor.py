@@ -60,7 +60,7 @@ class Cursor(BaseSchema):
             "sort_field": self.sort_field,
             "sort_order": self.sort_order.value,
         }
-        json_str = json.dumps(cursor_dict)
+        json_str = json.dumps(cursor_dict, default=str)
         return base64.b64encode(json_str.encode()).decode()
 
     @classmethod

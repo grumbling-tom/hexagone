@@ -148,6 +148,55 @@ def test_list_uploads_with_received_status(test_db: Session, test_user: User):
     assert result.items[0].presigned_url is None
 
 
+def test_list_uploads_pagination_with_status_filter(test_db: Session, test_user: User):
+    storage = LocalStorageBackend()
+
+    status_repo = Repository(test_db, UploadStatus)
+
+    # Create 5 RECEIVED uploads
+    for i in range(5):
+        resp = create_upload(
+            db=test_db,
+            user=test_user,
+            original_filename=f"received_{i}.gpx",
+            file_size=100,
+            storage=storage,
+        )
+        status_repo.add(
+            UploadStatus(
+                upload_uid=resp.uid,
+                status=UploadStatusValue.UPLOAD_RECEIVED,
+            )
+        )
+        test_db.commit()
+
+    # Create 5 PENDING uploads (excluded by default filter)
+    for i in range(5):
+        create_upload(
+            db=test_db,
+            user=test_user,
+            original_filename=f"pending_{i}.gpx",
+            file_size=100,
+            storage=storage,
+        )
+
+    # First page: exactly 3 items
+    page1 = list_uploads(db=test_db, user=test_user, storage=storage, page_size=3)
+    assert len(page1.items) == 3
+    assert page1.has_next is True
+
+    # Second page: exactly 2 items
+    page2 = list_uploads(
+        db=test_db,
+        user=test_user,
+        storage=storage,
+        page_size=3,
+        cursor=page1.next_cursor,
+    )
+    assert len(page2.items) == 2
+    assert page2.has_next is False
+
+
 def test_presigned_url_none_for_old_pending_upload(test_db: Session, test_user: User):
     storage = LocalStorageBackend()
 

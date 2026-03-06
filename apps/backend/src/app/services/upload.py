@@ -6,6 +6,7 @@ from datetime import UTC, datetime, timedelta
 from sqlalchemy.orm import Session as DBSession
 
 from src.app.repository import (
+    InFilter,
     Repository,
     Upload,
     UploadStatus,
@@ -165,6 +166,7 @@ def list_uploads(  # noqa: PLR0913
         ]
 
     filters = permission_filters(user, Upload)
+    filters.append(InFilter(field="current_status", values=statuses))
 
     upload_repo = Repository(db, Upload)
     result = upload_repo.get_filtered(
@@ -175,10 +177,7 @@ def list_uploads(  # noqa: PLR0913
         sort_order=SortOrder.DESC,
     )
 
-    response_items: list[UploadResponse] = []
-    for upload in result.items:
-        if upload.current_status and upload.current_status in statuses:
-            response_items.append(_build_response(upload, storage))
+    response_items = [_build_response(upload, storage) for upload in result.items]
 
     return PaginatedResult(
         items=response_items,

@@ -130,3 +130,14 @@ def list_things(
 
 Routes that are public (e.g. registration, login) simply omit the dependency.
 Do not use middleware or route-level exemption lists for auth.
+
+## Filtering on Related Models
+
+When you need to filter a model based on values in a related model (e.g.
+filtering uploads by their latest status), use a `@hybrid_property` on the
+parent model with a `@expression` that returns a correlated subquery. Then
+use the standard filter classes (`InFilter`, `EqualsFilter`, etc.) against
+that hybrid property.
+
+Push the join/subquery complexity into the model, not into custom filter
+classes. This keeps the filter layer simple and composable.

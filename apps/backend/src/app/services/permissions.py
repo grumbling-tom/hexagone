@@ -21,5 +21,6 @@ def permission_filters(user: User, entity: type[BaseModel]) -> list[Filter]:
     """
     if entity is Upload:
         return [EqualsFilter(field="user_uid", value=user.uid)]
+
     msg = f"No permission filters defined for {entity.__name__}"
     raise ValueError(msg)
