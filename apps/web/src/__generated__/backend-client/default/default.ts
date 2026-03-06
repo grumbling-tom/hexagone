@@ -24,8 +24,8 @@ import type {
 import type {
   CreateUserRequest,
   CreateUserSessionRequest,
+  GetHealth200,
   HTTPValidationError,
-  HealthApiHealthGet200,
   UserResponse,
   UserSessionResponse
 } from '../fastAPI.schemas'
@@ -37,80 +37,80 @@ import { fetchClient } from '../../../lib/fetch-client';
  * Return the health status of the application.
  * @summary Health
  */
-export const healthApiHealthGet = (
+export const getHealth = (
     
  signal?: AbortSignal
 ) => {
       
       
-      return fetchClient<HealthApiHealthGet200>(
+      return fetchClient<GetHealth200>(
       {url: `/api/health`, method: 'GET', signal
     },
       );
     }
   
 
-export const getHealthApiHealthGetQueryKey = () => {
+export const getGetHealthQueryKey = () => {
     return [`/api/health`] as const;
     }
 
     
-export const getHealthApiHealthGetQueryOptions = <TData = Awaited<ReturnType<typeof healthApiHealthGet>>, TError = unknown>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof healthApiHealthGet>>, TError, TData>>, }
+export const getGetHealthQueryOptions = <TData = Awaited<ReturnType<typeof getHealth>>, TError = unknown>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getHealth>>, TError, TData>>, }
 ) => {
 
 const {query: queryOptions} = options ?? {};
 
-  const queryKey =  queryOptions?.queryKey ?? getHealthApiHealthGetQueryKey();
+  const queryKey =  queryOptions?.queryKey ?? getGetHealthQueryKey();
 
   
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof healthApiHealthGet>>> = ({ signal }) => healthApiHealthGet(signal);
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getHealth>>> = ({ signal }) => getHealth(signal);
 
       
 
       
 
-   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof healthApiHealthGet>>, TError, TData> & { queryKey: DataTag<QueryKey, TData> }
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getHealth>>, TError, TData> & { queryKey: DataTag<QueryKey, TData> }
 }
 
-export type HealthApiHealthGetQueryResult = NonNullable<Awaited<ReturnType<typeof healthApiHealthGet>>>
-export type HealthApiHealthGetQueryError = unknown
+export type GetHealthQueryResult = NonNullable<Awaited<ReturnType<typeof getHealth>>>
+export type GetHealthQueryError = unknown
 
 
-export function useHealthApiHealthGet<TData = Awaited<ReturnType<typeof healthApiHealthGet>>, TError = unknown>(
-  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof healthApiHealthGet>>, TError, TData>> & Pick<
+export function useGetHealth<TData = Awaited<ReturnType<typeof getHealth>>, TError = unknown>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getHealth>>, TError, TData>> & Pick<
         DefinedInitialDataOptions<
-          Awaited<ReturnType<typeof healthApiHealthGet>>,
+          Awaited<ReturnType<typeof getHealth>>,
           TError,
           TData
         > , 'initialData'
       >, }
 
   ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
-export function useHealthApiHealthGet<TData = Awaited<ReturnType<typeof healthApiHealthGet>>, TError = unknown>(
-  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof healthApiHealthGet>>, TError, TData>> & Pick<
+export function useGetHealth<TData = Awaited<ReturnType<typeof getHealth>>, TError = unknown>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getHealth>>, TError, TData>> & Pick<
         UndefinedInitialDataOptions<
-          Awaited<ReturnType<typeof healthApiHealthGet>>,
+          Awaited<ReturnType<typeof getHealth>>,
           TError,
           TData
         > , 'initialData'
       >, }
 
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
-export function useHealthApiHealthGet<TData = Awaited<ReturnType<typeof healthApiHealthGet>>, TError = unknown>(
-  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof healthApiHealthGet>>, TError, TData>>, }
+export function useGetHealth<TData = Awaited<ReturnType<typeof getHealth>>, TError = unknown>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getHealth>>, TError, TData>>, }
 
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
 /**
  * @summary Health
  */
 
-export function useHealthApiHealthGet<TData = Awaited<ReturnType<typeof healthApiHealthGet>>, TError = unknown>(
-  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof healthApiHealthGet>>, TError, TData>>, }
+export function useGetHealth<TData = Awaited<ReturnType<typeof getHealth>>, TError = unknown>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getHealth>>, TError, TData>>, }
 
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> } {
 
-  const queryOptions = getHealthApiHealthGetQueryOptions(options)
+  const queryOptions = getGetHealthQueryOptions(options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
 
@@ -125,7 +125,7 @@ export function useHealthApiHealthGet<TData = Awaited<ReturnType<typeof healthAp
  * Create a new user account and start a session.
  * @summary Create User
  */
-export const createUserApiV1UsersPost = (
+export const createUser = (
     createUserRequest: CreateUserRequest,
  signal?: AbortSignal
 ) => {
@@ -141,18 +141,18 @@ export const createUserApiV1UsersPost = (
   
 
 
-export const getCreateUserApiV1UsersPostMutationOptions = <TError = HTTPValidationError,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createUserApiV1UsersPost>>, TError,{data: CreateUserRequest}, TContext>, }
-): UseMutationOptions<Awaited<ReturnType<typeof createUserApiV1UsersPost>>, TError,{data: CreateUserRequest}, TContext> => {
+export const getCreateUserMutationOptions = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createUser>>, TError,{data: CreateUserRequest}, TContext>, }
+): UseMutationOptions<Awaited<ReturnType<typeof createUser>>, TError,{data: CreateUserRequest}, TContext> => {
 const {mutation: mutationOptions} = options ?? {};
 
       
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createUserApiV1UsersPost>>, {data: CreateUserRequest}> = (props) => {
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createUser>>, {data: CreateUserRequest}> = (props) => {
           const {data} = props ?? {};
 
-          return  createUserApiV1UsersPost(data,)
+          return  createUser(data,)
         }
 
         
@@ -160,23 +160,23 @@ const {mutation: mutationOptions} = options ?? {};
 
   return  { mutationFn, ...mutationOptions }}
 
-    export type CreateUserApiV1UsersPostMutationResult = NonNullable<Awaited<ReturnType<typeof createUserApiV1UsersPost>>>
-    export type CreateUserApiV1UsersPostMutationBody = CreateUserRequest
-    export type CreateUserApiV1UsersPostMutationError = HTTPValidationError
+    export type CreateUserMutationResult = NonNullable<Awaited<ReturnType<typeof createUser>>>
+    export type CreateUserMutationBody = CreateUserRequest
+    export type CreateUserMutationError = HTTPValidationError
 
     /**
  * @summary Create User
  */
-export const useCreateUserApiV1UsersPost = <TError = HTTPValidationError,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createUserApiV1UsersPost>>, TError,{data: CreateUserRequest}, TContext>, }
+export const useCreateUser = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createUser>>, TError,{data: CreateUserRequest}, TContext>, }
 ): UseMutationResult<
-        Awaited<ReturnType<typeof createUserApiV1UsersPost>>,
+        Awaited<ReturnType<typeof createUser>>,
         TError,
         {data: CreateUserRequest},
         TContext
       > => {
 
-      const mutationOptions = getCreateUserApiV1UsersPostMutationOptions(options);
+      const mutationOptions = getCreateUserMutationOptions(options);
 
       return useMutation(mutationOptions);
     }
@@ -184,7 +184,7 @@ export const useCreateUserApiV1UsersPost = <TError = HTTPValidationError,
  * Return the currently authenticated user.
  * @summary Get Current User
  */
-export const getCurrentUserApiV1UsersCurrentGet = (
+export const getCurrentUser = (
     
  signal?: AbortSignal
 ) => {
@@ -197,67 +197,67 @@ export const getCurrentUserApiV1UsersCurrentGet = (
     }
   
 
-export const getGetCurrentUserApiV1UsersCurrentGetQueryKey = () => {
+export const getGetCurrentUserQueryKey = () => {
     return [`/api/v1/users/current`] as const;
     }
 
     
-export const getGetCurrentUserApiV1UsersCurrentGetQueryOptions = <TData = Awaited<ReturnType<typeof getCurrentUserApiV1UsersCurrentGet>>, TError = HTTPValidationError>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getCurrentUserApiV1UsersCurrentGet>>, TError, TData>>, }
+export const getGetCurrentUserQueryOptions = <TData = Awaited<ReturnType<typeof getCurrentUser>>, TError = HTTPValidationError>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getCurrentUser>>, TError, TData>>, }
 ) => {
 
 const {query: queryOptions} = options ?? {};
 
-  const queryKey =  queryOptions?.queryKey ?? getGetCurrentUserApiV1UsersCurrentGetQueryKey();
+  const queryKey =  queryOptions?.queryKey ?? getGetCurrentUserQueryKey();
 
   
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof getCurrentUserApiV1UsersCurrentGet>>> = ({ signal }) => getCurrentUserApiV1UsersCurrentGet(signal);
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getCurrentUser>>> = ({ signal }) => getCurrentUser(signal);
 
       
 
       
 
-   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getCurrentUserApiV1UsersCurrentGet>>, TError, TData> & { queryKey: DataTag<QueryKey, TData> }
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getCurrentUser>>, TError, TData> & { queryKey: DataTag<QueryKey, TData> }
 }
 
-export type GetCurrentUserApiV1UsersCurrentGetQueryResult = NonNullable<Awaited<ReturnType<typeof getCurrentUserApiV1UsersCurrentGet>>>
-export type GetCurrentUserApiV1UsersCurrentGetQueryError = HTTPValidationError
+export type GetCurrentUserQueryResult = NonNullable<Awaited<ReturnType<typeof getCurrentUser>>>
+export type GetCurrentUserQueryError = HTTPValidationError
 
 
-export function useGetCurrentUserApiV1UsersCurrentGet<TData = Awaited<ReturnType<typeof getCurrentUserApiV1UsersCurrentGet>>, TError = HTTPValidationError>(
-  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getCurrentUserApiV1UsersCurrentGet>>, TError, TData>> & Pick<
+export function useGetCurrentUser<TData = Awaited<ReturnType<typeof getCurrentUser>>, TError = HTTPValidationError>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getCurrentUser>>, TError, TData>> & Pick<
         DefinedInitialDataOptions<
-          Awaited<ReturnType<typeof getCurrentUserApiV1UsersCurrentGet>>,
+          Awaited<ReturnType<typeof getCurrentUser>>,
           TError,
           TData
         > , 'initialData'
       >, }
 
   ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
-export function useGetCurrentUserApiV1UsersCurrentGet<TData = Awaited<ReturnType<typeof getCurrentUserApiV1UsersCurrentGet>>, TError = HTTPValidationError>(
-  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getCurrentUserApiV1UsersCurrentGet>>, TError, TData>> & Pick<
+export function useGetCurrentUser<TData = Awaited<ReturnType<typeof getCurrentUser>>, TError = HTTPValidationError>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getCurrentUser>>, TError, TData>> & Pick<
         UndefinedInitialDataOptions<
-          Awaited<ReturnType<typeof getCurrentUserApiV1UsersCurrentGet>>,
+          Awaited<ReturnType<typeof getCurrentUser>>,
           TError,
           TData
         > , 'initialData'
       >, }
 
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
-export function useGetCurrentUserApiV1UsersCurrentGet<TData = Awaited<ReturnType<typeof getCurrentUserApiV1UsersCurrentGet>>, TError = HTTPValidationError>(
-  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getCurrentUserApiV1UsersCurrentGet>>, TError, TData>>, }
+export function useGetCurrentUser<TData = Awaited<ReturnType<typeof getCurrentUser>>, TError = HTTPValidationError>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getCurrentUser>>, TError, TData>>, }
 
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
 /**
  * @summary Get Current User
  */
 
-export function useGetCurrentUserApiV1UsersCurrentGet<TData = Awaited<ReturnType<typeof getCurrentUserApiV1UsersCurrentGet>>, TError = HTTPValidationError>(
-  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getCurrentUserApiV1UsersCurrentGet>>, TError, TData>>, }
+export function useGetCurrentUser<TData = Awaited<ReturnType<typeof getCurrentUser>>, TError = HTTPValidationError>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getCurrentUser>>, TError, TData>>, }
 
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> } {
 
-  const queryOptions = getGetCurrentUserApiV1UsersCurrentGetQueryOptions(options)
+  const queryOptions = getGetCurrentUserQueryOptions(options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
 
@@ -272,7 +272,7 @@ export function useGetCurrentUserApiV1UsersCurrentGet<TData = Awaited<ReturnType
  * Authenticate and create a new session.
  * @summary Create User Session
  */
-export const createUserSessionApiV1UserSessionsPost = (
+export const createUserSession = (
     createUserSessionRequest: CreateUserSessionRequest,
  signal?: AbortSignal
 ) => {
@@ -288,18 +288,18 @@ export const createUserSessionApiV1UserSessionsPost = (
   
 
 
-export const getCreateUserSessionApiV1UserSessionsPostMutationOptions = <TError = HTTPValidationError,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createUserSessionApiV1UserSessionsPost>>, TError,{data: CreateUserSessionRequest}, TContext>, }
-): UseMutationOptions<Awaited<ReturnType<typeof createUserSessionApiV1UserSessionsPost>>, TError,{data: CreateUserSessionRequest}, TContext> => {
+export const getCreateUserSessionMutationOptions = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createUserSession>>, TError,{data: CreateUserSessionRequest}, TContext>, }
+): UseMutationOptions<Awaited<ReturnType<typeof createUserSession>>, TError,{data: CreateUserSessionRequest}, TContext> => {
 const {mutation: mutationOptions} = options ?? {};
 
       
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createUserSessionApiV1UserSessionsPost>>, {data: CreateUserSessionRequest}> = (props) => {
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createUserSession>>, {data: CreateUserSessionRequest}> = (props) => {
           const {data} = props ?? {};
 
-          return  createUserSessionApiV1UserSessionsPost(data,)
+          return  createUserSession(data,)
         }
 
         
@@ -307,23 +307,23 @@ const {mutation: mutationOptions} = options ?? {};
 
   return  { mutationFn, ...mutationOptions }}
 
-    export type CreateUserSessionApiV1UserSessionsPostMutationResult = NonNullable<Awaited<ReturnType<typeof createUserSessionApiV1UserSessionsPost>>>
-    export type CreateUserSessionApiV1UserSessionsPostMutationBody = CreateUserSessionRequest
-    export type CreateUserSessionApiV1UserSessionsPostMutationError = HTTPValidationError
+    export type CreateUserSessionMutationResult = NonNullable<Awaited<ReturnType<typeof createUserSession>>>
+    export type CreateUserSessionMutationBody = CreateUserSessionRequest
+    export type CreateUserSessionMutationError = HTTPValidationError
 
     /**
  * @summary Create User Session
  */
-export const useCreateUserSessionApiV1UserSessionsPost = <TError = HTTPValidationError,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createUserSessionApiV1UserSessionsPost>>, TError,{data: CreateUserSessionRequest}, TContext>, }
+export const useCreateUserSession = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createUserSession>>, TError,{data: CreateUserSessionRequest}, TContext>, }
 ): UseMutationResult<
-        Awaited<ReturnType<typeof createUserSessionApiV1UserSessionsPost>>,
+        Awaited<ReturnType<typeof createUserSession>>,
         TError,
         {data: CreateUserSessionRequest},
         TContext
       > => {
 
-      const mutationOptions = getCreateUserSessionApiV1UserSessionsPostMutationOptions(options);
+      const mutationOptions = getCreateUserSessionMutationOptions(options);
 
       return useMutation(mutationOptions);
     }
@@ -331,7 +331,7 @@ export const useCreateUserSessionApiV1UserSessionsPost = <TError = HTTPValidatio
  * Log out by invalidating the current session.
  * @summary Delete Current Session
  */
-export const deleteCurrentSessionApiV1UserSessionsCurrentDelete = (
+export const deleteCurrentSession = (
     
  ) => {
       
@@ -344,18 +344,18 @@ export const deleteCurrentSessionApiV1UserSessionsCurrentDelete = (
   
 
 
-export const getDeleteCurrentSessionApiV1UserSessionsCurrentDeleteMutationOptions = <TError = HTTPValidationError,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteCurrentSessionApiV1UserSessionsCurrentDelete>>, TError,void, TContext>, }
-): UseMutationOptions<Awaited<ReturnType<typeof deleteCurrentSessionApiV1UserSessionsCurrentDelete>>, TError,void, TContext> => {
+export const getDeleteCurrentSessionMutationOptions = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteCurrentSession>>, TError,void, TContext>, }
+): UseMutationOptions<Awaited<ReturnType<typeof deleteCurrentSession>>, TError,void, TContext> => {
 const {mutation: mutationOptions} = options ?? {};
 
       
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteCurrentSessionApiV1UserSessionsCurrentDelete>>, void> = () => {
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteCurrentSession>>, void> = () => {
           
 
-          return  deleteCurrentSessionApiV1UserSessionsCurrentDelete()
+          return  deleteCurrentSession()
         }
 
         
@@ -363,23 +363,23 @@ const {mutation: mutationOptions} = options ?? {};
 
   return  { mutationFn, ...mutationOptions }}
 
-    export type DeleteCurrentSessionApiV1UserSessionsCurrentDeleteMutationResult = NonNullable<Awaited<ReturnType<typeof deleteCurrentSessionApiV1UserSessionsCurrentDelete>>>
+    export type DeleteCurrentSessionMutationResult = NonNullable<Awaited<ReturnType<typeof deleteCurrentSession>>>
     
-    export type DeleteCurrentSessionApiV1UserSessionsCurrentDeleteMutationError = HTTPValidationError
+    export type DeleteCurrentSessionMutationError = HTTPValidationError
 
     /**
  * @summary Delete Current Session
  */
-export const useDeleteCurrentSessionApiV1UserSessionsCurrentDelete = <TError = HTTPValidationError,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteCurrentSessionApiV1UserSessionsCurrentDelete>>, TError,void, TContext>, }
+export const useDeleteCurrentSession = <TError = HTTPValidationError,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteCurrentSession>>, TError,void, TContext>, }
 ): UseMutationResult<
-        Awaited<ReturnType<typeof deleteCurrentSessionApiV1UserSessionsCurrentDelete>>,
+        Awaited<ReturnType<typeof deleteCurrentSession>>,
         TError,
         void,
         TContext
       > => {
 
-      const mutationOptions = getDeleteCurrentSessionApiV1UserSessionsCurrentDeleteMutationOptions(options);
+      const mutationOptions = getDeleteCurrentSessionMutationOptions(options);
 
       return useMutation(mutationOptions);
     }

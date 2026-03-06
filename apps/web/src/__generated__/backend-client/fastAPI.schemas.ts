@@ -4,7 +4,7 @@
  * FastAPI
  * OpenAPI spec version: 0.1.0
  */
-export type HealthApiHealthGet200 = {[key: string]: string};
+export type GetHealth200 = {[key: string]: string};
 
 export type ValidationErrorLocItem = string | number;
 

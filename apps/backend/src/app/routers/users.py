@@ -33,7 +33,7 @@ class UserResponse(BaseSchema):
     email: str
 
 
-@router.post("/users", status_code=201)
+@router.post("/users", status_code=201, operation_id="createUser")
 def create_user(
     body: CreateUserRequest,
     request: Request,
@@ -62,7 +62,7 @@ def create_user(
     return UserResponse(uid=user.uid, email=user.email)
 
 
-@router.get("/users/current")
+@router.get("/users/current", operation_id="getCurrentUser")
 def get_current_user(
     user: Annotated[User, Depends(authenticated_user)],
 ) -> UserResponse:

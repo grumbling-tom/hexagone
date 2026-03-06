@@ -9,7 +9,7 @@
       "get": {
         "summary": "Health",
         "description": "Return the health status of the application.",
-        "operationId": "health_api_health_get",
+        "operationId": "getHealth",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -20,7 +20,7 @@
                     "type": "string"
                   },
                   "type": "object",
-                  "title": "Response Health Api Health Get"
+                  "title": "Response Gethealth"
                 }
               }
             }
@@ -32,7 +32,7 @@
       "post": {
         "summary": "Create User",
         "description": "Create a new user account and start a session.",
-        "operationId": "create_user_api_v1_users_post",
+        "operationId": "createUser",
         "requestBody": {
           "content": {
             "application/json": {
@@ -71,7 +71,7 @@
       "get": {
         "summary": "Get Current User",
         "description": "Return the currently authenticated user.",
-        "operationId": "get_current_user_api_v1_users_current_get",
+        "operationId": "getCurrentUser",
         "parameters": [
           {
             "name": "sessionid",
@@ -118,7 +118,7 @@
       "post": {
         "summary": "Create User Session",
         "description": "Authenticate and create a new session.",
-        "operationId": "create_user_session_api_v1_user_sessions_post",
+        "operationId": "createUserSession",
         "requestBody": {
           "content": {
             "application/json": {
@@ -157,7 +157,7 @@
       "delete": {
         "summary": "Delete Current Session",
         "description": "Log out by invalidating the current session.",
-        "operationId": "delete_current_session_api_v1_user_sessions_current_delete",
+        "operationId": "deleteCurrentSession",
         "parameters": [
           {
             "name": "sessionid",

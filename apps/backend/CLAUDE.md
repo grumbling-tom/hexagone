@@ -30,6 +30,23 @@ GET    /api/v1/user/session       # singular nouns
 DELETE /api/v1/logout             # verb as path segment
 ```
 
+## Operation IDs
+
+Every FastAPI route must set an explicit `operation_id` in camelCase. This
+controls the generated TypeScript hook names (via orval) on the frontend.
+Use the pattern `{verb}{Resource}`, e.g.:
+
+```python
+@router.get("/health", operation_id="getHealth")
+@router.post("/users", status_code=201, operation_id="createUser")
+@router.get("/users/current", operation_id="getCurrentUser")
+@router.delete("/user-sessions/current", status_code=204, operation_id="deleteCurrentSession")
+```
+
+Without an explicit `operation_id`, FastAPI generates verbose IDs like
+`health_api_health_get`, which produce clunky hook names like
+`useHealthApiHealthGet`.
+
 ## Code Sharing
 
 Prefer extracting shared logic into a common module higher in the directory

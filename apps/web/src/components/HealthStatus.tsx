@@ -1,7 +1,7 @@
-import { useHealthApiHealthGet } from "@/__generated__/backend-client/default/default";
+import { useGetHealth } from "@/__generated__/backend-client/default/default";
 
 export default function HealthStatus() {
-	const { data, isLoading, isError } = useHealthApiHealthGet();
+	const { data, isLoading, isError } = useGetHealth();
 
 	if (isLoading) {
 		return <output>Checking...</output>;
