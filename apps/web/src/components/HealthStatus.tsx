@@ -4,7 +4,15 @@ export default function HealthStatus() {
   const { data, isLoading, isError } = useGetHealth();
 
   if (isLoading) {
-    return <output>Checking...</output>;
+    return (
+      <output className="health-status">
+        <span
+          aria-hidden="true"
+          className="health-status__dot health-status__dot--checking"
+        />
+        Checking
+      </output>
+    );
   }
 
   const connected = !isError && data?.status === "ok";

@@ -17,14 +17,14 @@ afterEach(() => {
 });
 
 describe("HealthStatus", () => {
-  test("shows Checking... while loading", () => {
+  test("shows Checking while loading", () => {
     mockUseGetHealth.mockReturnValue({
       data: undefined,
       isLoading: true,
       isError: false,
     } as ReturnType<typeof useGetHealth>);
     render(<HealthStatus />);
-    expect(screen.getByRole("status")).toHaveTextContent("Checking...");
+    expect(screen.getByRole("status")).toHaveTextContent("Checking");
   });
 
   test("shows Connected on successful health check", () => {

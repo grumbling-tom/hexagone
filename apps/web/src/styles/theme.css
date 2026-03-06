@@ -5,6 +5,8 @@
   --color-link: #2563eb;
   --color-success: green;
   --color-danger: red;
+  --color-warning: #f59e0b;
+  --color-warning-alt: #ea580c;
 
   /* Typography */
   --font-body: system-ui, -apple-system, sans-serif;
