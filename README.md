@@ -45,16 +45,16 @@ The dev server starts at `http://localhost:4321/`:
 
 ## API (`apps/backend/`)
 
-| Command                                                                                | Description                  |
-| -------------------------------------------------------------------------------------- | ---------------------------- |
-| `UV_PROJECT=apps/backend uv sync`                                                      | Install dependencies         |
-| `UV_PROJECT=apps/backend uv run fastapi dev src/app/main.py`                           | Start dev server (port 8000) |
-| `UV_PROJECT=apps/backend uv run pytest`                                                | Run tests                    |
-| `UV_PROJECT=apps/backend uv run ruff check .`                                          | Lint                         |
-| `UV_PROJECT=apps/backend uv run ruff format --check .`                                 | Check formatting             |
-| `UV_PROJECT=apps/backend uv run pyright`                                               | Type checking                |
-| `UV_PROJECT=apps/backend uv run alembic upgrade head`                                  | Run database migrations      |
-| `UV_PROJECT=apps/backend uv run alembic revision --autogenerate -m "XXXX_description"` | Generate a new migration     |
+| Command                                                                                          | Description                  |
+| ------------------------------------------------------------------------------------------------ | ---------------------------- |
+| `UV_WORKING_DIRECTORY=apps/backend uv sync`                                                      | Install dependencies         |
+| `UV_WORKING_DIRECTORY=apps/backend uv run fastapi dev src/app/main.py`                           | Start dev server (port 8000) |
+| `UV_WORKING_DIRECTORY=apps/backend uv run pytest`                                                | Run tests                    |
+| `UV_WORKING_DIRECTORY=apps/backend uv run ruff check .`                                          | Lint                         |
+| `UV_WORKING_DIRECTORY=apps/backend uv run ruff format --check .`                                 | Check formatting             |
+| `UV_WORKING_DIRECTORY=apps/backend uv run pyright`                                               | Type checking                |
+| `UV_WORKING_DIRECTORY=apps/backend uv run alembic upgrade head`                                  | Run database migrations      |
+| `UV_WORKING_DIRECTORY=apps/backend uv run alembic revision --autogenerate -m "XXXX_description"` | Generate a new migration     |
 
 In dev mode (`ENV` unset or `DEV`), the backend uses a local SQLite database (`sqlite.db`) automatically — no external database setup required.
 
