@@ -3,7 +3,6 @@
 import uuid
 from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import select
 from sqlalchemy.orm import Session as DBSession
 
 from src.app.repository import (
@@ -38,27 +37,15 @@ class UploadResponse(BaseSchema):
     required_headers: dict[str, str] | None = None
 
 
-def _latest_status(db: DBSession, upload_uid: str) -> UploadStatus | None:
-    """Get the most recent UploadStatus for an upload."""
-    stmt = (
-        select(UploadStatus)
-        .where(UploadStatus.upload_uid == upload_uid)
-        .order_by(UploadStatus.created_at.desc())
-        .limit(1)
-    )
-    return db.execute(stmt).scalar_one_or_none()
-
-
 def _maybe_presigned_url(
     upload: Upload,
-    current_status: str,
     storage: StorageBackend,
 ) -> tuple[str | None, dict[str, str] | None]:
     """Conditionally generate a presigned URL for an upload.
 
     Returns (presigned_url, required_headers) or (None, None).
     """
-    if current_status != UploadStatusValue.UPLOAD_PENDING:
+    if upload.current_status != UploadStatusValue.UPLOAD_PENDING:
         return None, None
 
     cutoff = datetime.now(UTC) - timedelta(minutes=PRESIGNED_URL_WINDOW_MINUTES)
@@ -83,20 +70,17 @@ def _maybe_presigned_url(
 
 def _build_response(
     upload: Upload,
-    current_status: str,
     storage: StorageBackend,
 ) -> UploadResponse:
     """Build an UploadResponse with conditional presigned URL."""
-    presigned_url, required_headers = _maybe_presigned_url(
-        upload, current_status, storage
-    )
+    presigned_url, required_headers = _maybe_presigned_url(upload, storage)
     return UploadResponse(
         uid=upload.uid,
         original_filename=upload.original_filename,
         file_size=upload.file_size,
         s3_key=upload.s3_key,
         created_at=upload.created_at,
-        current_status=current_status,
+        current_status=upload.current_status or "",
         presigned_url=presigned_url,
         required_headers=required_headers,
     )
@@ -149,7 +133,7 @@ def create_upload(
         filename=original_filename,
     )
 
-    return _build_response(upload, UploadStatusValue.UPLOAD_PENDING, storage)
+    return _build_response(upload, storage)
 
 
 def list_uploads(  # noqa: PLR0913
@@ -193,9 +177,8 @@ def list_uploads(  # noqa: PLR0913
 
     response_items: list[UploadResponse] = []
     for upload in result.items:
-        latest = _latest_status(db, upload.uid)
-        if latest and latest.status in statuses:
-            response_items.append(_build_response(upload, latest.status, storage))
+        if upload.current_status and upload.current_status in statuses:
+            response_items.append(_build_response(upload, storage))
 
     return PaginatedResult(
         items=response_items,

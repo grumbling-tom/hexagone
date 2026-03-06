@@ -42,6 +42,7 @@ class Upload(BaseModel):
         original_filename: Client-provided filename.
         file_size: Expected file size in bytes, declared by client.
         s3_key: Object key in the GPX bucket.
+        statuses: All status events, ordered by created_at ascending.
     """
 
     __tablename__ = "upload"
@@ -53,12 +54,26 @@ class Upload(BaseModel):
     file_size: Mapped[int] = mapped_column(Integer, nullable=False)
     s3_key: Mapped[str] = mapped_column(String, unique=True, nullable=False)
 
+    statuses: Mapped[list[UploadStatus]] = relationship(
+        back_populates="upload",
+        order_by="UploadStatus.created_at.asc()",
+        lazy="selectin",
+    )
+
+    @property
+    def current_status(self) -> str | None:
+        """Return the most recent status value, or None if no statuses exist."""
+        if not self.statuses:
+            return None
+        return self.statuses[-1].status
+
 
 class UploadStatus(BaseModel):
     """Append-only event log for upload processing status.
 
     Attributes:
         upload_uid: The UID of the parent upload.
+        upload: The parent upload.
         status: Current status value.
         git_sha: Code version that processed the file.
         detail: Optional error detail for UPLOAD_INVALID.
@@ -80,6 +95,8 @@ class UploadStatus(BaseModel):
     )
     git_sha: Mapped[str | None] = mapped_column(String(40), nullable=True)
     detail: Mapped[str | None] = mapped_column(String, nullable=True)
+
+    upload: Mapped[Upload] = relationship(back_populates="statuses")
 
 
 class UserSession(BaseModel):
