@@ -17,7 +17,6 @@ from src.app.services.permissions import permission_filters
 from src.app.services.storage import StorageBackend
 from src.app.settings import settings
 from src.app.utils import PaginatedResult, SortOrder, get_logger
-from src.app.utils.schemas import BaseSchema
 
 logger = get_logger(__name__)
 
@@ -25,20 +24,7 @@ GPX_CONTENT_TYPE = "application/gpx+xml"
 PRESIGNED_URL_WINDOW_MINUTES = 5
 
 
-class UploadResponse(BaseSchema):
-    """Response body for upload endpoints."""
-
-    uid: str
-    original_filename: str
-    file_size: int
-    s3_key: str
-    created_at: datetime
-    current_status: str
-    presigned_url: str | None = None
-    required_headers: dict[str, str] | None = None
-
-
-def _maybe_presigned_url(
+def maybe_presigned_url(
     upload: Upload,
     storage: StorageBackend,
 ) -> tuple[str | None, dict[str, str] | None]:
@@ -69,31 +55,12 @@ def _maybe_presigned_url(
     return url, headers
 
 
-def _build_response(
-    upload: Upload,
-    storage: StorageBackend,
-) -> UploadResponse:
-    """Build an UploadResponse with conditional presigned URL."""
-    presigned_url, required_headers = _maybe_presigned_url(upload, storage)
-    return UploadResponse(
-        uid=upload.uid,
-        original_filename=upload.original_filename,
-        file_size=upload.file_size,
-        s3_key=upload.s3_key,
-        created_at=upload.created_at,
-        current_status=upload.current_status or "",
-        presigned_url=presigned_url,
-        required_headers=required_headers,
-    )
-
-
 def create_upload(
     db: DBSession,
     user: User,
     original_filename: str,
     file_size: int,
-    storage: StorageBackend,
-) -> UploadResponse:
+) -> Upload:
     """Create a new upload record with initial UPLOAD_PENDING status.
 
     Args:
@@ -101,10 +68,9 @@ def create_upload(
         user: The authenticated user.
         original_filename: Client-provided filename.
         file_size: Expected file size in bytes.
-        storage: Storage backend for presigned URL generation.
 
     Returns:
-        UploadResponse with presigned URL for direct-to-S3 upload.
+        Upload ORM instance.
     """
     s3_key = f"uploads/{user.uid}/{uuid.uuid4()}.gpx"
 
@@ -134,29 +100,27 @@ def create_upload(
         filename=original_filename,
     )
 
-    return _build_response(upload, storage)
+    return upload
 
 
-def list_uploads(  # noqa: PLR0913
+def list_uploads(
     db: DBSession,
     user: User,
-    storage: StorageBackend,
     page_size: int = settings.DEFAULT_PAGE_SIZE,
     cursor: str | None = None,
     statuses: list[str] | None = None,
-) -> PaginatedResult[UploadResponse]:
+) -> PaginatedResult[Upload]:
     """List uploads for the authenticated user, filtered by status.
 
     Args:
         db: Database session.
         user: The authenticated user.
-        storage: Storage backend for presigned URL generation.
         page_size: Number of items per page.
         cursor: Pagination cursor.
         statuses: Filter by most recent status values.
 
     Returns:
-        Paginated list of UploadResponse objects.
+        Paginated list of Upload ORM instances.
     """
     if statuses is None:
         statuses = [
@@ -169,20 +133,10 @@ def list_uploads(  # noqa: PLR0913
     filters.append(InFilter(field="current_status", values=statuses))
 
     upload_repo = Repository(db, Upload)
-    result = upload_repo.get_filtered(
+    return upload_repo.get_filtered(
         filters=filters,
         page_size=page_size,
         cursor=cursor,
         sort_field=Upload.created_at,
         sort_order=SortOrder.DESC,
-    )
-
-    response_items = [_build_response(upload, storage) for upload in result.items]
-
-    return PaginatedResult(
-        items=response_items,
-        previous_cursor=result.previous_cursor,
-        next_cursor=result.next_cursor,
-        has_previous=result.has_previous,
-        has_next=result.has_next,
     )

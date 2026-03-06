@@ -13,6 +13,7 @@ export function AppRoutes() {
     <Routes>
       <Route path="/login" element={<Login />} />
       <Route path="/signup" element={<Signup />} />
+      {/* FIXME: After u/p input, the "Loading" text flashes up again */}
       <Route element={<ProtectedRoute />}>
         <Route path="/" element={<Dashboard />} />
         <Route path="/settings" element={<Settings />} />

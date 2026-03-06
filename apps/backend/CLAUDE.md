@@ -172,6 +172,15 @@ def test_filter_by_name(test_db: Session, test_user: User):
     ...
 ```
 
+## Service Layer — Return ORM Instances
+
+Service functions (`src/app/services/`) must return ORM model instances,
+primitives, or `PaginatedResult[OrmModel]` — never Pydantic response
+schemas. The router layer converts ORM instances into response schemas.
+
+Enforced by `test_services_do_not_return_pydantic_schemas` in
+`tests/app/test_service_returns.py`.
+
 ## Filtering on Related Models
 
 When you need to filter a model based on values in a related model (e.g.
