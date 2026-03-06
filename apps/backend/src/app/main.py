@@ -14,7 +14,7 @@ configure_logging()
 
 def create_app(settings: Settings = settings) -> FastAPI:
     """Create a configured FastAPI application instance."""
-    app = FastAPI()
+    app = FastAPI(title="Backend")
 
     if settings.ENV == "DEV":
         app.add_middleware(
@@ -26,10 +26,10 @@ def create_app(settings: Settings = settings) -> FastAPI:
         )
 
     api_v1_router = APIRouter(prefix="/api/v1")
-    api_v1_router.include_router(users_router)
-    api_v1_router.include_router(user_sessions_router)
+    api_v1_router.include_router(users_router, tags=["users"])
+    api_v1_router.include_router(user_sessions_router, tags=["user-sessions"])
 
-    app.include_router(health_router, prefix="/api")
+    app.include_router(health_router, prefix="/api", tags=["health"])
     app.include_router(api_v1_router)
     return app
 

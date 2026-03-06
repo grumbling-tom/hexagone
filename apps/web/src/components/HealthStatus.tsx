@@ -1,4 +1,4 @@
-import { useGetHealth } from "@/__generated__/backend-client/default/default";
+import { useGetHealth } from "@/__generated__/backend-client/health";
 
 export default function HealthStatus() {
 	const { data, isLoading, isError } = useGetHealth();

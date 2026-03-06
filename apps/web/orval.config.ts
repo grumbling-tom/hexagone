@@ -8,7 +8,7 @@ export default defineConfig({
 		output: {
 			target: "src/__generated__/backend-client",
 			client: "react-query",
-			mode: "tags-split",
+			mode: "tags",
 			override: {
 				mutator: {
 					path: "./src/lib/fetch-client.ts",

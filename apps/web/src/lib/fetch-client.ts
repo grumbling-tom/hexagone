@@ -1,4 +1,4 @@
-import { API_BASE_URL } from "./api";
+const API_BASE_URL = import.meta.env.PUBLIC_API_URL ?? "/api";
 
 export async function fetchClient<T>(config: {
 	url: string;

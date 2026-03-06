@@ -3,11 +3,11 @@ import { afterEach, describe, expect, test, vi } from "vitest";
 
 import HealthStatus from "./HealthStatus";
 
-vi.mock("@/__generated__/backend-client/default/default", () => ({
+vi.mock("@/__generated__/backend-client/health", () => ({
 	useGetHealth: vi.fn(),
 }));
 
-import { useGetHealth } from "@/__generated__/backend-client/default/default";
+import { useGetHealth } from "@/__generated__/backend-client/health";
 
 const mockUseGetHealth = vi.mocked(useGetHealth);
 

@@ -1,12 +1,15 @@
 {
   "openapi": "3.1.0",
   "info": {
-    "title": "FastAPI",
+    "title": "Backend",
     "version": "0.1.0"
   },
   "paths": {
     "/api/health": {
       "get": {
+        "tags": [
+          "health"
+        ],
         "summary": "Health",
         "description": "Return the health status of the application.",
         "operationId": "getHealth",
@@ -30,6 +33,9 @@
     },
     "/api/v1/users": {
       "post": {
+        "tags": [
+          "users"
+        ],
         "summary": "Create User",
         "description": "Create a new user account and start a session.",
         "operationId": "createUser",
@@ -69,6 +75,9 @@
     },
     "/api/v1/users/current": {
       "get": {
+        "tags": [
+          "users"
+        ],
         "summary": "Get Current User",
         "description": "Return the currently authenticated user.",
         "operationId": "getCurrentUser",
@@ -116,6 +125,9 @@
     },
     "/api/v1/user-sessions": {
       "post": {
+        "tags": [
+          "user-sessions"
+        ],
         "summary": "Create User Session",
         "description": "Authenticate and create a new session.",
         "operationId": "createUserSession",
@@ -155,6 +167,9 @@
     },
     "/api/v1/user-sessions/current": {
       "delete": {
+        "tags": [
+          "user-sessions"
+        ],
         "summary": "Delete Current Session",
         "description": "Log out by invalidating the current session.",
         "operationId": "deleteCurrentSession",

@@ -53,6 +53,19 @@ Prefer extracting shared logic into a common module higher in the directory
 tree (e.g. `src/app/utils/`) rather than duplicating helper functions across
 files. When you see the same function in two or more places, consolidate it.
 
+## Router Tags
+
+Every router must be registered with a `tags` parameter in `main.py`. Orval
+uses tags to group generated TypeScript modules — without them, endpoints
+fall into a generic `default` module. Use the entity name as the tag:
+
+```python
+api_v1_router.include_router(users_router, tags=["users"])
+app.include_router(health_router, prefix="/api", tags=["health"])
+```
+
+This is enforced by `test_all_operations_have_tags` in `tests/app/test_openapi.py`.
+
 ## Router Organisation
 
 One router file per entity in `src/app/routers/`. The router defines paths

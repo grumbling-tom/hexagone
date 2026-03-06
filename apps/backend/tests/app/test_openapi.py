@@ -10,6 +10,24 @@ app = create_app()
 schema = app.openapi()
 
 
+def test_all_operations_have_tags():
+    """Every route must declare at least one tag so orval generates named modules."""
+    violations: list[str] = []
+
+    for path, methods in schema["paths"].items():
+        for method, details in methods.items():
+            if method in ("parameters", "servers", "summary", "description"):
+                continue
+            tags = details.get("tags", [])
+            if not tags:
+                violations.append(f"{method.upper()} {path}")
+
+    assert not violations, (
+        "Routes missing tags (will fall into 'default' in generated client):\n"
+        + "\n".join(f"  - {v}" for v in violations)
+    )
+
+
 def test_all_operations_have_camel_case_operation_id():
     """Every route must declare an explicit camelCase operation_id."""
     violations: list[str] = []
