@@ -10,17 +10,10 @@ export default function HealthStatus() {
 	const connected = !isError && data?.status === "ok";
 
 	return (
-		<output
-			style={{ display: "inline-flex", alignItems: "center", gap: "0.5rem" }}
-		>
+		<output className="health-status">
 			<span
 				aria-hidden="true"
-				style={{
-					width: "0.5rem",
-					height: "0.5rem",
-					borderRadius: "50%",
-					backgroundColor: connected ? "green" : "red",
-				}}
+				className={`health-status__dot health-status__dot--${connected ? "connected" : "disconnected"}`}
 			/>
 			{connected ? "Connected" : "Disconnected"}
 		</output>
