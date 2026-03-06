@@ -18,6 +18,7 @@ import type {
   UserSessionResponse
 } from './backend.schemas'
 import { fetchClient } from '../../lib/fetch-client';
+import type { ErrorType } from '../../lib/fetch-client';
 
 
 
@@ -42,7 +43,7 @@ export const createUserSession = (
   
 
 
-export const getCreateUserSessionMutationOptions = <TError = HTTPValidationError,
+export const getCreateUserSessionMutationOptions = <TError = ErrorType<HTTPValidationError>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createUserSession>>, TError,{data: CreateUserSessionRequest}, TContext>, }
 ): UseMutationOptions<Awaited<ReturnType<typeof createUserSession>>, TError,{data: CreateUserSessionRequest}, TContext> => {
 const {mutation: mutationOptions} = options ?? {};
@@ -63,12 +64,12 @@ const {mutation: mutationOptions} = options ?? {};
 
     export type CreateUserSessionMutationResult = NonNullable<Awaited<ReturnType<typeof createUserSession>>>
     export type CreateUserSessionMutationBody = CreateUserSessionRequest
-    export type CreateUserSessionMutationError = HTTPValidationError
+    export type CreateUserSessionMutationError = ErrorType<HTTPValidationError>
 
     /**
  * @summary Create User Session
  */
-export const useCreateUserSession = <TError = HTTPValidationError,
+export const useCreateUserSession = <TError = ErrorType<HTTPValidationError>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createUserSession>>, TError,{data: CreateUserSessionRequest}, TContext>, }
 ): UseMutationResult<
         Awaited<ReturnType<typeof createUserSession>>,
@@ -98,7 +99,7 @@ export const deleteCurrentSession = (
   
 
 
-export const getDeleteCurrentSessionMutationOptions = <TError = HTTPValidationError,
+export const getDeleteCurrentSessionMutationOptions = <TError = ErrorType<HTTPValidationError>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteCurrentSession>>, TError,void, TContext>, }
 ): UseMutationOptions<Awaited<ReturnType<typeof deleteCurrentSession>>, TError,void, TContext> => {
 const {mutation: mutationOptions} = options ?? {};
@@ -119,12 +120,12 @@ const {mutation: mutationOptions} = options ?? {};
 
     export type DeleteCurrentSessionMutationResult = NonNullable<Awaited<ReturnType<typeof deleteCurrentSession>>>
     
-    export type DeleteCurrentSessionMutationError = HTTPValidationError
+    export type DeleteCurrentSessionMutationError = ErrorType<HTTPValidationError>
 
     /**
  * @summary Delete Current Session
  */
-export const useDeleteCurrentSession = <TError = HTTPValidationError,
+export const useDeleteCurrentSession = <TError = ErrorType<HTTPValidationError>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteCurrentSession>>, TError,void, TContext>, }
 ): UseMutationResult<
         Awaited<ReturnType<typeof deleteCurrentSession>>,

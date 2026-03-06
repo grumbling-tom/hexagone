@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useCreateUserSession } from "@/__generated__/backend-client/user-sessions";
 import { getGetCurrentUserQueryKey } from "@/__generated__/backend-client/users";
+import { HttpStatus } from "@/lib/fetch-client";
 
 export default function Login() {
   const navigate = useNavigate();
@@ -21,11 +22,12 @@ export default function Login() {
         navigate("/");
       },
       onError: (err) => {
-        const response = err as unknown as Response;
-        if (response.status === 401) {
-          setError("Invalid email or password");
-        } else {
-          setError("Something went wrong. Please try again.");
+        switch (err.httpStatus) {
+          case HttpStatus.UNAUTHORIZED:
+            setError("Invalid email or password");
+            break;
+          default:
+            setError("Something went wrong. Please try again.");
         }
       },
     },
