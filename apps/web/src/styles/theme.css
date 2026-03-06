@@ -1,0 +1,32 @@
+:root {
+  /* Colors */
+  --color-bg: #fafafa;
+  --color-text: #333;
+  --color-link: #2563eb;
+  --color-success: green;
+  --color-danger: red;
+
+  /* Typography */
+  --font-body: system-ui, -apple-system, sans-serif;
+  --font-heading: "Architects Daughter", cursive;
+  --font-size-h1: 1.75rem;
+  --font-size-h2: 1.4rem;
+  --font-size-h3: 1.15rem;
+  --font-size-h1-lg: 2.5rem;
+  --font-size-h2-lg: 1.75rem;
+  --font-size-h3-lg: 1.35rem;
+
+  /* Spacing */
+  --space-xs: 0.5rem;
+  --space-sm: 1rem;
+  --space-md: 1.5rem;
+  --space-lg: 2rem;
+  --space-xl: 2.5rem;
+  --content-max-width: 48rem;
+  --landing-max-width: 36rem;
+
+  /* Sketchy borders */
+  --sketch-border: 2px solid var(--color-text);
+  --sketch-radius: 255px 15px 225px 15px / 15px 225px 15px 255px;
+  --sketch-shadow: 4px 4px 0 rgba(0, 0, 0, 0.1);
+}
