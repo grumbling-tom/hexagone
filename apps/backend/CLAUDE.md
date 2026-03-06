@@ -131,6 +131,47 @@ def list_things(
 Routes that are public (e.g. registration, login) simply omit the dependency.
 Do not use middleware or route-level exemption lists for auth.
 
+## Testing — Fixtures over Helper Functions
+
+Use `pytest.fixture` factories (defined in `conftest.py`) for test data
+setup, not private `_create_*` helper functions. Fixtures integrate with
+pytest's dependency injection, are automatically discovered, and can be
+shared across test modules.
+
+### Good
+
+```python
+# conftest.py
+@pytest.fixture
+def create_upload(test_db: Session, test_user: User) -> Callable[..., Upload]:
+    def _factory(filename: str, *, file_size: int = 100) -> Upload:
+        upload = Upload(user_uid=test_user.uid, original_filename=filename, ...)
+        ...
+        return upload
+    return _factory
+
+# test_uploads.py
+def test_filter_by_name(test_db: Session, create_upload: Callable[..., Upload]):
+    create_upload("alpha.gpx")
+    create_upload("beta.gpx")
+    ...
+```
+
+### Bad
+
+```python
+# test_uploads.py
+def _create_upload(db: Session, user: User, filename: str) -> Upload:
+    upload = Upload(user_uid=user.uid, original_filename=filename, ...)
+    ...
+    return upload
+
+def test_filter_by_name(test_db: Session, test_user: User):
+    _create_upload(test_db, test_user, "alpha.gpx")
+    _create_upload(test_db, test_user, "beta.gpx")
+    ...
+```
+
 ## Filtering on Related Models
 
 When you need to filter a model based on values in a related model (e.g.

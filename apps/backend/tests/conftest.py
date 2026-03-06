@@ -1,6 +1,8 @@
 """Shared test fixtures."""
 
-from collections.abc import Generator
+import uuid
+from collections.abc import Callable, Generator
+from datetime import datetime
 
 import pytest
 from fastapi.testclient import TestClient
@@ -9,7 +11,14 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from src.app.dependencies import get_db, get_storage_backend
 from src.app.main import app
-from src.app.repository import BaseModel, User
+from src.app.repository import (
+    BaseModel,
+    Repository,
+    Upload,
+    UploadStatus,
+    UploadStatusValue,
+    User,
+)
 from src.app.services.password import hash_password
 from src.app.services.storage import LocalStorageBackend
 from src.app.services.user_session import create_session
@@ -44,6 +53,56 @@ def test_user(test_db: Session) -> User:
     test_db.commit()
     test_db.refresh(user)
     return user
+
+
+@pytest.fixture
+def create_upload(test_db: Session, test_user: User) -> Callable[..., Upload]:
+    """Return a factory that creates an Upload with status rows.
+
+    Args passed to the returned callable:
+        filename: Original filename for the upload.
+        file_size: File size in bytes (default 100).
+        created_at: Override the created_at timestamp.
+        status_values: List of UploadStatusValue to append.
+            Defaults to [UPLOAD_PENDING].
+        user: Override the owning user (defaults to test_user).
+    """
+
+    def _factory(
+        filename: str,
+        *,
+        file_size: int = 100,
+        created_at: datetime | None = None,
+        status_values: list[UploadStatusValue] | None = None,
+        user: User | None = None,
+    ) -> Upload:
+        owner = user or test_user
+        if status_values is None:
+            status_values = [UploadStatusValue.UPLOAD_PENDING]
+
+        upload_repo = Repository(test_db, Upload)
+        status_repo = Repository(test_db, UploadStatus)
+
+        upload = Upload(
+            user_uid=owner.uid,
+            original_filename=filename,
+            file_size=file_size,
+            s3_key=f"uploads/{owner.uid}/{uuid.uuid4()}/{filename}",
+        )
+        if created_at is not None:
+            upload.created_at = created_at
+        upload_repo.add(upload)
+        test_db.flush()
+
+        for value in status_values:
+            status_repo.add(UploadStatus(upload_uid=upload.uid, status=value))
+            test_db.flush()
+
+        test_db.commit()
+        test_db.refresh(upload)
+        return upload
+
+    return _factory
 
 
 def _make_get_db(db: Session) -> Generator[Session]:
