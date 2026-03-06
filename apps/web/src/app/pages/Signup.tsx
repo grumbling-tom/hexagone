@@ -1,5 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { type FormEvent, useState } from "react";
+import type { SubmitEvent } from "react";
+import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useCreateUser } from "@/__generated__/backend-client/users";
 import { getGetCurrentUserQueryKey } from "@/hooks/useAuth";
@@ -30,7 +31,7 @@ export default function Signup() {
     },
   });
 
-  function handleSubmit(e: FormEvent) {
+  function handleSubmit(e: SubmitEvent) {
     e.preventDefault();
     setError("");
     signup.mutate({ data: { email, password } });
