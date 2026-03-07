@@ -55,7 +55,7 @@ def maybe_presigned_url(
         key=Path(upload.s3_key),
         method="put_object",
         expires_in=settings.PRESIGNED_PUT_URL_EXPIRY_SECONDS,
-        content_length=upload.file_size,
+        content_length=upload.file_size_bytes,
         # Only GPX file uploads are permitted at the moment.
         content_type="application/gpx+xml",
     )
@@ -66,7 +66,7 @@ def create_upload(
     db: DBSession,
     user: User,
     original_filename: str,
-    file_size: int,
+    file_size_bytes: int,
 ) -> Upload:
     """Create a new upload record with initial UPLOAD_PENDING status.
 
@@ -74,7 +74,7 @@ def create_upload(
         db: Database session.
         user: The authenticated user.
         original_filename: Client-provided filename.
-        file_size: Expected file size in bytes.
+        file_size_bytes: Expected file size in bytes.
 
     Returns:
         Upload ORM instance.
@@ -87,7 +87,7 @@ def create_upload(
     upload = Upload(
         user_uid=user.uid,
         original_filename=original_filename,
-        file_size=file_size,
+        file_size_bytes=file_size_bytes,
         s3_key=s3_key,
     )
     upload_repo.add(upload)

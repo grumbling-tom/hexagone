@@ -71,7 +71,7 @@ def create_upload(test_db: Session, test_user: User) -> Callable[..., Upload]:
     def _factory(
         filename: str,
         *,
-        file_size: int = 100,
+        file_size_bytes: int = 100,
         created_at: datetime | None = None,
         status_values: list[UploadStatusValue] | None = None,
         user: User | None = None,
@@ -86,7 +86,7 @@ def create_upload(test_db: Session, test_user: User) -> Callable[..., Upload]:
         upload = Upload(
             user_uid=owner.uid,
             original_filename=filename,
-            file_size=file_size,
+            file_size_bytes=file_size_bytes,
             s3_key=f"uploads/{owner.uid}/{uuid.uuid4()}/{filename}",
         )
         if created_at is not None:

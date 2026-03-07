@@ -29,8 +29,7 @@ class UploadResponse(BaseSchema):
 
     uid: str
     original_filename: str
-    file_size: int
-    s3_key: str
+    file_size_bytes: int
     created_at: datetime
     current_status: str
     presigned_url: str | None = None
@@ -58,7 +57,7 @@ class CreateUploadRequest(BaseSchema):
     """Request body for creating a new upload."""
 
     original_filename: str
-    file_size: int
+    file_size_bytes: int
 
 
 class ListUploadsParams(BaseSchema):
@@ -85,7 +84,7 @@ def create_upload(
         db=db,
         user=user,
         original_filename=body.original_filename,
-        file_size=body.file_size,
+        file_size_bytes=body.file_size_bytes,
     )
     return UploadResponse.model_validate(upload, context={"storage": storage})
 

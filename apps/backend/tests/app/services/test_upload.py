@@ -21,11 +21,11 @@ def test_create_upload(test_db: Session, test_user: User):
         db=test_db,
         user=test_user,
         original_filename="test.gpx",
-        file_size=1024,
+        file_size_bytes=1024,
     )
 
     assert upload.original_filename == "test.gpx"
-    assert upload.file_size == 1024
+    assert upload.file_size_bytes == 1024
     assert upload.current_status == UploadStatusValue.UPLOAD_PENDING
     assert upload.s3_key.startswith("v1/uploads/")
 
@@ -35,12 +35,12 @@ def test_create_upload_persists(test_db: Session, test_user: User):
         db=test_db,
         user=test_user,
         original_filename="track.gpx",
-        file_size=2048,
+        file_size_bytes=2048,
     )
 
     persisted = test_db.query(Upload).filter_by(uid=upload.uid).one()
     assert persisted.original_filename == "track.gpx"
-    assert persisted.file_size == 2048
+    assert persisted.file_size_bytes == 2048
     assert persisted.user_uid == test_user.uid
 
     statuses = test_db.query(UploadStatus).filter_by(upload_uid=upload.uid).all()
@@ -53,7 +53,7 @@ def test_list_uploads_excludes_pending(test_db: Session, test_user: User):
         db=test_db,
         user=test_user,
         original_filename="pending.gpx",
-        file_size=100,
+        file_size_bytes=100,
     )
 
     result = list_uploads(db=test_db, user=test_user)
@@ -67,7 +67,7 @@ def test_list_uploads_includes_pending_when_requested(
         db=test_db,
         user=test_user,
         original_filename="pending.gpx",
-        file_size=100,
+        file_size_bytes=100,
     )
 
     result = list_uploads(
@@ -92,7 +92,7 @@ def test_list_uploads_filters_by_user(test_db: Session, test_user: User):
         db=test_db,
         user=other_user,
         original_filename="other.gpx",
-        file_size=100,
+        file_size_bytes=100,
     )
 
     result = list_uploads(
@@ -108,7 +108,7 @@ def test_list_uploads_with_received_status(test_db: Session, test_user: User):
         db=test_db,
         user=test_user,
         original_filename="received.gpx",
-        file_size=500,
+        file_size_bytes=500,
     )
 
     status_repo = Repository(test_db, UploadStatus)
@@ -134,7 +134,7 @@ def test_list_uploads_pagination_with_status_filter(test_db: Session, test_user:
             db=test_db,
             user=test_user,
             original_filename=f"received_{i}.gpx",
-            file_size=100,
+            file_size_bytes=100,
         )
         status_repo.add(
             UploadStatus(
@@ -150,7 +150,7 @@ def test_list_uploads_pagination_with_status_filter(test_db: Session, test_user:
             db=test_db,
             user=test_user,
             original_filename=f"pending_{i}.gpx",
-            file_size=100,
+            file_size_bytes=100,
         )
 
     # First page: exactly 3 items
@@ -182,7 +182,7 @@ def _create_upload_with_status(
     upload = Upload(
         user_uid=test_user.uid,
         original_filename=filename,
-        file_size=100,
+        file_size_bytes=100,
         s3_key=f"uploads/test/{filename}",
     )
     upload_repo.add(upload)
@@ -252,7 +252,7 @@ def test_maybe_presigned_url_old_pending(test_db: Session, test_user: User):
     upload = Upload(
         user_uid=test_user.uid,
         original_filename="old.gpx",
-        file_size=100,
+        file_size_bytes=100,
         s3_key="uploads/test/old.gpx",
         created_at=datetime.now(UTC) - timedelta(minutes=10),
     )
@@ -279,7 +279,7 @@ def test_maybe_presigned_url_recent_pending(test_db: Session, test_user: User):
         db=test_db,
         user=test_user,
         original_filename="new.gpx",
-        file_size=1024,
+        file_size_bytes=1024,
     )
 
     storage = LocalStorageBackend()

@@ -54,7 +54,8 @@ class Upload(BaseModel):
     Attributes:
         user_uid: The UID of the user who uploaded the file.
         original_filename: Client-provided filename.
-        file_size: Expected file size in bytes, declared by client.
+        file_size_bytes: Expected file size in bytes, declared by client.
+        s3_bucket_name: The S3 bucket where the file is stored.
         s3_key: Object key in the GPX bucket.
         statuses: All status events, ordered by created_at ascending.
     """
@@ -65,7 +66,8 @@ class Upload(BaseModel):
         String(36), ForeignKey("user.uid"), nullable=False, index=True
     )
     original_filename: Mapped[str] = mapped_column(String, nullable=False)
-    file_size: Mapped[int] = mapped_column(Integer, nullable=False)
+    file_size_bytes: Mapped[int] = mapped_column(Integer, nullable=False)
+    s3_bucket_name: Mapped[str] = mapped_column(String, nullable=False)
     s3_key: Mapped[str] = mapped_column(String, unique=True, nullable=False)
 
     statuses: Mapped[list[UploadStatus]] = relationship(

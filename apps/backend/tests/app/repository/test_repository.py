@@ -225,7 +225,7 @@ def test_invalid_cursor_format(test_db: Session, create_upload: Callable[..., Up
 def test_equals_filter(test_db: Session, create_upload: Callable[..., Upload]):
     create_upload("alpha.gpx")
     create_upload("beta.gpx")
-    create_upload("alpha.gpx", file_size=200)
+    create_upload("alpha.gpx", file_size_bytes=200)
     repo = Repository(test_db, Upload)
 
     result = repo.get_filtered(
@@ -369,40 +369,40 @@ def test_not_in_filter(test_db: Session, create_upload: Callable[..., Upload]):
 def test_range_filter_both_bounds(
     test_db: Session, create_upload: Callable[..., Upload]
 ):
-    create_upload("a.gpx", file_size=10)
-    create_upload("b.gpx", file_size=50)
-    create_upload("c.gpx", file_size=100)
-    create_upload("d.gpx", file_size=200)
+    create_upload("a.gpx", file_size_bytes=10)
+    create_upload("b.gpx", file_size_bytes=50)
+    create_upload("c.gpx", file_size_bytes=100)
+    create_upload("d.gpx", file_size_bytes=200)
     repo = Repository(test_db, Upload)
 
     result = repo.get_filtered(
-        filters=[RangeFilter(field="file_size", min_value=50, max_value=100)]
+        filters=[RangeFilter(field="file_size_bytes", min_value=50, max_value=100)]
     )
     assert len(result.items) == 2
     assert {u.original_filename for u in result.items} == {"b.gpx", "c.gpx"}
 
 
 def test_range_filter_min_only(test_db: Session, create_upload: Callable[..., Upload]):
-    create_upload("small.gpx", file_size=10)
-    create_upload("medium.gpx", file_size=50)
-    create_upload("large.gpx", file_size=100)
+    create_upload("small.gpx", file_size_bytes=10)
+    create_upload("medium.gpx", file_size_bytes=50)
+    create_upload("large.gpx", file_size_bytes=100)
     repo = Repository(test_db, Upload)
 
     result = repo.get_filtered(
-        filters=[RangeFilter(field="file_size", min_value=50, max_value=None)]
+        filters=[RangeFilter(field="file_size_bytes", min_value=50, max_value=None)]
     )
     assert len(result.items) == 2
     assert {u.original_filename for u in result.items} == {"medium.gpx", "large.gpx"}
 
 
 def test_range_filter_max_only(test_db: Session, create_upload: Callable[..., Upload]):
-    create_upload("small.gpx", file_size=10)
-    create_upload("medium.gpx", file_size=50)
-    create_upload("large.gpx", file_size=100)
+    create_upload("small.gpx", file_size_bytes=10)
+    create_upload("medium.gpx", file_size_bytes=50)
+    create_upload("large.gpx", file_size_bytes=100)
     repo = Repository(test_db, Upload)
 
     result = repo.get_filtered(
-        filters=[RangeFilter(field="file_size", min_value=None, max_value=50)]
+        filters=[RangeFilter(field="file_size_bytes", min_value=None, max_value=50)]
     )
     assert len(result.items) == 2
     assert {u.original_filename for u in result.items} == {"small.gpx", "medium.gpx"}
@@ -445,10 +445,10 @@ def test_is_null_filter(test_db: Session, create_upload: Callable[..., Upload]):
 def test_multiple_filters_combined(
     test_db: Session, create_upload: Callable[..., Upload]
 ):
-    create_upload("test_small.gpx", file_size=10)
-    create_upload("prod_small.gpx", file_size=10)
-    create_upload("test_large.gpx", file_size=200)
-    create_upload("prod_large.gpx", file_size=200)
+    create_upload("test_small.gpx", file_size_bytes=10)
+    create_upload("prod_small.gpx", file_size_bytes=10)
+    create_upload("test_large.gpx", file_size_bytes=200)
+    create_upload("prod_large.gpx", file_size_bytes=200)
     repo = Repository(test_db, Upload)
 
     result = repo.get_filtered(
@@ -456,7 +456,7 @@ def test_multiple_filters_combined(
             LikeFilter(
                 field="original_filename", pattern="%test%", case_sensitive=False
             ),
-            GreaterThanOrEqualFilter(field="file_size", value=100),
+            GreaterThanOrEqualFilter(field="file_size_bytes", value=100),
         ]
     )
     assert len(result.items) == 1

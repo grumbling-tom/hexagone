@@ -9,24 +9,23 @@ from src.app.repository import UploadStatus, UploadStatusValue, User
 def test_create_upload_success(client: TestClient):
     response = client.post(
         "/api/v1/uploads",
-        json={"original_filename": "test.gpx", "file_size": 1024},
+        json={"original_filename": "test.gpx", "file_size_bytes": 1024},
     )
     assert response.status_code == 201
     data = response.json()
     assert data["original_filename"] == "test.gpx"
-    assert data["file_size"] == 1024
+    assert data["file_size_bytes"] == 1024
     assert data["current_status"] == "UPLOAD_PENDING"
     assert data["presigned_url"] is not None
     assert data["required_headers"]["Content-Length"] == "1024"
     assert data["required_headers"]["Content-Type"] == "application/gpx+xml"
     assert "uid" in data
-    assert "s3_key" in data
 
 
 def test_create_upload_unauthenticated(unauthenticated_client: TestClient):
     response = unauthenticated_client.post(
         "/api/v1/uploads",
-        json={"original_filename": "test.gpx", "file_size": 1024},
+        json={"original_filename": "test.gpx", "file_size_bytes": 1024},
     )
     assert response.status_code == 401
 
@@ -41,7 +40,7 @@ def test_list_uploads_empty(client: TestClient):
 def test_list_uploads_excludes_pending_by_default(client: TestClient):
     client.post(
         "/api/v1/uploads",
-        json={"original_filename": "test.gpx", "file_size": 1024},
+        json={"original_filename": "test.gpx", "file_size_bytes": 1024},
     )
     response = client.get("/api/v1/uploads")
     assert response.status_code == 200
@@ -51,7 +50,7 @@ def test_list_uploads_excludes_pending_by_default(client: TestClient):
 def test_list_uploads_includes_pending_when_requested(client: TestClient):
     client.post(
         "/api/v1/uploads",
-        json={"original_filename": "test.gpx", "file_size": 1024},
+        json={"original_filename": "test.gpx", "file_size_bytes": 1024},
     )
     response = client.get("/api/v1/uploads?statuses=UPLOAD_PENDING")
     assert response.status_code == 200
@@ -65,7 +64,7 @@ def test_list_uploads_with_received_status(
 ):
     create_resp = client.post(
         "/api/v1/uploads",
-        json={"original_filename": "test.gpx", "file_size": 512},
+        json={"original_filename": "test.gpx", "file_size_bytes": 512},
     )
     upload_uid = create_resp.json()["uid"]
 
