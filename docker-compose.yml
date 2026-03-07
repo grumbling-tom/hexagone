@@ -35,6 +35,17 @@ services:
       - command: curl -X POST "http://localhost:8080/2015-03-31/functions/function/invocations" -d '{"action":"migrate"}'
         user: root
 
+  hexagone-lambda-file-upload:
+    build:
+      context: apps/backend
+      dockerfile: Dockerfile.lambda
+    container_name: hexagone-lambda-file-upload
+    command: ["src.app.handlers.file_upload.handler"]
+    ports:
+      - "9002:8080"
+    volumes:
+      - ./apps/backend/src:/var/task/src
+
   localstack:
     image: localstack/localstack:latest
     container_name: hexagone-localstack
@@ -42,7 +53,7 @@ services:
       - "4566:4566"
     environment:
       - SERVICES=s3,lambda
-      - LAMBDA_DOCKER_NETWORK=${COMPOSE_PROJECT_NAME}_default
+      - LAMBDA_DOCKER_NETWORK=hexagone_default
       - S3_SKIP_SIGNATURE_VALIDATION=0
       - DEFAULT_REGION=eu-west-2
       - DEBUG=0
