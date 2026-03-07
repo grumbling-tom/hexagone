@@ -51,6 +51,10 @@ def maybe_presigned_url(
     headers = {
         "Content-Length": str(upload.file_size),
         "Content-Type": GPX_CONTENT_TYPE,
+        "Content-Disposition": f'attachment; filename="{upload.original_filename}"',
+        # TODO: Consider adding arbitrary metadata support in the future,
+        # ensuring keys are  are lowercase and prefixed with 'x-amz-meta-'
+        # **{f"x-amz-meta-{k.lower()}": v for k, v in (file_metadata or {}).items()},
     }
     return url, headers
 
@@ -72,7 +76,7 @@ def create_upload(
     Returns:
         Upload ORM instance.
     """
-    s3_key = f"uploads/{user.uid}/{uuid.uuid4()}.gpx"
+    s3_key = f"v1/uploads/{uuid.uuid4()}"
 
     upload_repo = Repository(db, Upload)
     status_repo = Repository(db, UploadStatus)
