@@ -36,6 +36,7 @@ def maybe_presigned_url(
     if upload.current_status != UploadStatusValue.UPLOAD_PENDING:
         # TODO: FE client should cache presigned GET URLs with a TTL
         url, _ = storage.generate_presigned_url(
+            filename=upload.original_filename,
             key=Path(upload.s3_key),
             method="get_object",
             expires_in=settings.PRESIGNED_GET_URL_EXPIRY_SECONDS,
@@ -52,6 +53,7 @@ def maybe_presigned_url(
         return None, None
 
     url, headers = storage.generate_presigned_url(
+        filename=upload.original_filename,
         key=Path(upload.s3_key),
         method="put_object",
         expires_in=settings.PRESIGNED_PUT_URL_EXPIRY_SECONDS,

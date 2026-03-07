@@ -4,8 +4,11 @@ import uuid
 from collections.abc import Callable, Generator
 from datetime import datetime
 
+import boto3
 import pytest
 from fastapi.testclient import TestClient
+from moto import mock_aws
+from mypy_boto3_s3 import S3Client
 from sqlalchemy import StaticPool, create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -20,8 +23,20 @@ from src.app.repository import (
     User,
 )
 from src.app.services.password import hash_password
-from src.app.services.storage import LocalStorageBackend
+from src.app.services.storage import S3StorageBackend
 from src.app.services.user_session import create_session
+
+
+@pytest.fixture(autouse=True)
+def _mock_s3() -> Generator[None]:  # pyright: ignore[reportUnusedFunction]
+    """Mock AWS S3 for all tests."""
+    with mock_aws():
+        client: S3Client = boto3.client("s3", region_name="eu-west-2")  # pyright: ignore[reportUnknownMemberType]
+        client.create_bucket(
+            Bucket="hexagone-gpx-uploads",
+            CreateBucketConfiguration={"LocationConstraint": "eu-west-2"},
+        )
+        yield
 
 
 @pytest.fixture
@@ -119,7 +134,7 @@ def client(test_db: Session, test_user: User) -> Generator[TestClient]:
         yield from _make_get_db(test_db)
 
     app.dependency_overrides[get_db] = override_get_db
-    app.dependency_overrides[get_storage_backend] = LocalStorageBackend
+    app.dependency_overrides[get_storage_backend] = S3StorageBackend
 
     session = create_session(test_db, test_user.uid, "testclient", "testclient")
 
@@ -138,7 +153,7 @@ def unauthenticated_client(test_db: Session) -> Generator[TestClient]:
         yield from _make_get_db(test_db)
 
     app.dependency_overrides[get_db] = override_get_db
-    app.dependency_overrides[get_storage_backend] = LocalStorageBackend
+    app.dependency_overrides[get_storage_backend] = S3StorageBackend
 
     with TestClient(app) as c:
         yield c

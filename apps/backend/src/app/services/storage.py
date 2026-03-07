@@ -1,6 +1,5 @@
 """Storage abstraction for file uploads."""
 
-import uuid
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import TYPE_CHECKING, Literal
@@ -17,8 +16,9 @@ class StorageBackend(ABC):
     """Abstract storage backend for file operations."""
 
     @abstractmethod
-    def generate_presigned_url(
+    def generate_presigned_url(  # noqa: PLR0913
         self,
+        filename: str,
         key: Path,
         method: Literal["get_object", "put_object"],
         expires_in: int,
@@ -56,11 +56,16 @@ class S3StorageBackend(StorageBackend):
 
     def __init__(self) -> None:
         self._client: S3Client = boto3.client(  # pyright: ignore[reportUnknownMemberType]
-            "s3", region_name=settings.HEXAGONE_AWS_REGION
+            "s3",
+            region_name=settings.HEXAGONE_AWS_REGION,
+            endpoint_url=settings.HEXAGONE_S3_ENDPOINT_URL,
+            aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
+            aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
         )
 
-    def generate_presigned_url(
+    def generate_presigned_url(  # noqa: PLR0913
         self,
+        filename: str,
         key: Path,
         method: Literal["get_object", "put_object"],
         expires_in: int,
@@ -74,7 +79,7 @@ class S3StorageBackend(StorageBackend):
                 "get_object",
                 Params={
                     "Bucket": settings.HEXAGONE_S3_BUCKET,
-                    "Key": key,
+                    "Key": str(key),
                 },
                 ExpiresIn=expires_in,
             )
@@ -88,12 +93,12 @@ class S3StorageBackend(StorageBackend):
             msg = "content_length is required for put_object presigned URLs"
             raise ValueError(msg)
 
-        params: dict[str, str | dict[str, str]] = {
+        params: dict[str, str | int | dict[str, str]] = {
             "Bucket": settings.HEXAGONE_S3_BUCKET,
             "Key": str(key),
             "ContentType": content_type,
-            "ContentLength": str(content_length),
-            "ContentDisposition": f'attachment; filename="{key.name}"',
+            "ContentLength": content_length,
+            "ContentDisposition": f"attachment; filename={filename}",
             "Metadata": file_metadata,
         }
         url: str = self._client.generate_presigned_url(
@@ -119,33 +124,3 @@ class S3StorageBackend(StorageBackend):
         )
         data: bytes = response["Body"].read()
         return data
-
-
-class LocalStorageBackend(StorageBackend):
-    """Local filesystem storage for development."""
-
-    def generate_presigned_url(
-        self,
-        key: Path,
-        method: Literal["get_object", "put_object"],
-        expires_in: int,  # noqa: ARG002
-        content_type: str | None = None,
-        content_length: int | None = None,
-        **file_metadata: str,  # noqa: ARG002
-    ) -> tuple[str, dict[str, str] | None]:
-        """Generate a fake presigned URL for local development."""
-        url = (
-            f"http://localhost:9000/fake-presigned/{method}/{key}?token={uuid.uuid4()}"
-        )
-        headers = {
-            "Content-Length": str(content_length)
-            if content_length is not None
-            else "0",
-            "Content-Type": content_type or "application/octet-stream",
-        }
-        return url, headers
-
-    def get_object(self, key: str) -> bytes:
-        """Read from local filesystem (not implemented for dev)."""
-        msg = "LocalStorageBackend.get_object is not implemented"
-        raise NotImplementedError(msg)

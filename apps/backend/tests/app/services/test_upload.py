@@ -12,7 +12,7 @@ from src.app.repository import (
     User,
 )
 from src.app.services.password import hash_password
-from src.app.services.storage import LocalStorageBackend
+from src.app.services.storage import S3StorageBackend
 from src.app.services.upload import create_upload, list_uploads, maybe_presigned_url
 
 
@@ -212,10 +212,10 @@ def test_maybe_presigned_url_non_pending(test_db: Session, test_user: User):
         test_db, test_user, UploadStatusValue.UPLOAD_RECEIVED, "received.gpx"
     )
 
-    storage = LocalStorageBackend()
+    storage = S3StorageBackend()
     url, headers = maybe_presigned_url(upload, storage)
     assert url is not None
-    assert "/get_object/" in url
+    assert "X-Amz-Signature" in url
     assert headers is None
 
 
@@ -225,10 +225,10 @@ def test_maybe_presigned_url_get_url_for_received(test_db: Session, test_user: U
         test_db, test_user, UploadStatusValue.UPLOAD_RECEIVED, "received.gpx"
     )
 
-    storage = LocalStorageBackend()
+    storage = S3StorageBackend()
     url, headers = maybe_presigned_url(upload, storage)
     assert url is not None
-    assert "/get_object/" in url
+    assert "X-Amz-Signature" in url
     assert headers is None
 
 
@@ -238,10 +238,10 @@ def test_maybe_presigned_url_get_url_for_success(test_db: Session, test_user: Us
         test_db, test_user, UploadStatusValue.UPLOAD_SUCCESS, "success.gpx"
     )
 
-    storage = LocalStorageBackend()
+    storage = S3StorageBackend()
     url, headers = maybe_presigned_url(upload, storage)
     assert url is not None
-    assert "/get_object/" in url
+    assert "X-Amz-Signature" in url
     assert headers is None
 
 
@@ -269,7 +269,7 @@ def test_maybe_presigned_url_old_pending(test_db: Session, test_user: User):
     test_db.commit()
     test_db.refresh(upload)
 
-    storage = LocalStorageBackend()
+    storage = S3StorageBackend()
     url, headers = maybe_presigned_url(upload, storage)
     assert url is None
     assert headers is None
@@ -284,7 +284,7 @@ def test_maybe_presigned_url_recent_pending(test_db: Session, test_user: User):
         file_size_bytes=1024,
     )
 
-    storage = LocalStorageBackend()
+    storage = S3StorageBackend()
     url, headers = maybe_presigned_url(upload, storage)
     assert url is not None
     assert headers is not None

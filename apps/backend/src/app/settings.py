@@ -26,11 +26,16 @@ class Settings(BaseSettings):
     DEFAULT_PAGE_SIZE: int = 20
     SESSION_COOKIE_NAME: str = "sessionid"
     SESSION_EXPIRY_HOURS: int = 24
+
+    AWS_ACCESS_KEY_ID: str | None = None
+    AWS_SECRET_ACCESS_KEY: str | None = None
     HEXAGONE_S3_BUCKET: str = "hexagone-gpx-uploads"
+    HEXAGONE_S3_ENDPOINT_URL: str | None = None
     HEXAGONE_AWS_REGION: str = "eu-west-2"
     PRESIGNED_URL_EXPIRY_SECONDS: int = 300
     PRESIGNED_GET_URL_EXPIRY_SECONDS: int = 60 * 60  # 1 hour
     PRESIGNED_PUT_URL_EXPIRY_SECONDS: int = 5 * 60  # 5 minutes
+
     GIT_SHA: str = "unknown"
 
     @property
@@ -110,6 +115,20 @@ class Settings(BaseSettings):
 
         msg = f"DATABASE_URL must be provided when ENV is '{env}'"
         raise ValueError(msg)
+
+    @model_validator(mode="after")
+    def check_aws_credentials(self: Settings) -> Settings:
+        if self.ENV in ("PROD", "STAGING") and (
+            self.AWS_ACCESS_KEY_ID or self.AWS_SECRET_ACCESS_KEY
+        ):
+            msg = (
+                "AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY should not "
+                "be set in PROD/STAGING environments. "
+                "Use IAM roles to provide AWS credentials."
+            )
+            raise ValueError(msg)
+
+        return self
 
 
 settings = Settings()
