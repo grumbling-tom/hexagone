@@ -27,6 +27,7 @@ import type {
   UserResponse
 } from './backend.schemas'
 import { fetchClient } from '../../lib/fetch-client';
+import type { ErrorType } from '../../lib/fetch-client';
 
 
 
@@ -51,7 +52,7 @@ export const createUser = (
   
 
 
-export const getCreateUserMutationOptions = <TError = HTTPValidationError,
+export const getCreateUserMutationOptions = <TError = ErrorType<HTTPValidationError>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createUser>>, TError,{data: CreateUserRequest}, TContext>, }
 ): UseMutationOptions<Awaited<ReturnType<typeof createUser>>, TError,{data: CreateUserRequest}, TContext> => {
 const {mutation: mutationOptions} = options ?? {};
@@ -72,12 +73,12 @@ const {mutation: mutationOptions} = options ?? {};
 
     export type CreateUserMutationResult = NonNullable<Awaited<ReturnType<typeof createUser>>>
     export type CreateUserMutationBody = CreateUserRequest
-    export type CreateUserMutationError = HTTPValidationError
+    export type CreateUserMutationError = ErrorType<HTTPValidationError>
 
     /**
  * @summary Create User
  */
-export const useCreateUser = <TError = HTTPValidationError,
+export const useCreateUser = <TError = ErrorType<HTTPValidationError>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createUser>>, TError,{data: CreateUserRequest}, TContext>, }
 ): UseMutationResult<
         Awaited<ReturnType<typeof createUser>>,
@@ -112,7 +113,7 @@ export const getGetCurrentUserQueryKey = () => {
     }
 
     
-export const getGetCurrentUserQueryOptions = <TData = Awaited<ReturnType<typeof getCurrentUser>>, TError = HTTPValidationError>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getCurrentUser>>, TError, TData>>, }
+export const getGetCurrentUserQueryOptions = <TData = Awaited<ReturnType<typeof getCurrentUser>>, TError = ErrorType<HTTPValidationError>>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getCurrentUser>>, TError, TData>>, }
 ) => {
 
 const {query: queryOptions} = options ?? {};
@@ -131,10 +132,10 @@ const {query: queryOptions} = options ?? {};
 }
 
 export type GetCurrentUserQueryResult = NonNullable<Awaited<ReturnType<typeof getCurrentUser>>>
-export type GetCurrentUserQueryError = HTTPValidationError
+export type GetCurrentUserQueryError = ErrorType<HTTPValidationError>
 
 
-export function useGetCurrentUser<TData = Awaited<ReturnType<typeof getCurrentUser>>, TError = HTTPValidationError>(
+export function useGetCurrentUser<TData = Awaited<ReturnType<typeof getCurrentUser>>, TError = ErrorType<HTTPValidationError>>(
   options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getCurrentUser>>, TError, TData>> & Pick<
         DefinedInitialDataOptions<
           Awaited<ReturnType<typeof getCurrentUser>>,
@@ -144,7 +145,7 @@ export function useGetCurrentUser<TData = Awaited<ReturnType<typeof getCurrentUs
       >, }
 
   ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
-export function useGetCurrentUser<TData = Awaited<ReturnType<typeof getCurrentUser>>, TError = HTTPValidationError>(
+export function useGetCurrentUser<TData = Awaited<ReturnType<typeof getCurrentUser>>, TError = ErrorType<HTTPValidationError>>(
   options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getCurrentUser>>, TError, TData>> & Pick<
         UndefinedInitialDataOptions<
           Awaited<ReturnType<typeof getCurrentUser>>,
@@ -154,7 +155,7 @@ export function useGetCurrentUser<TData = Awaited<ReturnType<typeof getCurrentUs
       >, }
 
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
-export function useGetCurrentUser<TData = Awaited<ReturnType<typeof getCurrentUser>>, TError = HTTPValidationError>(
+export function useGetCurrentUser<TData = Awaited<ReturnType<typeof getCurrentUser>>, TError = ErrorType<HTTPValidationError>>(
   options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getCurrentUser>>, TError, TData>>, }
 
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
@@ -162,7 +163,7 @@ export function useGetCurrentUser<TData = Awaited<ReturnType<typeof getCurrentUs
  * @summary Get Current User
  */
 
-export function useGetCurrentUser<TData = Awaited<ReturnType<typeof getCurrentUser>>, TError = HTTPValidationError>(
+export function useGetCurrentUser<TData = Awaited<ReturnType<typeof getCurrentUser>>, TError = ErrorType<HTTPValidationError>>(
   options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getCurrentUser>>, TError, TData>>, }
 
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> } {

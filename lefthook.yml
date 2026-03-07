@@ -12,6 +12,11 @@ pre-commit:
       glob: "*.{js,ts,jsx,tsx,json,mjs}"
       run: pnpm exec biome check --fix --no-errors-on-unmatched --files-ignore-unknown=true {staged_files}
       stage_fixed: true
+    prettier:
+      root: apps/web/
+      glob: "*.css"
+      run: pnpm exec prettier --write {staged_files}
+      stage_fixed: true
     typecheck:
       root: apps/web/
       run: pnpm exec astro check
