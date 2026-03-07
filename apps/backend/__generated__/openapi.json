@@ -372,15 +372,15 @@
             "type": "string",
             "title": "Original Filename"
           },
-          "file_size": {
+          "file_size_bytes": {
             "type": "integer",
-            "title": "File Size"
+            "title": "File Size Bytes"
           }
         },
         "type": "object",
         "required": [
           "original_filename",
-          "file_size"
+          "file_size_bytes"
         ],
         "title": "CreateUploadRequest",
         "description": "Request body for creating a new upload."
@@ -505,13 +505,9 @@
             "type": "string",
             "title": "Original Filename"
           },
-          "file_size": {
+          "file_size_bytes": {
             "type": "integer",
-            "title": "File Size"
-          },
-          "s3_key": {
-            "type": "string",
-            "title": "S3 Key"
+            "title": "File Size Bytes"
           },
           "created_at": {
             "type": "string",
@@ -552,8 +548,7 @@
         "required": [
           "uid",
           "original_filename",
-          "file_size",
-          "s3_key",
+          "file_size_bytes",
           "created_at",
           "current_status"
         ],

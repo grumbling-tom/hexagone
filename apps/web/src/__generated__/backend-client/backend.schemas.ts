@@ -66,11 +66,10 @@ export type UploadResponsePresignedUrl = string | null;
 export interface UploadResponse {
   created_at: string;
   current_status: string;
-  file_size: number;
+  file_size_bytes: number;
   original_filename: string;
   presigned_url?: UploadResponsePresignedUrl;
   required_headers?: UploadResponseRequiredHeaders;
-  s3_key: string;
   uid: string;
 }
 
@@ -115,7 +114,7 @@ export interface CreateUserRequest {
  * Request body for creating a new upload.
  */
 export interface CreateUploadRequest {
-  file_size: number;
+  file_size_bytes: number;
   original_filename: string;
 }
 

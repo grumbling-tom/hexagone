@@ -26,8 +26,8 @@ class Settings(BaseSettings):
     DEFAULT_PAGE_SIZE: int = 20
     SESSION_COOKIE_NAME: str = "sessionid"
     SESSION_EXPIRY_HOURS: int = 24
-    GPX_UPLOAD_BUCKET: str = "hexagone-gpx-uploads"
-    GPX_UPLOAD_REGION: str = "eu-west-2"
+    HEXAGONE_S3_BUCKET: str = "hexagone-gpx-uploads"
+    HEXAGONE_AWS_REGION: str = "eu-west-2"
     PRESIGNED_URL_EXPIRY_SECONDS: int = 300
     PRESIGNED_GET_URL_EXPIRY_SECONDS: int = 60 * 60  # 1 hour
     PRESIGNED_PUT_URL_EXPIRY_SECONDS: int = 5 * 60  # 5 minutes

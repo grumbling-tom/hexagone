@@ -56,7 +56,7 @@ class S3StorageBackend(StorageBackend):
 
     def __init__(self) -> None:
         self._client: S3Client = boto3.client(  # pyright: ignore[reportUnknownMemberType]
-            "s3", region_name=settings.GPX_UPLOAD_REGION
+            "s3", region_name=settings.HEXAGONE_AWS_REGION
         )
 
     def generate_presigned_url(
@@ -73,7 +73,7 @@ class S3StorageBackend(StorageBackend):
             url = self._client.generate_presigned_url(
                 "get_object",
                 Params={
-                    "Bucket": settings.GPX_UPLOAD_BUCKET,
+                    "Bucket": settings.HEXAGONE_S3_BUCKET,
                     "Key": key,
                 },
                 ExpiresIn=expires_in,
@@ -89,7 +89,7 @@ class S3StorageBackend(StorageBackend):
             raise ValueError(msg)
 
         params: dict[str, str | dict[str, str]] = {
-            "Bucket": settings.GPX_UPLOAD_BUCKET,
+            "Bucket": settings.HEXAGONE_S3_BUCKET,
             "Key": str(key),
             "ContentType": content_type,
             "ContentLength": str(content_length),
@@ -114,7 +114,7 @@ class S3StorageBackend(StorageBackend):
     def get_object(self, key: str) -> bytes:
         """Retrieve an object from S3."""
         response = self._client.get_object(
-            Bucket=settings.GPX_UPLOAD_BUCKET,
+            Bucket=settings.HEXAGONE_S3_BUCKET,
             Key=key,
         )
         data: bytes = response["Body"].read()

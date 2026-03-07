@@ -88,6 +88,7 @@ def create_upload(
         user_uid=user.uid,
         original_filename=original_filename,
         file_size_bytes=file_size_bytes,
+        s3_bucket_name=settings.HEXAGONE_S3_BUCKET,
         s3_key=s3_key,
     )
     upload_repo.add(upload)

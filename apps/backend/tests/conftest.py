@@ -87,6 +87,7 @@ def create_upload(test_db: Session, test_user: User) -> Callable[..., Upload]:
             user_uid=owner.uid,
             original_filename=filename,
             file_size_bytes=file_size_bytes,
+            s3_bucket_name="test-bucket",
             s3_key=f"uploads/{owner.uid}/{uuid.uuid4()}/{filename}",
         )
         if created_at is not None:

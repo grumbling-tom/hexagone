@@ -183,6 +183,7 @@ def _create_upload_with_status(
         user_uid=test_user.uid,
         original_filename=filename,
         file_size_bytes=100,
+        s3_bucket_name="test-bucket",
         s3_key=f"uploads/test/{filename}",
     )
     upload_repo.add(upload)
@@ -253,6 +254,7 @@ def test_maybe_presigned_url_old_pending(test_db: Session, test_user: User):
         user_uid=test_user.uid,
         original_filename="old.gpx",
         file_size_bytes=100,
+        s3_bucket_name="test-bucket",
         s3_key="uploads/test/old.gpx",
         created_at=datetime.now(UTC) - timedelta(minutes=10),
     )
