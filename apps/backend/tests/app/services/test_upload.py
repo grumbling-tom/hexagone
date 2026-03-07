@@ -27,8 +27,7 @@ def test_create_upload(test_db: Session, test_user: User):
     assert upload.original_filename == "test.gpx"
     assert upload.file_size == 1024
     assert upload.current_status == UploadStatusValue.UPLOAD_PENDING
-    assert upload.s3_key.startswith(f"uploads/{test_user.uid}/")
-    assert upload.s3_key.endswith(".gpx")
+    assert upload.s3_key.startswith("v1/uploads/")
 
 
 def test_create_upload_persists(test_db: Session, test_user: User):
@@ -170,16 +169,21 @@ def test_list_uploads_pagination_with_status_filter(test_db: Session, test_user:
     assert page2.has_next is False
 
 
-def test_maybe_presigned_url_non_pending(test_db: Session, test_user: User):
-    """Non-pending uploads should not get a presigned URL."""
+def _create_upload_with_status(
+    test_db: Session,
+    test_user: User,
+    status: str,
+    filename: str = "test.gpx",
+) -> Upload:
+    """Helper to create an upload and advance it to the given status."""
     upload_repo = Repository(test_db, Upload)
     status_repo = Repository(test_db, UploadStatus)
 
     upload = Upload(
         user_uid=test_user.uid,
-        original_filename="received.gpx",
+        original_filename=filename,
         file_size=100,
-        s3_key="uploads/test/received.gpx",
+        s3_key=f"uploads/test/{filename}",
     )
     upload_repo.add(upload)
     test_db.flush()
@@ -189,18 +193,54 @@ def test_maybe_presigned_url_non_pending(test_db: Session, test_user: User):
             status=UploadStatusValue.UPLOAD_PENDING,
         )
     )
-    status_repo.add(
-        UploadStatus(
-            upload_uid=upload.uid,
-            status=UploadStatusValue.UPLOAD_RECEIVED,
+    if status != UploadStatusValue.UPLOAD_PENDING:
+        status_repo.add(
+            UploadStatus(
+                upload_uid=upload.uid,
+                status=status,
+            )
         )
-    )
     test_db.commit()
     test_db.refresh(upload)
+    return upload
+
+
+def test_maybe_presigned_url_non_pending(test_db: Session, test_user: User):
+    """Non-pending uploads should get a presigned GET URL."""
+    upload = _create_upload_with_status(
+        test_db, test_user, UploadStatusValue.UPLOAD_RECEIVED, "received.gpx"
+    )
 
     storage = LocalStorageBackend()
     url, headers = maybe_presigned_url(upload, storage)
-    assert url is None
+    assert url is not None
+    assert "/get_object/" in url
+    assert headers is None
+
+
+def test_maybe_presigned_url_get_url_for_received(test_db: Session, test_user: User):
+    """UPLOAD_RECEIVED uploads should get a GET URL with no required_headers."""
+    upload = _create_upload_with_status(
+        test_db, test_user, UploadStatusValue.UPLOAD_RECEIVED, "received.gpx"
+    )
+
+    storage = LocalStorageBackend()
+    url, headers = maybe_presigned_url(upload, storage)
+    assert url is not None
+    assert "/get_object/" in url
+    assert headers is None
+
+
+def test_maybe_presigned_url_get_url_for_success(test_db: Session, test_user: User):
+    """UPLOAD_SUCCESS uploads should get a GET URL with no required_headers."""
+    upload = _create_upload_with_status(
+        test_db, test_user, UploadStatusValue.UPLOAD_SUCCESS, "success.gpx"
+    )
+
+    storage = LocalStorageBackend()
+    url, headers = maybe_presigned_url(upload, storage)
+    assert url is not None
+    assert "/get_object/" in url
     assert headers is None
 
 

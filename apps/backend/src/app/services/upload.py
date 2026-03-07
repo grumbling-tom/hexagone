@@ -2,6 +2,7 @@
 
 import uuid
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 
 from sqlalchemy.orm import Session as DBSession
 
@@ -20,9 +21,6 @@ from src.app.utils import PaginatedResult, SortOrder, get_logger
 
 logger = get_logger(__name__)
 
-GPX_CONTENT_TYPE = "application/gpx+xml"
-PRESIGNED_URL_WINDOW_MINUTES = 5
-
 
 def maybe_presigned_url(
     upload: Upload,
@@ -31,31 +29,36 @@ def maybe_presigned_url(
     """Conditionally generate a presigned URL for an upload.
 
     Returns (presigned_url, required_headers) or (None, None).
+    - UPLOAD_PENDING + recent: PUT URL with required headers
+    - UPLOAD_PENDING + old: (None, None)
+    - Any other status: GET URL with no required headers
     """
     if upload.current_status != UploadStatusValue.UPLOAD_PENDING:
-        return None, None
+        # TODO: FE client should cache presigned GET URLs with a TTL
+        url, _ = storage.generate_presigned_url(
+            key=Path(upload.s3_key),
+            method="get_object",
+            expires_in=settings.PRESIGNED_GET_URL_EXPIRY_SECONDS,
+        )
+        return url, None
 
-    cutoff = datetime.now(UTC) - timedelta(minutes=PRESIGNED_URL_WINDOW_MINUTES)
+    cutoff = datetime.now(UTC) - timedelta(
+        seconds=settings.PRESIGNED_PUT_URL_EXPIRY_SECONDS
+    )
     created_at = upload.created_at
     if created_at.tzinfo is None:
         created_at = created_at.replace(tzinfo=UTC)
     if created_at < cutoff:
         return None, None
 
-    url = storage.generate_presigned_put_url(
-        key=upload.s3_key,
-        content_type=GPX_CONTENT_TYPE,
+    url, headers = storage.generate_presigned_url(
+        key=Path(upload.s3_key),
+        method="put_object",
+        expires_in=settings.PRESIGNED_PUT_URL_EXPIRY_SECONDS,
         content_length=upload.file_size,
-        expires_in=settings.PRESIGNED_URL_EXPIRY_SECONDS,
+        # Only GPX file uploads are permitted at the moment.
+        content_type="application/gpx+xml",
     )
-    headers = {
-        "Content-Length": str(upload.file_size),
-        "Content-Type": GPX_CONTENT_TYPE,
-        "Content-Disposition": f'attachment; filename="{upload.original_filename}"',
-        # TODO: Consider adding arbitrary metadata support in the future,
-        # ensuring keys are  are lowercase and prefixed with 'x-amz-meta-'
-        # **{f"x-amz-meta-{k.lower()}": v for k, v in (file_metadata or {}).items()},
-    }
     return url, headers
 
 

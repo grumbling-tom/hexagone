@@ -2,7 +2,8 @@
 
 import uuid
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING
+from pathlib import Path
+from typing import TYPE_CHECKING, Literal
 
 import boto3
 
@@ -16,23 +17,26 @@ class StorageBackend(ABC):
     """Abstract storage backend for file operations."""
 
     @abstractmethod
-    def generate_presigned_put_url(
+    def generate_presigned_url(
         self,
-        key: str,
-        content_type: str,
-        content_length: int,
+        key: Path,
+        method: Literal["get_object", "put_object"],
         expires_in: int,
-    ) -> str:
-        """Generate a presigned PUT URL for uploading a file.
+        content_type: str | None = None,
+        content_length: int | None = None,
+        **file_metadata: str,
+    ) -> tuple[str, dict[str, str] | None]:
+        """Generate a presigned URL for uploading or downloading a file.
 
         Args:
             key: Object key in the bucket.
-            content_type: MIME type of the file.
-            content_length: Expected file size in bytes.
+            method: S3 operation ("get_object" or "put_object").
             expires_in: URL expiry time in seconds.
+            content_type: MIME type of the file (required for put_object).
+            content_length: Expected file size in bytes (required for put_object).
 
         Returns:
-            Presigned PUT URL string.
+            Presigned URL string.
         """
 
     @abstractmethod
@@ -55,25 +59,57 @@ class S3StorageBackend(StorageBackend):
             "s3", region_name=settings.GPX_UPLOAD_REGION
         )
 
-    def generate_presigned_put_url(
+    def generate_presigned_url(
         self,
-        key: str,
-        content_type: str,
-        content_length: int,
+        key: Path,
+        method: Literal["get_object", "put_object"],
         expires_in: int,
-    ) -> str:
-        """Generate a presigned S3 PUT URL with content-length condition."""
+        content_type: str | None = None,
+        content_length: int | None = None,
+        **file_metadata: str,
+    ) -> tuple[str, dict[str, str] | None]:
+        """Generate a presigned S3 URL for GET or PUT."""
+        if method == "get_object":
+            url = self._client.generate_presigned_url(
+                "get_object",
+                Params={
+                    "Bucket": settings.GPX_UPLOAD_BUCKET,
+                    "Key": key,
+                },
+                ExpiresIn=expires_in,
+            )
+            return url, None
+
+        if content_type is None:
+            msg = "content_type is required for put_object presigned URLs"
+            raise ValueError(msg)
+
+        if content_length is None:
+            msg = "content_length is required for put_object presigned URLs"
+            raise ValueError(msg)
+
+        params: dict[str, str | dict[str, str]] = {
+            "Bucket": settings.GPX_UPLOAD_BUCKET,
+            "Key": str(key),
+            "ContentType": content_type,
+            "ContentLength": str(content_length),
+            "ContentDisposition": f'attachment; filename="{key.name}"',
+            "Metadata": file_metadata,
+        }
         url: str = self._client.generate_presigned_url(
-            "put_object",
-            Params={
-                "Bucket": settings.GPX_UPLOAD_BUCKET,
-                "Key": key,
-                "ContentType": content_type,
-                "ContentLength": content_length,
-            },
+            method,
+            Params=params,
             ExpiresIn=expires_in,
         )
-        return url
+        headers: dict[str, str] = {
+            "Content-Length": params["ContentLength"],
+            "Content-Type": params["ContentType"],
+            "Content-Disposition": params["ContentDisposition"],
+            # Ensure metadata keys are  are lowercase and prefixed with 'x-amz-meta-'
+            # TODO: Fix '"dict[str, str]" is not assignable to "str'
+            **{f"x-amz-meta-{k.lower()}": v for k, v in (file_metadata or {}).items()},  #  type: ignore
+        }
+        return url, headers
 
     def get_object(self, key: str) -> bytes:
         """Retrieve an object from S3."""
@@ -88,15 +124,26 @@ class S3StorageBackend(StorageBackend):
 class LocalStorageBackend(StorageBackend):
     """Local filesystem storage for development."""
 
-    def generate_presigned_put_url(
+    def generate_presigned_url(
         self,
-        key: str,
-        content_type: str,  # noqa: ARG002
-        content_length: int,  # noqa: ARG002
+        key: Path,
+        method: Literal["get_object", "put_object"],
         expires_in: int,  # noqa: ARG002
-    ) -> str:
+        content_type: str | None = None,
+        content_length: int | None = None,
+        **file_metadata: str,  # noqa: ARG002
+    ) -> tuple[str, dict[str, str] | None]:
         """Generate a fake presigned URL for local development."""
-        return f"http://localhost:9000/fake-presigned/{key}?token={uuid.uuid4()}"
+        url = (
+            f"http://localhost:9000/fake-presigned/{method}/{key}?token={uuid.uuid4()}"
+        )
+        headers = {
+            "Content-Length": str(content_length)
+            if content_length is not None
+            else "0",
+            "Content-Type": content_type or "application/octet-stream",
+        }
+        return url, headers
 
     def get_object(self, key: str) -> bytes:
         """Read from local filesystem (not implemented for dev)."""

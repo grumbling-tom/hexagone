@@ -82,7 +82,7 @@ def test_list_uploads_with_received_status(
     data = response.json()
     assert len(data["items"]) == 1
     assert data["items"][0]["current_status"] == "UPLOAD_RECEIVED"
-    assert data["items"][0]["presigned_url"] is None
+    assert data["items"][0]["presigned_url"] is not None
 
 
 def test_list_uploads_unauthenticated(unauthenticated_client: TestClient):

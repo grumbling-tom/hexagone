@@ -29,6 +29,8 @@ class Settings(BaseSettings):
     GPX_UPLOAD_BUCKET: str = "hexagone-gpx-uploads"
     GPX_UPLOAD_REGION: str = "eu-west-2"
     PRESIGNED_URL_EXPIRY_SECONDS: int = 300
+    PRESIGNED_GET_URL_EXPIRY_SECONDS: int = 60 * 60  # 1 hour
+    PRESIGNED_PUT_URL_EXPIRY_SECONDS: int = 5 * 60  # 5 minutes
     GIT_SHA: str = "unknown"
 
     @property
