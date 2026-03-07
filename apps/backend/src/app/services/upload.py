@@ -115,7 +115,7 @@ def list_uploads(
     user: User,
     page_size: int = settings.DEFAULT_PAGE_SIZE,
     cursor: str | None = None,
-    statuses: list[str] | None = None,
+    statuses: list[UploadStatusValue] | None = None,
 ) -> PaginatedResult[Upload]:
     """List uploads for the authenticated user, filtered by status.
 

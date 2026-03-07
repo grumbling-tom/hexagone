@@ -98,16 +98,12 @@ def list_uploads(
     params: Annotated[ListUploadsParams, Query()],
 ) -> PaginatedResult[UploadResponse]:
     """List the authenticated user's uploads, filtered by status."""
-    statuses: list[str] | None = None
-    if params.statuses is not None:
-        statuses = [s.value for s in params.statuses]
-
     result = list_uploads_service(
         db=db,
         user=user,
         page_size=params.page_size,
         cursor=params.cursor,
-        statuses=statuses,
+        statuses=params.statuses,
     )
 
     return PaginatedResult(
