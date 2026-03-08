@@ -45,6 +45,12 @@ deploy-db-migrate:
 		--region $(AWS_REGION) \
 		/dev/stdout
 
+## wait: Wait for the db-ops Lambda to be updated before running migrations
+.PHONY: wait
+wait:
+	@echo "Waiting for db-ops lambda function code update..."
+	@sleep 5
+
 ## deploy: Deploy both frontend and backend
 .PHONY: deploy
-deploy: deploy-frontend deploy-backend deploy-db-migrate
+deploy: deploy-frontend deploy-backend wait deploy-db-migrate
