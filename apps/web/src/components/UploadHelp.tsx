@@ -11,8 +11,9 @@ export default function UploadHelp({ className = "" }: UploadHelpProps) {
       <details className="upload-help__accordion">
         <summary className="upload-help__summary">What is a GPX file?</summary>
         <p className="upload-help__text">
-          GPS track data from your activities, including coordinates, elevation,
-          and timestamps.
+          A GPX file (GPS Exchange Format) is a standard format for storing GPS
+          data. It is commonly used for sharing and analyzing outdoor activities
+          like running, cycling, and hiking.
         </p>
       </details>
       <details className="upload-help__accordion">
