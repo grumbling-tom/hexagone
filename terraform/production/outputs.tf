@@ -32,3 +32,13 @@ output "db_ops_lambda_function_name" {
   description = "DB Ops Lambda function name"
   value       = aws_lambda_function.db_ops.function_name
 }
+
+output "upload_processor_lambda_function_name" {
+  description = "Upload Processor Lambda function name"
+  value       = aws_lambda_function.upload_processor.function_name
+}
+
+output "uploads_s3_bucket_name" {
+  description = "S3 bucket name for GPX uploads"
+  value       = aws_s3_bucket.uploads.id
+}

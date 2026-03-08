@@ -30,6 +30,10 @@ deploy-backend:
 		--function-name hexagone-db-ops \
 		--image-uri "$(ECR_URL):$(IMAGE_TAG)" \
 		--region $(AWS_REGION)
+	aws lambda update-function-code \
+		--function-name hexagone-upload-processor \
+		--image-uri "$(ECR_URL):$(IMAGE_TAG)" \
+		--region $(AWS_REGION)
 	@echo "Deployed backend image: $(ECR_URL):$(IMAGE_TAG)"
 
 ## deploy-db-migrate: Run database migrations via the db-ops Lambda
