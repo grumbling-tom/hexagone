@@ -74,6 +74,26 @@ export default function UploadList() {
   const [sortOrder, setSortOrder] = useState<SortOrder>(SortOrder.desc);
   const queryClient = useQueryClient();
 
+  const [tooltipPos, setTooltipPos] = useState<{
+    top: number;
+    left: number;
+  } | null>(null);
+  const infoIconRef = useRef<HTMLSpanElement>(null);
+
+  const showTooltip = () => {
+    if (infoIconRef.current) {
+      const rect = infoIconRef.current.getBoundingClientRect();
+      setTooltipPos({
+        top: rect.bottom + 8,
+        left: rect.left + rect.width / 2,
+      });
+    }
+  };
+
+  const hideTooltip = () => {
+    setTooltipPos(null);
+  };
+
   const [refreshMessage, setRefreshMessage] = useState<string | null>(null);
   const snapshotRef = useRef<string | null>(null);
   const refreshingRef = useRef(false);
@@ -225,9 +245,31 @@ export default function UploadList() {
                 <th className="upload-list__th">
                   <span className="upload-list__th-with-info">
                     Status
-                    <span className="upload-list__info">
-                      <span className="upload-list__info-icon">i</span>
-                      <span className="upload-list__info-tooltip">
+                    <span
+                      role="note"
+                      className="upload-list__info"
+                      onMouseEnter={showTooltip}
+                      onMouseLeave={hideTooltip}
+                    >
+                      <span
+                        ref={infoIconRef}
+                        className="upload-list__info-icon"
+                      >
+                        i
+                      </span>
+                      <span
+                        className="upload-list__info-tooltip"
+                        style={
+                          tooltipPos
+                            ? {
+                                display: "flex",
+                                top: tooltipPos.top,
+                                left: tooltipPos.left,
+                                transform: "translateX(-50%)",
+                              }
+                            : undefined
+                        }
+                      >
                         <span className="upload-list__info-row">
                           Larger GPX files can take a little while to process.
                           <br />
