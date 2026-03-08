@@ -173,9 +173,10 @@ resource "aws_lambda_function" "backend" {
 
   environment {
     variables = {
-      ENV                = "PROD"
-      DATABASE_URL       = local.DATABASE_URL
-      HEXAGONE_S3_BUCKET = aws_s3_bucket.uploads.id
+      ENV                 = "PROD"
+      DATABASE_URL        = local.DATABASE_URL
+      HEXAGONE_S3_BUCKET  = aws_s3_bucket.uploads.id
+      HEXAGONE_AWS_REGION = data.aws_region.current.name
     }
   }
 }
@@ -298,9 +299,10 @@ resource "aws_lambda_function" "upload_processor" {
 
   environment {
     variables = {
-      ENV                = "PROD"
-      DATABASE_URL       = local.DATABASE_URL
-      HEXAGONE_S3_BUCKET = aws_s3_bucket.uploads.id
+      ENV                 = "PROD"
+      DATABASE_URL        = local.DATABASE_URL
+      HEXAGONE_S3_BUCKET  = aws_s3_bucket.uploads.id
+      HEXAGONE_AWS_REGION = data.aws_region.current.name
     }
   }
 

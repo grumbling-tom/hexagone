@@ -29,9 +29,9 @@ class Settings(BaseSettings):
 
     AWS_ACCESS_KEY_ID: str = ""
     AWS_SECRET_ACCESS_KEY: str = ""
+    HEXAGONE_AWS_REGION: str = "eu-west-1"
     HEXAGONE_S3_BUCKET: str = "hexagone-gpx-uploads"
     HEXAGONE_S3_ENDPOINT_URL: str | None = None
-    HEXAGONE_AWS_REGION: str = "eu-west-2"
     PRESIGNED_URL_EXPIRY_SECONDS: int = 300
     PRESIGNED_GET_URL_EXPIRY_SECONDS: int = 60 * 60  # 1 hour
     PRESIGNED_PUT_URL_EXPIRY_SECONDS: int = 5 * 60  # 5 minutes
@@ -123,8 +123,7 @@ class Settings(BaseSettings):
         ):
             msg = (
                 "AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY must be set "
-                "in DEV (for LocalStack). In production, the Lambda IAM role "
-                "provides credentials automatically."
+                "in DEV (for LocalStack)."
             )
             raise ValueError(msg)
 

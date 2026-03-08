@@ -7,9 +7,13 @@ from typing import TYPE_CHECKING, Literal
 import boto3
 
 from src.app.settings import settings
+from src.app.utils import get_logger
 
 if TYPE_CHECKING:
     from mypy_boto3_s3 import S3Client
+
+
+logger = get_logger(__name__)
 
 
 class StorageBackend(ABC):
@@ -55,12 +59,25 @@ class S3StorageBackend(StorageBackend):
     """S3-backed storage using boto3."""
 
     def __init__(self) -> None:
+        kwargs: dict[str, str | None] = {
+            "region_name": settings.HEXAGONE_AWS_REGION,
+        }
+
+        if settings.HEXAGONE_S3_ENDPOINT_URL:
+            # Use explicit credentials and endpoint for LocalStack (dev).
+            kwargs["endpoint_url"] = settings.HEXAGONE_S3_ENDPOINT_URL
+            kwargs["aws_access_key_id"] = settings.AWS_ACCESS_KEY_ID
+            kwargs["aws_secret_access_key"] = settings.AWS_SECRET_ACCESS_KEY
+        else:
+            # Use the region-specific endpoint so pre-signed URLs contain the
+            # correct hostname and don't trigger S3 TemporaryRedirect responses.
+            kwargs["endpoint_url"] = (
+                f"https://s3.{settings.HEXAGONE_AWS_REGION}.amazonaws.com"
+            )
+
         self._client: S3Client = boto3.client(  # pyright: ignore[reportUnknownMemberType]
             "s3",
-            region_name=settings.HEXAGONE_AWS_REGION,
-            endpoint_url=settings.HEXAGONE_S3_ENDPOINT_URL,
-            aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
-            aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
+            **{k: v for k, v in kwargs.items() if v},  # type: ignore
         )
 
     def generate_presigned_url(  # noqa: PLR0913
