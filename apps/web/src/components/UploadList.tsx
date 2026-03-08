@@ -39,8 +39,26 @@ function StatusBadge({ status }: { status: string }) {
   return <span className={className}>{info.label}</span>;
 }
 
+function ordinal(day: number): string {
+  if (day >= 11 && day <= 13) return `${day}th`;
+  switch (day % 10) {
+    case 1:
+      return `${day}st`;
+    case 2:
+      return `${day}nd`;
+    case 3:
+      return `${day}rd`;
+    default:
+      return `${day}th`;
+  }
+}
+
 function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString();
+  const date = new Date(iso);
+  const day = ordinal(date.getDate());
+  const month = date.toLocaleDateString("en-GB", { month: "long" });
+  const year = date.getFullYear();
+  return `${day} ${month} ${year}`;
 }
 
 export default function UploadList() {
@@ -105,27 +123,8 @@ export default function UploadList() {
     });
   };
 
-  if (isLoading) {
-    return <div className="upload-list__message">Loading…</div>;
-  }
-
-  if (isError) {
-    return (
-      <div className="upload-list__message">
-        Failed to load uploads.{" "}
-        <button
-          type="button"
-          className="upload-list__refresh"
-          onClick={handleRefresh}
-        >
-          Retry
-        </button>
-      </div>
-    );
-  }
-
   const isFirstPage = cursorHistory.length === 0 && !cursor;
-  const isEmpty = isFirstPage && data?.items.length === 0;
+  const isEmpty = isFirstPage && !isLoading && data?.items.length === 0;
 
   return (
     <>
@@ -190,7 +189,25 @@ export default function UploadList() {
               </tr>
             </thead>
             <tbody>
-              {isEmpty ? (
+              {isLoading ? (
+                <tr>
+                  <td
+                    className="upload-list__td upload-list__td--empty"
+                    colSpan={4}
+                  >
+                    Loading…
+                  </td>
+                </tr>
+              ) : isError ? (
+                <tr>
+                  <td
+                    className="upload-list__td upload-list__td--empty"
+                    colSpan={4}
+                  >
+                    Failed to load uploads.
+                  </td>
+                </tr>
+              ) : isEmpty ? (
                 <tr>
                   <td
                     className="upload-list__td upload-list__td--empty"
