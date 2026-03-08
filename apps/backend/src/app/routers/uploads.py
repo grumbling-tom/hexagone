@@ -2,6 +2,7 @@
 
 from collections.abc import Callable
 from datetime import datetime
+from enum import StrEnum
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Query
@@ -19,7 +20,7 @@ from src.app.services.upload import create_upload as create_upload_service
 from src.app.services.upload import list_uploads as list_uploads_service
 from src.app.services.upload import maybe_presigned_url
 from src.app.settings import settings
-from src.app.utils import BaseSchema, PaginatedResult
+from src.app.utils import BaseSchema, PaginatedResult, SortOrder
 
 router = APIRouter()
 
@@ -60,6 +61,13 @@ class CreateUploadRequest(BaseSchema):
     file_size_bytes: int
 
 
+class UploadSortField(StrEnum):
+    """Allowed sort fields for upload listing."""
+
+    created_at = "created_at"
+    original_filename = "original_filename"
+
+
 class ListUploadsParams(BaseSchema):
     """Query parameters for listing uploads."""
 
@@ -70,6 +78,8 @@ class ListUploadsParams(BaseSchema):
     )
     cursor: str | None = Field(default=None)
     statuses: list[UploadStatusValue] | None = Field(default=None)
+    sort_field: UploadSortField = Field(default=UploadSortField.created_at)
+    sort_order: SortOrder = Field(default=SortOrder.DESC)
 
 
 @router.post("/uploads", status_code=201, operation_id="createUpload")
@@ -103,6 +113,8 @@ def list_uploads(
         page_size=params.page_size,
         cursor=params.cursor,
         statuses=params.statuses,
+        sort_field=params.sort_field.value,
+        sort_order=params.sort_order,
     )
 
     return PaginatedResult(

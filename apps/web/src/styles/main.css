@@ -266,6 +266,13 @@ a {
 .upload-list__th {
   font-family: var(--font-heading);
 }
+.upload-list__th--sortable {
+  cursor: pointer;
+  user-select: none;
+}
+.upload-list__th--sortable:hover {
+  background-color: rgba(0, 0, 0, 0.03);
+}
 .upload-list__link {
   color: var(--color-link);
 }

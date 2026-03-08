@@ -4,7 +4,11 @@ import type {
   PaginatedResultUploadResponse,
   UploadResponse,
 } from "@/__generated__/backend-client/backend.schemas";
-import { UploadStatusValue } from "@/__generated__/backend-client/backend.schemas";
+import {
+  SortOrder,
+  UploadSortField,
+  UploadStatusValue,
+} from "@/__generated__/backend-client/backend.schemas";
 import {
   getListUploadsQueryKey,
   useListUploads,
@@ -64,6 +68,10 @@ function formatDate(iso: string): string {
 export default function UploadList() {
   const [cursor, setCursor] = useState<string | null>(null);
   const [cursorHistory, setCursorHistory] = useState<string[]>([]);
+  const [sortField, setSortField] = useState<UploadSortField>(
+    UploadSortField.created_at,
+  );
+  const [sortOrder, setSortOrder] = useState<SortOrder>(SortOrder.desc);
   const queryClient = useQueryClient();
 
   const [refreshMessage, setRefreshMessage] = useState<string | null>(null);
@@ -73,7 +81,27 @@ export default function UploadList() {
   const { data, isLoading, isError, isFetching } = useListUploads({
     page_size: 10,
     cursor: cursor ?? undefined,
+    sort_field: sortField,
+    sort_order: sortOrder,
   });
+
+  const handleSort = (field: UploadSortField) => {
+    if (field === sortField) {
+      setSortOrder((prev) =>
+        prev === SortOrder.asc ? SortOrder.desc : SortOrder.asc,
+      );
+    } else {
+      setSortField(field);
+      setSortOrder(SortOrder.asc);
+    }
+    setCursor(null);
+    setCursorHistory([]);
+  };
+
+  const sortIndicator = (field: UploadSortField) => {
+    if (field !== sortField) return "";
+    return sortOrder === SortOrder.asc ? " \u2191" : " \u2193";
+  };
 
   const dataFingerprint = useCallback(
     (d: PaginatedResultUploadResponse) =>
@@ -182,8 +210,18 @@ export default function UploadList() {
           <table className="upload-list__table">
             <thead>
               <tr>
-                <th className="upload-list__th">Upload date</th>
-                <th className="upload-list__th">Filename</th>
+                <th
+                  className="upload-list__th upload-list__th--sortable"
+                  onClick={() => handleSort(UploadSortField.created_at)}
+                >
+                  Upload date{sortIndicator(UploadSortField.created_at)}
+                </th>
+                <th
+                  className="upload-list__th upload-list__th--sortable"
+                  onClick={() => handleSort(UploadSortField.original_filename)}
+                >
+                  Filename{sortIndicator(UploadSortField.original_filename)}
+                </th>
                 <th className="upload-list__th">Status</th>
                 <th className="upload-list__th">Download</th>
               </tr>
