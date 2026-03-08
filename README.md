@@ -67,6 +67,7 @@ docker compose up localstack
 ```
 
 The init script (`localstack/init-aws.sh`) runs automatically and:
+
 - Creates the `hexagone-gpx-uploads` S3 bucket
 - Deploys the GPX processing Lambda (`src/app/handlers/gpx.py`) with hot-reload
 - Wires the `s3:ObjectCreated` notification to trigger the Lambda
@@ -84,6 +85,18 @@ The dev server starts at `http://localhost:8000/`:
 
 - `/health` — Health check endpoint
 - `/docs` — Interactive API docs (Swagger UI)
+
+## Upload Architecture
+
+The GPX upload flow uses presigned S3 URLs and event-driven processing:
+
+![Upload Architecture](docs/upload-architecture.excalidraw)
+
+1. Browser requests a presigned upload URL via `POST /api/v1/uploads`
+2. Backend Lambda generates a presigned PUT URL and returns it with required headers
+3. Browser uploads the `.gpx` file directly to S3 using the presigned URL
+4. S3 `ObjectCreated` event triggers the Upload Processor Lambda
+5. Processor downloads the file, parses the GPX, and updates the status in PostgreSQL
 
 ## Project Structure
 
