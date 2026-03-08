@@ -118,12 +118,13 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def check_aws_credentials(self: Settings) -> Settings:
-        if self.ENV != "TEST" and (
+        if self.ENV == "DEV" and (
             not self.AWS_ACCESS_KEY_ID or not self.AWS_SECRET_ACCESS_KEY
         ):
             msg = (
                 "AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY must be set "
-                "in all environments except TEST."
+                "in DEV (for LocalStack). In production, the Lambda IAM role "
+                "provides credentials automatically."
             )
             raise ValueError(msg)
 
