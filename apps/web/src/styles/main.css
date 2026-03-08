@@ -273,6 +273,57 @@ a {
 .upload-list__th--sortable:hover {
   background-color: rgba(0, 0, 0, 0.03);
 }
+.upload-list__th-with-info {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+.upload-list__info {
+  position: relative;
+  display: inline-flex;
+}
+.upload-list__info-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.4em;
+  height: 1.4em;
+  border: var(--sketch-border);
+  border-radius: 50%;
+  font-size: 0.75rem;
+  font-style: italic;
+  font-family: var(--font-body);
+  cursor: help;
+}
+.upload-list__info-tooltip {
+  display: none;
+  flex-direction: column;
+  gap: var(--space-xs);
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  left: 50%;
+  transform: translateX(-50%);
+  min-width: 16rem;
+  padding: var(--space-xs) var(--space-sm);
+  background: var(--color-bg);
+  border: var(--sketch-border);
+  border-radius: var(--sketch-radius);
+  box-shadow: var(--sketch-shadow);
+  font-family: var(--font-body);
+  font-size: 0.8rem;
+  font-weight: normal;
+  line-height: 1.5;
+  white-space: nowrap;
+  z-index: 10;
+}
+.upload-list__info-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+.upload-list__info:hover .upload-list__info-tooltip {
+  display: flex;
+}
 .upload-list__link {
   color: var(--color-link);
 }

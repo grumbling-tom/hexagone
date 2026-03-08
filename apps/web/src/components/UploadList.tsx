@@ -222,7 +222,39 @@ export default function UploadList() {
                 >
                   Filename{sortIndicator(UploadSortField.original_filename)}
                 </th>
-                <th className="upload-list__th">Status</th>
+                <th className="upload-list__th">
+                  <span className="upload-list__th-with-info">
+                    Status
+                    <span className="upload-list__info">
+                      <span className="upload-list__info-icon">i</span>
+                      <span className="upload-list__info-tooltip">
+                        <span className="upload-list__info-row">
+                          Larger GPX files can take a little while to process.
+                          <br />
+                          This column indicates each upload's current status.
+                        </span>
+                        <span className="upload-list__info-row">
+                          <StatusBadge
+                            status={UploadStatusValue.UPLOAD_RECEIVED}
+                          />
+                          File received, being analysed
+                        </span>
+                        <span className="upload-list__info-row">
+                          <StatusBadge
+                            status={UploadStatusValue.UPLOAD_SUCCESS}
+                          />
+                          Analysis complete
+                        </span>
+                        <span className="upload-list__info-row">
+                          <StatusBadge
+                            status={UploadStatusValue.UPLOAD_INVALID}
+                          />
+                          File could not be processed
+                        </span>
+                      </span>
+                    </span>
+                  </span>
+                </th>
                 <th className="upload-list__th">Download</th>
               </tr>
             </thead>
