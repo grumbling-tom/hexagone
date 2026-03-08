@@ -27,8 +27,8 @@ class Settings(BaseSettings):
     SESSION_COOKIE_NAME: str = "sessionid"
     SESSION_EXPIRY_HOURS: int = 24
 
-    AWS_ACCESS_KEY_ID: str | None = None
-    AWS_SECRET_ACCESS_KEY: str | None = None
+    AWS_ACCESS_KEY_ID: str = ""
+    AWS_SECRET_ACCESS_KEY: str = ""
     HEXAGONE_S3_BUCKET: str = "hexagone-gpx-uploads"
     HEXAGONE_S3_ENDPOINT_URL: str | None = None
     HEXAGONE_AWS_REGION: str = "eu-west-2"
@@ -118,13 +118,12 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def check_aws_credentials(self: Settings) -> Settings:
-        if self.ENV in ("PROD", "STAGING") and (
-            self.AWS_ACCESS_KEY_ID or self.AWS_SECRET_ACCESS_KEY
+        if self.ENV != "TEST" and (
+            not self.AWS_ACCESS_KEY_ID or not self.AWS_SECRET_ACCESS_KEY
         ):
             msg = (
-                "AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY should not "
-                "be set in PROD/STAGING environments. "
-                "Use IAM roles to provide AWS credentials."
+                "AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY must be set "
+                "in all environments except TEST."
             )
             raise ValueError(msg)
 
