@@ -189,6 +189,16 @@ Infrastructure is managed with Terraform in `terraform/production/`. See [`terra
    eval $(terraform -chdir=terraform/production output -raw db_connection_command)
    ```
 
+### DBT credentials
+
+To set up environment variables for dbt (requires Tailscale and AWS auth from above):
+
+```bash
+eval $(bash scripts/dbt-env.sh)
+```
+
+This exports `DBT_HOST`, `DBT_PORT`, `DBT_USER`, `DBT_PASSWORD`, and `DBT_DBNAME` from Terraform outputs. The variables persist for the rest of your shell session.
+
 ### How it works
 
 - The Tailscale EC2 instance (`terraform/production/tailscale.tf`) runs in a public subnet with IP forwarding enabled

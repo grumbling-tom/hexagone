@@ -54,6 +54,26 @@ output "db_connection_command" {
   sensitive   = true
 }
 
+output "database_host" {
+  description = "RDS instance endpoint hostname"
+  value       = aws_db_instance.main.address
+}
+
+output "database_port" {
+  description = "RDS instance port"
+  value       = aws_db_instance.main.port
+}
+
+output "database_user" {
+  description = "RDS master username"
+  value       = aws_db_instance.main.username
+}
+
+output "database_name" {
+  description = "RDS database name"
+  value       = aws_db_instance.main.db_name
+}
+
 output "db_password" {
   description = "Database password (sensitive)"
   value       = random_password.db_password.result
