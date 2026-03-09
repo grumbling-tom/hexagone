@@ -9,3 +9,9 @@ variable "lambda_image_tag" {
   type        = string
   default     = "latest"
 }
+
+variable "tailscale_auth_key" {
+  description = "Tailscale pre-authentication key for the subnet router"
+  type        = string
+  sensitive   = true
+}
