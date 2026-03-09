@@ -13,15 +13,22 @@ deploy-frontend:
 		--distribution-id $(call tf_output,cloudfront_distribution_id) \
 		--paths "/*"
 
-## deploy-backend: Build the Docker image, push to ECR, and update Lambda
-.PHONY: deploy-backend
-deploy-backend:
+## build-backend: Build the backend Docker image and push to ECR
+.PHONY: build-backend
+build-backend:
 	$(eval ECR_URL := $(call tf_output,ecr_repository_url))
 	$(eval IMAGE_TAG := $(shell git rev-parse --short HEAD))
 	aws ecr get-login-password --region $(AWS_REGION) | docker login --username AWS --password-stdin "$(ECR_URL)"
 	cd apps/backend && docker build -f Dockerfile.lambda --platform linux/arm64 -t hexagone-backend:latest .
 	docker tag hexagone-backend:latest "$(ECR_URL):$(IMAGE_TAG)"
 	docker push "$(ECR_URL):$(IMAGE_TAG)"
+	@echo "Pushed backend image: $(ECR_URL):$(IMAGE_TAG)"
+
+## deploy-backend: Build the Docker image, push to ECR, and update Lambda
+.PHONY: deploy-backend
+deploy-backend: build-backend
+	$(eval ECR_URL := $(call tf_output,ecr_repository_url))
+	$(eval IMAGE_TAG := $(shell git rev-parse --short HEAD))
 	aws lambda update-function-code \
 		--function-name hexagone-backend \
 		--image-uri "$(ECR_URL):$(IMAGE_TAG)" \
