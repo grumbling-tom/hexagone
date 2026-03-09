@@ -2,8 +2,8 @@
 # A small EC2 instance that acts as a Tailscale subnet router, allowing
 # developers on the Tailscale network to reach the private RDS instance.
 
-data "aws_ssm_parameter" "al2023_arm64" {
-  name = "/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-arm64"
+data "aws_ssm_parameter" "al2023_x86_64" {
+  name = "/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64"
 }
 
 resource "aws_security_group" "tailscale" {
@@ -46,8 +46,8 @@ resource "aws_iam_instance_profile" "tailscale" {
 }
 
 resource "aws_instance" "tailscale" {
-  ami                    = data.aws_ssm_parameter.al2023_arm64.value
-  instance_type          = "t4g.nano"
+  ami                    = data.aws_ssm_parameter.al2023_x86_64.value
+  instance_type          = "t3.small"
   subnet_id              = aws_subnet.public[0].id
   vpc_security_group_ids = [aws_security_group.tailscale.id]
   iam_instance_profile   = aws_iam_instance_profile.tailscale.name
