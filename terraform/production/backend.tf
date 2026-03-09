@@ -179,6 +179,10 @@ resource "aws_lambda_function" "backend" {
       HEXAGONE_AWS_REGION = data.aws_region.current.name
     }
   }
+
+  lifecycle {
+    ignore_changes = [image_uri]
+  }
 }
 
 # ---------------------------------------------------------------------------
@@ -272,6 +276,10 @@ resource "aws_lambda_function" "db_ops" {
   image_config {
     command = ["src.app.handlers.db.handler"]
   }
+
+  lifecycle {
+    ignore_changes = [image_uri]
+  }
 }
 
 # ---------------------------------------------------------------------------
@@ -308,6 +316,10 @@ resource "aws_lambda_function" "upload_processor" {
 
   image_config {
     command = ["src.app.handlers.file_upload.handler"]
+  }
+
+  lifecycle {
+    ignore_changes = [image_uri]
   }
 }
 
