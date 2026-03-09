@@ -60,7 +60,7 @@
         "ecr:PutImage",
         "ecr:BatchGetImage"
       ],
-      "Resource": "arn:aws:ecr:eu-west-1:622831735167:repository/hexagone-backend"
+      "Resource": "arn:aws:ecr:eu-west-1:*:repository/hexagone-backend"
     },
     {
       "Sid": "ECRAuthorizationToken",

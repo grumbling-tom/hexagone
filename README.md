@@ -155,3 +155,43 @@ Infrastructure is managed with Terraform in `terraform/production/`. See [`terra
 | `make deploy-frontend` | Build frontend, sync to S3, invalidate CloudFront |
 | `make deploy-backend`  | Build Docker image, push to ECR, update Lambda    |
 | `make deploy`          | Deploy both frontend and backend                  |
+
+## Connecting to the Production Database
+
+1. [Install Tailscale](https://tailscale.com/download) and log in to the Hexagone tailnet
+2. Accept the advertised subnet routes:
+
+   ```bash
+   tailscale up --accept-routes
+   ```
+
+3. Install `psql` if you don't have it:
+
+   ```bash
+   brew install libpq
+   ```
+
+4. Authenticate against AWS:
+
+   ```bash
+   eval $(AWS_PROFILE=hexagone-local-dev AWS_ACCOUNT_ID=... scripts/assume-role.sh)
+   ```
+
+5. Fetch the DB password:
+
+   ```bash
+   terraform -chdir=terraform/production output -raw db_password | pbcopy
+   ```
+
+6. Connect using the Terraform output:
+
+   ```bash
+   eval $(terraform -chdir=terraform/production output -raw db_connection_command)
+   ```
+
+### How it works
+
+- The Tailscale EC2 instance (`terraform/production/tailscale.tf`) runs in a public subnet with IP forwarding enabled
+- It advertises the private subnet routes to the tailnet, so your machine can reach the RDS endpoint
+- The RDS security group allows inbound PostgreSQL (5432) from the Tailscale instance's security group
+- The Tailscale auth key expires after 90 days — see the rotation instructions at the top of `terraform/production/tailscale.tf`

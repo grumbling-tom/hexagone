@@ -53,3 +53,9 @@ output "db_connection_command" {
   value       = "psql \"postgresql://${aws_db_instance.main.username}@${aws_db_instance.main.address}:${aws_db_instance.main.port}/${aws_db_instance.main.db_name}\""
   sensitive   = true
 }
+
+output "db_password" {
+  description = "Database password (sensitive)"
+  value       = random_password.db_password.result
+  sensitive   = true
+}

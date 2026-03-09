@@ -1,6 +1,18 @@
 # Tailscale Subnet Router
 # A small EC2 instance that acts as a Tailscale subnet router, allowing
 # developers on the Tailscale network to reach the private RDS instance.
+#
+# --- Rotation (every ~60 days, before the 90-day auth key expires) ---
+#
+# 1. Generate a new auth key at https://login.tailscale.com/admin/settings/keys
+#    (reusable, ephemeral, with subnet router tag)
+# 2. Taint the instance and apply with the new key:
+#      terraform -chdir=terraform/production taint aws_instance.tailscale
+#      terraform -chdir=terraform/production apply -var="tailscale_auth_key=tskey-auth-..."
+# 3. Approve the subnet routes for the new node in the Tailscale admin console:
+#      https://login.tailscale.com/admin/machines
+# 4. Remove the old (offline) node from the Tailscale admin console
+# 5. Verify connectivity: nc -zv <rds-endpoint> 5432
 
 data "aws_ssm_parameter" "al2023_x86_64" {
   name = "/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64"
@@ -87,5 +99,9 @@ resource "aws_instance" "tailscale" {
 
   tags = {
     Name = "hexagone-tailscale-router"
+  }
+
+  lifecycle {
+    create_before_destroy = true
   }
 }
