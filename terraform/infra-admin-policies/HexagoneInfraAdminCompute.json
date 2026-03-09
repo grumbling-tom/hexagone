@@ -1,0 +1,111 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "Lambda",
+      "Effect": "Allow",
+      "Action": [
+        "lambda:CreateFunction",
+        "lambda:DeleteFunction",
+        "lambda:GetFunction",
+        "lambda:GetFunctionConfiguration",
+        "lambda:GetPolicy",
+        "lambda:ListVersionsByFunction",
+        "lambda:UpdateFunctionCode",
+        "lambda:UpdateFunctionConfiguration",
+        "lambda:AddPermission",
+        "lambda:RemovePermission",
+        "lambda:TagResource",
+        "lambda:UntagResource",
+        "lambda:ListTags",
+        "lambda:InvokeFunction"
+      ],
+      "Resource": "arn:aws:lambda:eu-west-1:*:function:hexagone-*"
+    },
+    {
+      "Sid": "APIGateway",
+      "Effect": "Allow",
+      "Action": [
+        "apigateway:DELETE",
+        "apigateway:GET",
+        "apigateway:PATCH",
+        "apigateway:POST",
+        "apigateway:PUT"
+      ],
+      "Resource": [
+        "arn:aws:apigateway:eu-west-1::/apis",
+        "arn:aws:apigateway:eu-west-1::/apis/*"
+      ]
+    },
+    {
+      "Sid": "ECR",
+      "Effect": "Allow",
+      "Action": [
+        "ecr:CreateRepository",
+        "ecr:DeleteRepository",
+        "ecr:DescribeRepositories",
+        "ecr:GetLifecyclePolicy",
+        "ecr:GetRepositoryPolicy",
+        "ecr:ListTagsForResource",
+        "ecr:PutImageScanningConfiguration",
+        "ecr:PutLifecyclePolicy",
+        "ecr:DeleteLifecyclePolicy",
+        "ecr:SetRepositoryPolicy",
+        "ecr:TagResource",
+        "ecr:UntagResource",
+        "ecr:InitiateLayerUpload",
+        "ecr:UploadLayerPart",
+        "ecr:CompleteLayerUpload",
+        "ecr:BatchCheckLayerAvailability",
+        "ecr:PutImage",
+        "ecr:BatchGetImage"
+      ],
+      "Resource": "arn:aws:ecr:eu-west-1:622831735167:repository/hexagone-backend"
+    },
+    {
+      "Sid": "ECRAuthorizationToken",
+      "Effect": "Allow",
+      "Action": "ecr:GetAuthorizationToken",
+      "Resource": "*"
+    },
+    {
+      "Sid": "CloudWatchLogs",
+      "Effect": "Allow",
+      "Action": [
+        "logs:CreateLogGroup",
+        "logs:DeleteLogGroup",
+        "logs:DescribeLogGroups",
+        "logs:ListTagsForResource",
+        "logs:PutRetentionPolicy",
+        "logs:TagResource",
+        "logs:UntagResource"
+      ],
+      "Resource": [
+        "arn:aws:logs:eu-west-1:*:log-group:/aws/lambda/hexagone-*",
+        "arn:aws:logs:eu-west-1:*:log-group:/aws/lambda/hexagone-*:*",
+        "arn:aws:logs:eu-west-1:*:log-group:/aws/apigateway/hexagone-backend",
+        "arn:aws:logs:eu-west-1:*:log-group:/aws/apigateway/hexagone-backend:*"
+      ]
+    },
+    {
+      "Sid": "CloudWatchLogsDescribe",
+      "Effect": "Allow",
+      "Action": "logs:DescribeLogGroups",
+      "Resource": "*"
+    },
+    {
+      "Sid": "APIGatewayLoggingSetup",
+      "Effect": "Allow",
+      "Action": [
+        "logs:CreateLogDelivery",
+        "logs:DeleteLogDelivery",
+        "logs:GetLogDelivery",
+        "logs:ListLogDeliveries",
+        "logs:PutResourcePolicy",
+        "logs:DescribeResourcePolicies",
+        "logs:UpdateLogDelivery"
+      ],
+      "Resource": "*"
+    }
+  ]
+}
