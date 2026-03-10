@@ -73,6 +73,9 @@ export default function UploadList() {
   const [sortOrder, setSortOrder] = useState<SortOrder>(SortOrder.desc);
   const queryClient = useQueryClient();
 
+  // TODO: No need for state here.
+  // Alternatives are CSS :hover tooltips (but they don't work on mobile)
+  // or a dedicated info icon that opens a tooltip on click.
   const [tooltipPos, setTooltipPos] = useState<{
     top: number;
     left: number;
@@ -188,14 +191,7 @@ export default function UploadList() {
           >
             <svg
               className={`upload-list__refresh-svg${isFetching ? " upload-list__refresh-svg--spinning" : ""}`}
-              width="20"
-              height="20"
               viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
             >
               <title>Refresh</title>
               <path d="M21 2v6h-6" />
