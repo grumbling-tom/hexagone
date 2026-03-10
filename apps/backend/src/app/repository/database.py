@@ -38,6 +38,7 @@ class BaseModel(DeclarativeBase):
     )
 
 
+@contextmanager
 def get_db() -> Generator[Session]:
     """Dependency function that provides a database session.
 
@@ -52,9 +53,8 @@ def get_db() -> Generator[Session]:
             def route(db: Session = Depends(get_db)):
                 ...
 
-        As context manager (wrap with contextmanager):
-            from contextlib import contextmanager
-            with contextmanager(get_db)() as db:
+        As context manager:
+            with get_db() as db:
                 ...
     """
     db = SessionLocal()
@@ -71,7 +71,7 @@ def check_database_health() -> bool:
         True if the database is healthy, False otherwise.
     """
     try:
-        with contextmanager(get_db)() as db:
+        with get_db() as db:
             db.execute(text("SELECT 1"))
     except OperationalError:
         logger.exception("database_health_check_failed")
