@@ -10,27 +10,27 @@ import { defineConfig } from "astro/config";
 // In production, the hosting provider needs an equivalent rewrite rule
 // (/app/* → /app/index.html).
 function spaFallback() {
-	return {
-		name: "spa-fallback",
-		configureServer(server) {
-			server.middlewares.use((req, _res, next) => {
-				if (req.url?.startsWith("/app") && !req.url.includes(".")) {
-					req.url = "/app";
-				}
-				next();
-			});
-		},
-	};
+  return {
+    name: "spa-fallback",
+    configureServer(server) {
+      server.middlewares.use((req, _res, next) => {
+        if (req.url?.startsWith("/app") && !req.url.includes(".")) {
+          req.url = "/app";
+        }
+        next();
+      });
+    },
+  };
 }
 
 export default defineConfig({
-	// Canonical production URL — used for sitemaps, canonical tags, etc.
-	site: "https://haxagone.com",
-	integrations: [react()],
-	vite: {
-		plugins: [spaFallback()],
-	},
-	// output defaults to "static" — plain HTML/JS/CSS, no server runtime.
-	// No `base` setting here: that would prefix *all* routes including "/".
-	// Instead, only React Router uses basename="/app" to scope the SPA.
+  // Canonical production URL — used for sitemaps, canonical tags, etc.
+  site: "https://haxagone.com",
+  integrations: [react()],
+  vite: {
+    plugins: [spaFallback()],
+  },
+  // output defaults to "static" — plain HTML/JS/CSS, no server runtime.
+  // No `base` setting here: that would prefix *all* routes including "/".
+  // Instead, only React Router uses basename="/app" to scope the SPA.
 });
