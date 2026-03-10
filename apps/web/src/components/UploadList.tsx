@@ -1,5 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import type {
   PaginatedResultUploadResponse,
   UploadResponse,
@@ -97,15 +97,14 @@ export default function UploadList() {
   };
 
   const [refreshMessage, setRefreshMessage] = useState<string | null>(null);
-  const snapshotRef = useRef<string | null>(null);
-  const refreshingRef = useRef(false);
 
-  const { data, isLoading, isError, isFetching } = useListUploads({
+  const queryParams = {
     page_size: 10,
     cursor: cursor ?? undefined,
     sort_field: sortField,
     sort_order: sortOrder,
-  });
+  };
+  const { data, isLoading, isError, isFetching } = useListUploads(queryParams);
 
   const handleSort = (field: UploadSortField) => {
     if (field === sortField) {
@@ -124,32 +123,21 @@ export default function UploadList() {
     return sortOrder === SortOrder.asc ? " \u2191" : " \u2193";
   };
 
-  const dataFingerprint = useCallback(
-    (d: PaginatedResultUploadResponse) =>
-      d.items.map((i) => `${i.uid}:${i.current_status}`).join(","),
-    [],
-  );
+  const dataFingerprint = (d: PaginatedResultUploadResponse) =>
+    d.items.map((i) => `${i.uid}:${i.current_status}`).join(",");
 
-  useEffect(() => {
-    if (refreshingRef.current && !isFetching && data) {
-      refreshingRef.current = false;
-      const current = dataFingerprint(data);
-      if (current === snapshotRef.current) {
-        setRefreshMessage("Already up to date.");
-      } else {
-        setRefreshMessage(null);
-      }
-      snapshotRef.current = null;
-    }
-  }, [isFetching, data, dataFingerprint]);
-
-  const handleRefresh = () => {
+  const handleRefresh = async () => {
     setRefreshMessage(null);
-    if (data) {
-      snapshotRef.current = dataFingerprint(data);
+    const before = data ? dataFingerprint(data) : null;
+    await queryClient.invalidateQueries({
+      queryKey: getListUploadsQueryKey(),
+    });
+    const after = queryClient.getQueryData<PaginatedResultUploadResponse>(
+      getListUploadsQueryKey(queryParams),
+    );
+    if (before && after && dataFingerprint(after) === before) {
+      setRefreshMessage("Already up to date.");
     }
-    refreshingRef.current = true;
-    queryClient.invalidateQueries({ queryKey: getListUploadsQueryKey() });
   };
 
   const handleUploadComplete = () => {
