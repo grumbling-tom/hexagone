@@ -12,7 +12,7 @@ from mypy_boto3_s3 import S3Client
 from sqlalchemy import StaticPool, create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
-from src.app.dependencies import get_db, get_storage_backend
+from src.app.dependencies import db_session, file_storage
 from src.app.main import app
 from src.app.repository import (
     BaseModel,
@@ -133,8 +133,8 @@ def client(test_db: Session, test_user: User) -> Generator[TestClient]:
     def override_get_db() -> Generator[Session]:
         yield from _make_get_db(test_db)
 
-    app.dependency_overrides[get_db] = override_get_db
-    app.dependency_overrides[get_storage_backend] = S3StorageBackend
+    app.dependency_overrides[db_session] = override_get_db
+    app.dependency_overrides[file_storage] = S3StorageBackend
 
     session = create_session(test_db, test_user.uid, "testclient", "testclient")
 
@@ -152,8 +152,8 @@ def unauthenticated_client(test_db: Session) -> Generator[TestClient]:
     def override_get_db() -> Generator[Session]:
         yield from _make_get_db(test_db)
 
-    app.dependency_overrides[get_db] = override_get_db
-    app.dependency_overrides[get_storage_backend] = S3StorageBackend
+    app.dependency_overrides[db_session] = override_get_db
+    app.dependency_overrides[file_storage] = S3StorageBackend
 
     with TestClient(app) as c:
         yield c

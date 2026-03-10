@@ -11,8 +11,8 @@ from sqlalchemy.orm import Session
 
 from src.app.dependencies import (
     authenticated_user,
-    get_db,
-    get_storage_backend,
+    db_session,
+    file_storage,
 )
 from src.app.repository.models import Upload, UploadStatusValue, User
 from src.app.services.storage import StorageBackend
@@ -86,8 +86,8 @@ class ListUploadsParams(BaseSchema):
 def create_upload(
     body: CreateUploadRequest,
     user: Annotated[User, Depends(authenticated_user)],
-    db: Annotated[Session, Depends(get_db)],
-    storage: Annotated[StorageBackend, Depends(get_storage_backend)],
+    db: Annotated[Session, Depends(db_session)],
+    storage: Annotated[StorageBackend, Depends(file_storage)],
 ) -> UploadResponse:
     """Create a new GPX file upload and return a presigned URL."""
     upload = create_upload_service(
@@ -102,8 +102,8 @@ def create_upload(
 @router.get("/uploads", operation_id="listUploads")
 def list_uploads(
     user: Annotated[User, Depends(authenticated_user)],
-    db: Annotated[Session, Depends(get_db)],
-    storage: Annotated[StorageBackend, Depends(get_storage_backend)],
+    db: Annotated[Session, Depends(db_session)],
+    storage: Annotated[StorageBackend, Depends(file_storage)],
     params: Annotated[ListUploadsParams, Query()],
 ) -> PaginatedResult[UploadResponse]:
     """List the authenticated user's uploads, filtered by status."""
