@@ -67,7 +67,6 @@ function formatDate(iso: string): string {
 
 export default function UploadList() {
   const [cursor, setCursor] = useState<string | null>(null);
-  const [cursorHistory, setCursorHistory] = useState<string[]>([]);
   const [sortField, setSortField] = useState<UploadSortField>(
     UploadSortField.created_at,
   );
@@ -115,7 +114,6 @@ export default function UploadList() {
       setSortOrder(SortOrder.asc);
     }
     setCursor(null);
-    setCursorHistory([]);
   };
 
   const sortIndicator = (field: UploadSortField) => {
@@ -157,21 +155,17 @@ export default function UploadList() {
 
   const handleNext = () => {
     if (data?.next_cursor) {
-      setCursorHistory((prev) => [...prev, cursor ?? ""]);
       setCursor(data.next_cursor);
     }
   };
 
   const handlePrevious = () => {
-    setCursorHistory((prev) => {
-      const next = [...prev];
-      const previous = next.pop();
-      setCursor(previous || null);
-      return next;
-    });
+    if (data?.previous_cursor) {
+      setCursor(data.previous_cursor);
+    }
   };
 
-  const isFirstPage = cursorHistory.length === 0 && !cursor;
+  const isFirstPage = !data?.has_previous;
   const isEmpty = isFirstPage && !isLoading && data?.items.length === 0;
 
   return (
