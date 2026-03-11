@@ -10,10 +10,53 @@ Provisions AWS infrastructure for Hexagone:
 - **Lambda function** (`hexagone-backend`) — FastAPI backend via Mangum
 - **API Gateway HTTP API** — routes requests to the Lambda function
 
+## IAM Setup
+
+All humans and CI pipelines that manage infrastructure assume the same **HexagoneInfrastructureAdmin** IAM role. This ensures consistent permissions regardless of who or what is applying changes.
+
+See [`docs/iam-architecture.excalidraw`](../docs/iam-architecture.excalidraw) for a visual overview.
+
+### The role
+
+The **HexagoneInfrastructureAdmin** role's permissions are described by JSON policies checked into this repo. Its trust policy permits assumption by:
+
+- The account root (`arn:aws:iam::<ACCOUNT_ID>:root`) — so any IAM user with an `sts:AssumeRole` grant can assume it.
+- GitHub Actions via `AssumeRoleWithWebIdentity` for the `pull_requests` and `main` branches of the `hexagone` repo.
+
+### The user group
+
+IAM users are added to the **HexagoneAdmins** group, which has the following policies:
+
+| Policy | Type | Purpose |
+|--------|------|---------|
+| `AssumeInfrastructureAdminAccess` | Inline | Grants `sts:AssumeRole` on the `HexagoneInfrastructureAdmin` role |
+| `ManageOwnAccessKeysAccess` | Inline | Permits users to create, delete, and rotate their own access keys |
+| `ViewOnlyAccess` | AWS managed | Read-only visibility into all AWS resources |
+| `IAMReadOnlyAccess` | AWS managed | Read-only visibility into IAM users, groups, and policies |
+
+### Adding a new contributor
+
+1. Sign in as the **root user** and create a new IAM user with console access and an initial password.
+2. Add the user to the **HexagoneAdmins** group.
+3. The new user signs into the AWS console, changes their password, and generates access keys.
+4. The user saves the access keys in `~/.aws/credentials` and configures `~/.aws/config`:
+
+```ini
+[profile hexagone-local-dev]
+region = eu-west-1
+output = json
+```
+
+5. To obtain temporary credentials for Terraform, source the assume-role script:
+
+```bash
+AWS_PROFILE=hexagone-local-dev AWS_ACCOUNT_ID=<ACCOUNT_ID> source scripts/assume-role.sh
+```
+
 ## Prerequisites
 
 - [Terraform >= 1.6.0](https://developer.hashicorp.com/terraform/install)
-- [AWS CLI](https://aws.amazon.com/cli/) configured with credentials
+- [AWS CLI](https://aws.amazon.com/cli/) configured with credentials (see [IAM Setup](#iam-setup))
 - S3 bucket `hexagone-terraform-state` for remote state (create manually once)
 
 ## Getting Started
