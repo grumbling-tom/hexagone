@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import EmailStr
 from sqlalchemy.orm import Session
 
-from src.app.dependencies import authenticated_user, get_db
+from src.app.dependencies import authenticated_user, db_session
 from src.app.services.user import DuplicateEmailError
 from src.app.services.user import create_user as create_user_service
 from src.app.services.user_session import create_session
@@ -38,7 +38,7 @@ def create_user(
     body: CreateUserRequest,
     request: Request,
     response: Response,
-    db: Annotated[Session, Depends(get_db)],
+    db: Annotated[Session, Depends(db_session)],
 ) -> UserResponse:
     """Create a new user account and start a session."""
     try:

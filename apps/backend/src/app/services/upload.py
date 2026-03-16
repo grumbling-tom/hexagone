@@ -113,12 +113,14 @@ def create_upload(
     return upload
 
 
-def list_uploads(
+def list_uploads(  # noqa: PLR0913
     db: DBSession,
     user: User,
     page_size: int = settings.DEFAULT_PAGE_SIZE,
     cursor: str | None = None,
     statuses: list[UploadStatusValue] | None = None,
+    sort_field: str = "created_at",
+    sort_order: SortOrder = SortOrder.DESC,
 ) -> PaginatedResult[Upload]:
     """List uploads for the authenticated user, filtered by status.
 
@@ -128,6 +130,8 @@ def list_uploads(
         page_size: Number of items per page.
         cursor: Pagination cursor.
         statuses: Filter by most recent status values.
+        sort_field: Column name to sort by.
+        sort_order: Sort direction.
 
     Returns:
         Paginated list of Upload ORM instances.
@@ -147,6 +151,6 @@ def list_uploads(
         filters=filters,
         page_size=page_size,
         cursor=cursor,
-        sort_field=Upload.created_at,
-        sort_order=SortOrder.DESC,
+        sort_field=getattr(Upload, sort_field),
+        sort_order=sort_order,
     )

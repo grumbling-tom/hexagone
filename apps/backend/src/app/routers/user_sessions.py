@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import EmailStr
 from sqlalchemy.orm import Session
 
-from src.app.dependencies import authenticated_user, get_db
+from src.app.dependencies import authenticated_user, db_session
 from src.app.services.user import authenticate_user
 from src.app.services.user_session import (
     create_session,
@@ -41,7 +41,7 @@ def create_user_session(
     body: CreateUserSessionRequest,
     request: Request,
     response: Response,
-    db: Annotated[Session, Depends(get_db)],
+    db: Annotated[Session, Depends(db_session)],
 ) -> UserSessionResponse:
     """Authenticate and create a new session."""
     user = authenticate_user(db, body.email, body.password)
@@ -70,7 +70,7 @@ def create_user_session(
 def delete_current_session(
     request: Request,
     response: Response,
-    db: Annotated[Session, Depends(get_db)],
+    db: Annotated[Session, Depends(db_session)],
     _: Annotated[User, Depends(authenticated_user)],
 ) -> None:
     """Log out by invalidating the current session."""

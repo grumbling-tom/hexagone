@@ -26,17 +26,17 @@ lefthook install
 
 Commands run from the repo root using `pnpm -C apps/web`:
 
-| Command                                                              | Description                                |
-| -------------------------------------------------------------------- | ------------------------------------------ |
-| `PUBLIC_BACKEND_BASE_URL=http://localhost:8000 pnpm -C apps/web dev` | Start dev server                           |
-| `pnpm -C apps/web build`                                             | Build for production                       |
-| `pnpm -C apps/web test`                                              | Run tests (Vitest)                         |
-| `pnpm -C apps/web test:watch`                                        | Run tests in watch mode                    |
-| `pnpm -C apps/web exec biome check .`                                | Check lint + formatting                    |
-| `pnpm -C apps/web exec biome check --write .`                        | Auto-fix lint + formatting                 |
-| `pnpm -C apps/web api:gen-spec`                                      | Export OpenAPI spec from backend           |
-| `pnpm -C apps/web api:gen-client`                                    | Generate typed API client from spec        |
-| `pnpm -C apps/web api:gen`                                           | Generate OpenAPI spec and typed API client |
+| Command                                       | Description                                |
+| --------------------------------------------- | ------------------------------------------ |
+| `pnpm -C apps/web dev`                        | Start dev server                           |
+| `pnpm -C apps/web build`                      | Build for production                       |
+| `pnpm -C apps/web test`                       | Run tests (Vitest)                         |
+| `pnpm -C apps/web test:watch`                 | Run tests in watch mode                    |
+| `pnpm -C apps/web exec biome check .`         | Check lint + formatting                    |
+| `pnpm -C apps/web exec biome check --write .` | Auto-fix lint + formatting                 |
+| `pnpm -C apps/web api:gen-spec`               | Export OpenAPI spec from backend           |
+| `pnpm -C apps/web api:gen-client`             | Generate typed API client from spec        |
+| `pnpm -C apps/web api:gen`                    | Generate OpenAPI spec and typed API client |
 
 The dev server starts at `http://localhost:4321/`:
 

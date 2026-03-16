@@ -323,6 +323,24 @@
             }
           },
           {
+            "name": "sort_field",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/UploadSortField",
+              "default": "created_at"
+            }
+          },
+          {
+            "name": "sort_order",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/SortOrder",
+              "default": "desc"
+            }
+          },
+          {
             "name": "sessionid",
             "in": "cookie",
             "required": false,
@@ -495,6 +513,15 @@
         ],
         "title": "PaginatedResult[UploadResponse]"
       },
+      "SortOrder": {
+        "type": "string",
+        "enum": [
+          "asc",
+          "desc"
+        ],
+        "title": "SortOrder",
+        "description": "Sort order enumeration for pagination.\n\nProvides ASC and DESC values for sorting, with support for negation\nto flip the sort order.\n\nAttributes:\n    ASC: Ascending sort order.\n    DESC: Descending sort order."
+      },
       "UploadResponse": {
         "properties": {
           "uid": {
@@ -554,6 +581,15 @@
         ],
         "title": "UploadResponse",
         "description": "Response body for upload endpoints."
+      },
+      "UploadSortField": {
+        "type": "string",
+        "enum": [
+          "created_at",
+          "original_filename"
+        ],
+        "title": "UploadSortField",
+        "description": "Allowed sort fields for upload listing."
       },
       "UploadStatusValue": {
         "type": "string",

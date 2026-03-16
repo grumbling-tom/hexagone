@@ -2,6 +2,8 @@ pre-commit:
   piped: true
   commands:
     gen-api-client:
+      env:
+        ENV: TEST # Used by the backend for Settings instantiation.
       priority: 0
       glob: "*.{py,ts,json}"
       run: pnpm -C apps/web api:gen

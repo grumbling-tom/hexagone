@@ -1,11 +1,9 @@
-import HealthStatus from "@/components/HealthStatus";
+import UploadList from "@/components/UploadList";
 
 export default function Dashboard() {
   return (
     <main className="page">
-      <h1>Dashboard</h1>
-      <p>Welcome to Hexagone...</p>
-      <HealthStatus />
+      <UploadList />
     </main>
   );
 }

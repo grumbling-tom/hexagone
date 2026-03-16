@@ -38,7 +38,30 @@ class BaseModel(DeclarativeBase):
     )
 
 
+@contextmanager
 def get_db() -> Generator[Session]:
+    """Context manager that provides a database session.
+
+    This is a context manager that can be used with the 'with' statement
+    to ensure proper cleanup of the database session. It is to be used
+    in non-FastAPI contexts where Depends() cannot be used, e.g.
+    in background tasks or workers.
+
+    Yields:
+        Database session that is automatically closed after use.
+
+    Examples:
+        with get_db() as db:
+            ...
+    """
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+
+def db_session() -> Generator[Session]:
     """Dependency function that provides a database session.
 
     This is a plain generator function designed for use with FastAPI's
@@ -47,15 +70,9 @@ def get_db() -> Generator[Session]:
     Yields:
         Database session that is automatically closed after use.
 
-    Examples:
-        As FastAPI dependency:
-            def route(db: Session = Depends(get_db)):
-                ...
-
-        As context manager (wrap with contextmanager):
-            from contextlib import contextmanager
-            with contextmanager(get_db)() as db:
-                ...
+    Examples as FastAPI dependency:
+        def route(db: Session = Depends(db_session)):
+            ...
     """
     db = SessionLocal()
     try:
@@ -71,7 +88,7 @@ def check_database_health() -> bool:
         True if the database is healthy, False otherwise.
     """
     try:
-        with contextmanager(get_db)() as db:
+        with get_db() as db:
             db.execute(text("SELECT 1"))
     except OperationalError:
         logger.exception("database_health_check_failed")

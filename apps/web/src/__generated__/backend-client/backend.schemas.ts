@@ -8,6 +8,8 @@ export type ListUploadsParams = {
 page_size?: number;
 cursor?: string | null;
 statuses?: UploadStatusValue[] | null;
+sort_field?: UploadSortField;
+sort_order?: SortOrder;
 };
 
 export type GetHealth200 = {[key: string]: string};
@@ -54,6 +56,18 @@ export const UploadStatusValue = {
   UPLOAD_INVALID: 'UPLOAD_INVALID',
 } as const;
 
+/**
+ * Allowed sort fields for upload listing.
+ */
+export type UploadSortField = typeof UploadSortField[keyof typeof UploadSortField];
+
+
+// eslint-disable-next-line @typescript-eslint/no-redeclare
+export const UploadSortField = {
+  created_at: 'created_at',
+  original_filename: 'original_filename',
+} as const;
+
 export type UploadResponseRequiredHeadersAnyOf = {[key: string]: string};
 
 export type UploadResponseRequiredHeaders = UploadResponseRequiredHeadersAnyOf | null;
@@ -72,6 +86,25 @@ export interface UploadResponse {
   required_headers?: UploadResponseRequiredHeaders;
   uid: string;
 }
+
+/**
+ * Sort order enumeration for pagination.
+
+Provides ASC and DESC values for sorting, with support for negation
+to flip the sort order.
+
+Attributes:
+    ASC: Ascending sort order.
+    DESC: Descending sort order.
+ */
+export type SortOrder = typeof SortOrder[keyof typeof SortOrder];
+
+
+// eslint-disable-next-line @typescript-eslint/no-redeclare
+export const SortOrder = {
+  asc: 'asc',
+  desc: 'desc',
+} as const;
 
 export type PaginatedResultUploadResponsePreviousCursor = string | null;
 
