@@ -35,11 +35,41 @@ services:
       - command: curl -X POST "http://localhost:8080/2015-03-31/functions/function/invocations" -d '{"action":"migrate"}'
         user: root
 
+  hexagone-lambda-file-upload:
+    build:
+      context: apps/backend
+      dockerfile: Dockerfile.lambda
+    container_name: hexagone-lambda-file-upload
+    command: ["src.app.handlers.file_upload.handler"]
+    ports:
+      - "9002:8080"
+    volumes:
+      - ./apps/backend/src:/var/task/src
+
+  localstack:
+    image: localstack/localstack:latest
+    container_name: hexagone-localstack
+    ports:
+      - "4566:4566"
+    environment:
+      - SERVICES=s3,lambda
+      - LAMBDA_DOCKER_NETWORK=hexagone_default
+      - S3_SKIP_SIGNATURE_VALIDATION=0
+      - DEFAULT_REGION=eu-west-2
+      - DEBUG=0
+    volumes:
+      - "./scripts/localstack-init.sh:/etc/localstack/init/ready.d/init-aws.sh"
+      - "./apps/backend:/opt/code/backend"
+      - "/var/run/docker.sock:/var/run/docker.sock"
+      - localstack_data:/var/lib/localstack
+
   hexagone-backend:
     build:
       context: apps/backend
       dockerfile: Dockerfile.lambda
+      target: dev
     container_name: hexagone-backend
+    network_mode: host
     command:
       - uv
       - run
@@ -51,14 +81,19 @@ services:
       - "8000"
       - --reload
     environment:
-      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/postgres
-    ports:
-      - "8000:8000"
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
+      HEXAGONE_S3_ENDPOINT_URL: http://localhost:4566
+      # https://docs.localstack.cloud/aws/capabilities/config/credentials/#structured-access-key-id
+      AWS_ACCESS_KEY_ID: "000000000000"
+      AWS_SECRET_ACCESS_KEY: test
     depends_on:
       postgres:
+        condition: service_healthy
+      localstack:
         condition: service_healthy
     volumes:
       - ./apps/backend/src:/var/task/src
 
 volumes:
   postgres_data:
+  localstack_data:

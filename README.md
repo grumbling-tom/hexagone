@@ -58,27 +58,21 @@ The dev server starts at `http://localhost:4321/`:
 
 In dev mode (`ENV` unset or `DEV`), the backend uses a local SQLite database (`sqlite.db`) automatically — no external database setup required.
 
-### Local S3 with moto
+### Local S3 with LocalStack
 
-To test file uploads locally, run a [moto](https://github.com/getmoto/moto) server to mock S3:
+File uploads and S3 event processing use [LocalStack](https://docs.localstack.cloud/) for local development. Start it with docker compose:
 
 ```bash
-# Terminal 1: Start moto server
-UV_WORKING_DIRECTORY=apps/backend uv run moto_server -p 5555
-
-# Terminal 2: Create the bucket (once per server restart)
-aws --endpoint-url http://localhost:5555 s3 mb s3://hexagone-gpx-uploads
+docker compose up localstack
 ```
 
-Add to `apps/backend/.env`:
+The init script (`localstack/init-aws.sh`) runs automatically and:
 
-```
-HEXAGONE_S3_ENDPOINT_URL=http://localhost:5555
-AWS_ACCESS_KEY_ID=testing
-AWS_SECRET_ACCESS_KEY=testing
-```
+- Creates the `hexagone-gpx-uploads` S3 bucket
+- Deploys the GPX processing Lambda (`src/app/handlers/gpx.py`) with hot-reload
+- Wires the `s3:ObjectCreated` notification to trigger the Lambda
 
-Pre-signed URLs returned by the API will point at `http://localhost:5555`, so you can upload files with curl:
+The backend reads `HEXAGONE_S3_ENDPOINT_URL=http://localhost:4566` from `.env`, so pre-signed URLs point at LocalStack. Upload files with curl:
 
 ```bash
 curl -X PUT "<presigned-url>" \
@@ -91,6 +85,18 @@ The dev server starts at `http://localhost:8000/`:
 
 - `/health` — Health check endpoint
 - `/docs` — Interactive API docs (Swagger UI)
+
+## Upload Architecture
+
+The GPX upload flow uses presigned S3 URLs and event-driven processing:
+
+![Upload Architecture](docs/upload-architecture.excalidraw)
+
+1. Browser requests a presigned upload URL via `POST /api/v1/uploads`
+2. Backend Lambda generates a presigned PUT URL and returns it with required headers
+3. Browser uploads the `.gpx` file directly to S3 using the presigned URL
+4. S3 `ObjectCreated` event triggers the Upload Processor Lambda
+5. Processor downloads the file, parses the GPX, and updates the status in PostgreSQL
 
 ## Project Structure
 

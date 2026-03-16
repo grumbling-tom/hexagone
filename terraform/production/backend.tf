@@ -31,6 +31,34 @@ resource "aws_ecr_lifecycle_policy" "backend" {
 }
 
 # ---------------------------------------------------------------------------
+# S3 uploads bucket
+# ---------------------------------------------------------------------------
+
+resource "aws_s3_bucket" "uploads" {
+  bucket = "hexagone-uploads"
+}
+
+resource "aws_s3_bucket_public_access_block" "uploads" {
+  bucket = aws_s3_bucket.uploads.id
+
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true
+}
+
+resource "aws_s3_bucket_cors_configuration" "uploads" {
+  bucket = aws_s3_bucket.uploads.id
+
+  cors_rule {
+    allowed_headers = ["*"]
+    allowed_methods = ["PUT", "GET"]
+    allowed_origins = ["https://${var.domain_name}"]
+    max_age_seconds = 3600
+  }
+}
+
+# ---------------------------------------------------------------------------
 # IAM role for Lambda execution
 # ---------------------------------------------------------------------------
 
@@ -94,6 +122,23 @@ resource "aws_iam_role_policy" "lambda_vpc_execution" {
   })
 }
 
+resource "aws_iam_role_policy" "lambda_s3_uploads" {
+  name = "HexagoneLambdaS3Uploads"
+  role = aws_iam_role.lambda_exec.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect = "Allow"
+      Action = [
+        "s3:GetObject",
+        "s3:PutObject"
+      ]
+      Resource = "${aws_s3_bucket.uploads.arn}/*"
+    }]
+  })
+}
+
 # ---------------------------------------------------------------------------
 # CloudWatch log groups
 # ---------------------------------------------------------------------------
@@ -128,8 +173,10 @@ resource "aws_lambda_function" "backend" {
 
   environment {
     variables = {
-      ENV          = "PROD"
-      DATABASE_URL = local.DATABASE_URL
+      ENV                 = "PROD"
+      DATABASE_URL        = local.DATABASE_URL
+      HEXAGONE_S3_BUCKET  = aws_s3_bucket.uploads.id
+      HEXAGONE_AWS_REGION = data.aws_region.current.name
     }
   }
 }
@@ -225,4 +272,64 @@ resource "aws_lambda_function" "db_ops" {
   image_config {
     command = ["src.app.handlers.db.handler"]
   }
+}
+
+# ---------------------------------------------------------------------------
+# Upload Processing Lambda function
+# ---------------------------------------------------------------------------
+
+resource "aws_cloudwatch_log_group" "lambda_upload_processor" {
+  name              = "/aws/lambda/hexagone-upload-processor"
+  retention_in_days = 7
+}
+
+resource "aws_lambda_function" "upload_processor" {
+  function_name = "hexagone-upload-processor"
+  role          = aws_iam_role.lambda_exec.arn
+  package_type  = "Image"
+  image_uri     = "${aws_ecr_repository.backend.repository_url}:${var.lambda_image_tag}"
+  architectures = ["arm64"]
+  timeout       = 60
+  memory_size   = 512
+
+  vpc_config {
+    subnet_ids         = aws_subnet.private[*].id
+    security_group_ids = [aws_security_group.lambda.id]
+  }
+
+  environment {
+    variables = {
+      ENV                 = "PROD"
+      DATABASE_URL        = local.DATABASE_URL
+      HEXAGONE_S3_BUCKET  = aws_s3_bucket.uploads.id
+      HEXAGONE_AWS_REGION = data.aws_region.current.name
+    }
+  }
+
+  image_config {
+    command = ["src.app.handlers.file_upload.handler"]
+  }
+}
+
+# ---------------------------------------------------------------------------
+# S3 → Lambda event notification
+# ---------------------------------------------------------------------------
+
+resource "aws_lambda_permission" "s3_invoke_upload_processor" {
+  statement_id  = "AllowS3Invoke"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.upload_processor.function_name
+  principal     = "s3.amazonaws.com"
+  source_arn    = aws_s3_bucket.uploads.arn
+}
+
+resource "aws_s3_bucket_notification" "uploads" {
+  bucket = aws_s3_bucket.uploads.id
+
+  lambda_function {
+    lambda_function_arn = aws_lambda_function.upload_processor.arn
+    events              = ["s3:ObjectCreated:*"]
+  }
+
+  depends_on = [aws_lambda_permission.s3_invoke_upload_processor]
 }
