@@ -45,20 +45,47 @@ The dev server starts at `http://localhost:4321/`:
 
 ## API (`apps/backend/`)
 
-Commands run from `apps/backend/`:
-
-| Command                                                        | Description                  |
-| -------------------------------------------------------------- | ---------------------------- |
-| `uv sync`                                                      | Install dependencies         |
-| `uv run fastapi dev src/app/main.py`                           | Start dev server (port 8000) |
-| `uv run pytest`                                                | Run tests                    |
-| `uv run ruff check .`                                          | Lint                         |
-| `uv run ruff format --check .`                                 | Check formatting             |
-| `uv run pyright`                                               | Type checking                |
-| `uv run alembic upgrade head`                                  | Run database migrations      |
-| `uv run alembic revision --autogenerate -m "XXXX_description"` | Generate a new migration     |
+| Command                                                                                          | Description                  |
+| ------------------------------------------------------------------------------------------------ | ---------------------------- |
+| `UV_WORKING_DIRECTORY=apps/backend uv sync`                                                      | Install dependencies         |
+| `UV_WORKING_DIRECTORY=apps/backend uv run fastapi dev src/app/main.py`                           | Start dev server (port 8000) |
+| `UV_WORKING_DIRECTORY=apps/backend uv run pytest`                                                | Run tests                    |
+| `UV_WORKING_DIRECTORY=apps/backend uv run ruff check .`                                          | Lint                         |
+| `UV_WORKING_DIRECTORY=apps/backend uv run ruff format --check .`                                 | Check formatting             |
+| `UV_WORKING_DIRECTORY=apps/backend uv run pyright`                                               | Type checking                |
+| `UV_WORKING_DIRECTORY=apps/backend uv run alembic upgrade head`                                  | Run database migrations      |
+| `UV_WORKING_DIRECTORY=apps/backend uv run alembic revision --autogenerate -m "XXXX_description"` | Generate a new migration     |
 
 In dev mode (`ENV` unset or `DEV`), the backend uses a local SQLite database (`sqlite.db`) automatically — no external database setup required.
+
+### Local S3 with moto
+
+To test file uploads locally, run a [moto](https://github.com/getmoto/moto) server to mock S3:
+
+```bash
+# Terminal 1: Start moto server
+UV_WORKING_DIRECTORY=apps/backend uv run moto_server -p 5555
+
+# Terminal 2: Create the bucket (once per server restart)
+aws --endpoint-url http://localhost:5555 s3 mb s3://hexagone-gpx-uploads
+```
+
+Add to `apps/backend/.env`:
+
+```
+HEXAGONE_S3_ENDPOINT_URL=http://localhost:5555
+AWS_ACCESS_KEY_ID=testing
+AWS_SECRET_ACCESS_KEY=testing
+```
+
+Pre-signed URLs returned by the API will point at `http://localhost:5555`, so you can upload files with curl:
+
+```bash
+curl -X PUT "<presigned-url>" \
+  -H "Content-Type: application/gpx+xml" \
+  -H "Content-Length: <size>" \
+  --data-binary @route.gpx
+```
 
 The dev server starts at `http://localhost:8000/`:
 

@@ -91,6 +91,28 @@ Rules:
 - Numbering must match Alembic revision chain order
 - Validation is enforced via pre-commit hook (`validate-migrations` in lefthook)
 
+## Query Parameters
+
+Define query parameters as a Pydantic schema (inheriting `BaseSchema`) and
+inject with `Annotated[MyParams, Query()]`. Use `Query()`, **not** `Depends()`,
+so FastAPI correctly parses list query params (e.g. `?statuses=A&statuses=B`).
+
+```python
+from fastapi import Query
+from pydantic import Field
+
+class ListThingsParams(BaseSchema):
+    page_size: int = Field(default=settings.DEFAULT_PAGE_SIZE, gt=0, le=100)
+    cursor: str | None = Field(default=None)
+    statuses: list[StatusEnum] | None = Field(default=None)
+
+@router.get("/things")
+def list_things(
+    params: Annotated[ListThingsParams, Query()],
+) -> PaginatedResult[ThingResponse]:
+    ...
+```
+
 ## Authentication
 
 Authentication uses FastAPI dependency injection, not middleware. Routes that
@@ -108,3 +130,64 @@ def list_things(
 
 Routes that are public (e.g. registration, login) simply omit the dependency.
 Do not use middleware or route-level exemption lists for auth.
+
+## Testing — Fixtures over Helper Functions
+
+Use `pytest.fixture` factories (defined in `conftest.py`) for test data
+setup, not private `_create_*` helper functions. Fixtures integrate with
+pytest's dependency injection, are automatically discovered, and can be
+shared across test modules.
+
+### Good
+
+```python
+# conftest.py
+@pytest.fixture
+def create_upload(test_db: Session, test_user: User) -> Callable[..., Upload]:
+    def _factory(filename: str, *, file_size: int = 100) -> Upload:
+        upload = Upload(user_uid=test_user.uid, original_filename=filename, ...)
+        ...
+        return upload
+    return _factory
+
+# test_uploads.py
+def test_filter_by_name(test_db: Session, create_upload: Callable[..., Upload]):
+    create_upload("alpha.gpx")
+    create_upload("beta.gpx")
+    ...
+```
+
+### Bad
+
+```python
+# test_uploads.py
+def _create_upload(db: Session, user: User, filename: str) -> Upload:
+    upload = Upload(user_uid=user.uid, original_filename=filename, ...)
+    ...
+    return upload
+
+def test_filter_by_name(test_db: Session, test_user: User):
+    _create_upload(test_db, test_user, "alpha.gpx")
+    _create_upload(test_db, test_user, "beta.gpx")
+    ...
+```
+
+## Service Layer — Return ORM Instances
+
+Service functions (`src/app/services/`) must return ORM model instances,
+primitives, or `PaginatedResult[OrmModel]` — never Pydantic response
+schemas. The router layer converts ORM instances into response schemas.
+
+Enforced by `test_services_do_not_return_pydantic_schemas` in
+`tests/app/test_service_returns.py`.
+
+## Filtering on Related Models
+
+When you need to filter a model based on values in a related model (e.g.
+filtering uploads by their latest status), use a `@hybrid_property` on the
+parent model with a `@expression` that returns a correlated subquery. Then
+use the standard filter classes (`InFilter`, `EqualsFilter`, etc.) against
+that hybrid property.
+
+Push the join/subquery complexity into the model, not into custom filter
+classes. This keeps the filter layer simple and composable.
