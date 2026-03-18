@@ -26,7 +26,7 @@ from src.app.services.storage import S3StorageBackend
 
 
 @pytest.fixture(autouse=True)
-def _mock_s3() -> Generator[None]:  # pyright: ignore[reportUnusedFunction]
+def test_s3() -> Generator[None]:  # pyright: ignore[reportUnusedFunction]
     """Mock AWS S3 for all tests."""
     with mock_aws():
         client: S3Client = boto3.client("s3", region_name="eu-west-2")  # pyright: ignore[reportUnknownMemberType]

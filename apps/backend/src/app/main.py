@@ -13,7 +13,9 @@ from src.app.utils import configure_logging
 configure_logging()
 
 
-def create_app(settings: Settings = settings) -> FastAPI:
+def create_app(
+    settings: Settings = settings,
+) -> FastAPI:
     """Create a configured FastAPI application instance."""
     app = FastAPI(title="Backend")
 
@@ -26,7 +28,12 @@ def create_app(settings: Settings = settings) -> FastAPI:
             allow_credentials=True,
         )
 
-    app.add_middleware(JWTAuthMiddleware)
+    app.add_middleware(
+        JWTAuthMiddleware,
+        jwks_url=settings.CLERK_JWKS_URL,
+        jwt_issuer=settings.CLERK_ISSUER,
+        jwt_authorized_parties=settings.CLERK_AUTHORIZED_PARTIES,
+    )
 
     api_v1_router = APIRouter(prefix="/api/v1")
     api_v1_router.include_router(users_router, tags=["users"])
