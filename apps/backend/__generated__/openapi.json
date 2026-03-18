@@ -382,17 +382,12 @@
           "email": {
             "type": "string",
             "title": "Email"
-          },
-          "role": {
-            "type": "string",
-            "title": "Role"
           }
         },
         "type": "object",
         "required": [
           "uid",
-          "email",
-          "role"
+          "email"
         ],
         "title": "UserResponse",
         "description": "Response body for user endpoints."

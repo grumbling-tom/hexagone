@@ -35,5 +35,5 @@ def get_or_create_user(db: DBSession, external_auth_id: str, email: str) -> User
     user_repo.add(user)
     db.commit()
     db.refresh(user)
-    logger.info("user_created", user_uid=user.uid, email=email)
+    logger.info("user_created", user_uid=user.uid)
     return user

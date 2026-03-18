@@ -31,7 +31,6 @@ export interface ValidationError {
  */
 export interface UserResponse {
   email: string;
-  role: string;
   uid: string;
 }
 
