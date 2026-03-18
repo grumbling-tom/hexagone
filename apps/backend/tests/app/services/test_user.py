@@ -10,7 +10,6 @@ def test_get_or_create_user_creates_new(test_db: Session):
     user = get_or_create_user(test_db, "clerk_id_1", "new@example.com")
     assert user.email == "new@example.com"
     assert user.external_auth_id == "clerk_id_1"
-    assert user.role == "user"
     assert user.uid is not None
 
 

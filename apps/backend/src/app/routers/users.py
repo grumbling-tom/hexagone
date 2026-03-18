@@ -18,7 +18,6 @@ class UserResponse(BaseSchema):
 
     uid: str
     email: str
-    role: str
 
 
 @router.get("/users/current", operation_id="getCurrentUser")
@@ -26,4 +25,4 @@ def get_current_user(
     user: Annotated[User, Depends(authenticated_user)],
 ) -> UserResponse:
     """Return the currently authenticated user."""
-    return UserResponse(uid=user.uid, email=user.email, role=user.role)
+    return UserResponse(uid=user.uid, email=user.email)

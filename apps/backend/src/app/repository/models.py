@@ -36,7 +36,6 @@ class User(BaseModel):
     Attributes:
         email: The user's email address.
         external_auth_id: Unique identifier from the external auth provider.
-        role: The user's role (e.g. "user", "admin").
         archived: Whether the user account is archived (soft deleted).
     """
 
@@ -46,7 +45,6 @@ class User(BaseModel):
     external_auth_id: Mapped[str] = mapped_column(
         String, unique=True, nullable=False, index=True
     )
-    role: Mapped[str] = mapped_column(String, default="user", nullable=False)
     archived: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
 
 

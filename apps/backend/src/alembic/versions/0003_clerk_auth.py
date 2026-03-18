@@ -30,7 +30,6 @@ def upgrade() -> None:
     op.drop_table("user_session")
     with op.batch_alter_table("user", schema=None) as batch_op:
         batch_op.add_column(sa.Column("external_auth_id", sa.String(), nullable=False))
-        batch_op.add_column(sa.Column("role", sa.String(), nullable=False))
         batch_op.create_index(
             batch_op.f("ix_user_external_auth_id"),
             ["external_auth_id"],
@@ -47,7 +46,6 @@ def downgrade() -> None:
     with op.batch_alter_table("user", schema=None) as batch_op:
         batch_op.add_column(sa.Column("password_hash", sa.VARCHAR(), nullable=False))
         batch_op.drop_index(batch_op.f("ix_user_external_auth_id"))
-        batch_op.drop_column("role")
         batch_op.drop_column("external_auth_id")
 
     op.create_table(

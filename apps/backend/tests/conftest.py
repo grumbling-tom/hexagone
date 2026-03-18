@@ -61,7 +61,6 @@ def test_user(test_db: Session) -> User:
     user = User(
         email="test@example.com",
         external_auth_id="test_clerk_user_id",
-        role="user",
     )
     test_db.add(user)
     test_db.commit()

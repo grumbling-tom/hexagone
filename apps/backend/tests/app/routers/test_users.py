@@ -8,7 +8,6 @@ def test_get_current_user_authenticated(client: TestClient):
     assert response.status_code == 200
     data = response.json()
     assert data["email"] == "test@example.com"
-    assert data["role"] == "user"
     assert "uid" in data
 
 
