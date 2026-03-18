@@ -11,7 +11,6 @@ from src.app.repository import (
     UploadStatusValue,
     User,
 )
-from src.app.services.password import hash_password
 from src.app.services.storage import S3StorageBackend
 from src.app.services.upload import create_upload, list_uploads, maybe_presigned_url
 
@@ -82,7 +81,7 @@ def test_list_uploads_includes_pending_when_requested(
 def test_list_uploads_filters_by_user(test_db: Session, test_user: User):
     other_user = User(
         email="other@example.com",
-        password_hash=hash_password("pass"),
+        external_auth_id="other_clerk_id",
     )
     test_db.add(other_user)
     test_db.commit()

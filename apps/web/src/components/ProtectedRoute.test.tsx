@@ -4,18 +4,15 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, expect, type Mock, test, vi } from "vitest";
 import ProtectedRoute from "./ProtectedRoute";
 
-vi.mock("@/__generated__/backend-client/users", async (importOriginal) => {
-  const actual =
-    await importOriginal<
-      typeof import("@/__generated__/backend-client/users")
-    >();
-  return {
-    ...actual,
-    useGetCurrentUser: vi.fn(),
-  };
-});
+vi.mock("@/lib/auth", () => ({
+  useAuthContext: vi.fn(),
+}));
 
-import { useGetCurrentUser } from "@/__generated__/backend-client/users";
+vi.mock("@clerk/clerk-react", () => ({
+  RedirectToSignIn: () => <p>Sign in page</p>,
+}));
+
+import { useAuthContext } from "@/lib/auth";
 
 function renderWithRouter() {
   const queryClient = new QueryClient();
@@ -26,7 +23,6 @@ function renderWithRouter() {
           <Route element={<ProtectedRoute />}>
             <Route path="/" element={<p>Protected content</p>} />
           </Route>
-          <Route path="/login" element={<p>Login page</p>} />
         </Routes>
       </MemoryRouter>
     </QueryClientProvider>,
@@ -38,29 +34,30 @@ beforeEach(() => {
 });
 
 test("shows loading indicator while auth state is pending", () => {
-  (useGetCurrentUser as Mock).mockReturnValue({
-    data: undefined,
-    isLoading: true,
+  (useAuthContext as Mock).mockReturnValue({
+    isSignedIn: false,
+    isLoaded: false,
   });
 
   renderWithRouter();
   expect(screen.getByText("Loading")).toBeInTheDocument();
 });
 
-test("redirects to /login when not authenticated", () => {
-  (useGetCurrentUser as Mock).mockReturnValue({
-    data: undefined,
-    isLoading: false,
+test("redirects to sign-in when not authenticated", () => {
+  (useAuthContext as Mock).mockReturnValue({
+    isSignedIn: false,
+    isLoaded: true,
   });
 
   renderWithRouter();
-  expect(screen.getByText("Login page")).toBeInTheDocument();
+  expect(screen.getByText("Sign in page")).toBeInTheDocument();
 });
 
 test("renders nav and child route when authenticated", () => {
-  (useGetCurrentUser as Mock).mockReturnValue({
-    data: { id: "1", email: "test@example.com" },
-    isLoading: false,
+  (useAuthContext as Mock).mockReturnValue({
+    isSignedIn: true,
+    isLoaded: true,
+    signOut: vi.fn(),
   });
 
   renderWithRouter();

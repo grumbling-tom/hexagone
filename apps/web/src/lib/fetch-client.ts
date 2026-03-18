@@ -19,6 +19,12 @@ export class ApiError<T> extends Error {
 
 export type ErrorType<E> = ApiError<E>;
 
+let tokenGetter: (() => Promise<string | null>) | null = null;
+
+export function setTokenGetter(fn: () => Promise<string | null>) {
+  tokenGetter = fn;
+}
+
 export async function fetchClient<T>(config: {
   url: string;
   method: string;
@@ -48,12 +54,24 @@ export async function fetchClient<T>(config: {
     }
   }
 
+  const headers: Record<string, string> = {
+    ...(config.headers as Record<string, string>),
+  };
+
+  const token = tokenGetter ? await tokenGetter() : null;
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+
+  if (config.data) {
+    headers["Content-Type"] = "application/json";
+  }
+
   const response = await fetch(url, {
     method: config.method,
-    headers: config.headers,
+    headers,
     body: config.data ? JSON.stringify(config.data) : undefined,
     signal: config.signal,
-    credentials: "include",
   });
 
   if (!response.ok) {

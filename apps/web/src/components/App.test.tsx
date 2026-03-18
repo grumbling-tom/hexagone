@@ -4,18 +4,24 @@ import { MemoryRouter } from "react-router-dom";
 import { beforeEach, expect, type Mock, test, vi } from "vitest";
 import { AppRoutes } from "./App";
 
-vi.mock("@/__generated__/backend-client/users", async (importOriginal) => {
-  const actual =
-    await importOriginal<
-      typeof import("@/__generated__/backend-client/users")
-    >();
-  return {
-    ...actual,
-    useGetCurrentUser: vi.fn(),
-  };
-});
+vi.mock("@/lib/auth", () => ({
+  useAuthContext: vi.fn(),
+}));
 
-import { useGetCurrentUser } from "@/__generated__/backend-client/users";
+vi.mock("@clerk/clerk-react", () => ({
+  RedirectToSignIn: () => <p>Sign in redirect</p>,
+  SignIn: () => <p>Clerk Sign In</p>,
+}));
+
+vi.mock("@/__generated__/backend-client/health", () => ({
+  useGetHealth: vi.fn(() => ({
+    data: undefined,
+    isLoading: true,
+    isError: false,
+  })),
+}));
+
+import { useAuthContext } from "@/lib/auth";
 
 function renderWithProviders(route: string) {
   const queryClient = new QueryClient({
@@ -34,32 +40,33 @@ beforeEach(() => {
   vi.clearAllMocks();
 });
 
-test("redirects unauthenticated users to login", () => {
-  (useGetCurrentUser as Mock).mockReturnValue({
-    data: undefined,
-    isLoading: false,
+test("redirects unauthenticated users to sign-in", () => {
+  (useAuthContext as Mock).mockReturnValue({
+    isSignedIn: false,
+    isLoaded: true,
   });
 
   renderWithProviders("/");
-  expect(screen.getByRole("heading", { name: "Log in" })).toBeInTheDocument();
+  expect(screen.getByText("Sign in redirect")).toBeInTheDocument();
 });
 
 test("renders dashboard for authenticated users", () => {
-  (useGetCurrentUser as Mock).mockReturnValue({
-    data: { id: "1", email: "test@example.com" },
-    isLoading: false,
+  (useAuthContext as Mock).mockReturnValue({
+    isSignedIn: true,
+    isLoaded: true,
+    signOut: vi.fn(),
   });
 
   renderWithProviders("/");
-  expect(
-    screen.getByRole("heading", { name: "Dashboard" }),
-  ).toBeInTheDocument();
+  expect(screen.getByRole("navigation")).toBeInTheDocument();
+  expect(screen.getByRole("main")).toBeInTheDocument();
 });
 
 test("renders settings for authenticated users", () => {
-  (useGetCurrentUser as Mock).mockReturnValue({
-    data: { id: "1", email: "test@example.com" },
-    isLoading: false,
+  (useAuthContext as Mock).mockReturnValue({
+    isSignedIn: true,
+    isLoaded: true,
+    signOut: vi.fn(),
   });
 
   renderWithProviders("/settings");

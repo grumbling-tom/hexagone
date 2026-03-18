@@ -2,7 +2,7 @@
 
 import pytest
 
-from src.app.repository import EqualsFilter, Upload, User, UserSession
+from src.app.repository import EqualsFilter, Upload, UploadStatus, User
 from src.app.services.permissions import permission_filters
 
 
@@ -17,6 +17,6 @@ def test_upload_permission_filters(test_user: User):
 
 def test_unknown_entity_raises(test_user: User):
     with pytest.raises(
-        ValueError, match="No permission filters defined for UserSession"
+        ValueError, match="No permission filters defined for UploadStatus"
     ):
-        permission_filters(test_user, UserSession)
+        permission_filters(test_user, UploadStatus)

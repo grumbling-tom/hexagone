@@ -1,18 +1,17 @@
-import { Navigate, Outlet } from "react-router-dom";
-import { useGetCurrentUser } from "@/__generated__/backend-client/users";
+import { RedirectToSignIn } from "@clerk/clerk-react";
+import { Outlet } from "react-router-dom";
 import Nav from "@/components/Nav";
+import { useAuthContext } from "@/lib/auth";
 
 export default function ProtectedRoute() {
-  const { data: user, isLoading } = useGetCurrentUser({
-    query: { retry: false },
-  });
+  const { isSignedIn, isLoaded } = useAuthContext();
 
-  if (isLoading) {
+  if (!isLoaded) {
     return <div className="auth-loading">Loading</div>;
   }
 
-  if (!user) {
-    return <Navigate to="/login" replace />;
+  if (!isSignedIn) {
+    return <RedirectToSignIn />;
   }
 
   return (

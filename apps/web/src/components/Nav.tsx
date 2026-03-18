@@ -1,19 +1,17 @@
-import { useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
-import { useDeleteCurrentSession } from "@/__generated__/backend-client/user-sessions";
+import { useAuthContext } from "@/lib/auth";
 
 export default function Nav() {
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
+  const { signOut } = useAuthContext();
+  const [isPending, setIsPending] = useState(false);
 
-  const logout = useDeleteCurrentSession({
-    mutation: {
-      onSuccess: () => {
-        queryClient.clear();
-        navigate("/login");
-      },
-    },
-  });
+  async function handleLogout() {
+    setIsPending(true);
+    await signOut();
+    navigate("/sign-in");
+  }
 
   return (
     <nav className="nav">
@@ -22,8 +20,8 @@ export default function Nav() {
       <button
         className="button nav__logout"
         type="button"
-        onClick={() => logout.mutate()}
-        disabled={logout.isPending}
+        onClick={() => void handleLogout()}
+        disabled={isPending}
       >
         Log out
       </button>

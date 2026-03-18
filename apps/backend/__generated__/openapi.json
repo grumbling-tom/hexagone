@@ -31,48 +31,6 @@
         }
       }
     },
-    "/api/v1/users": {
-      "post": {
-        "tags": [
-          "users"
-        ],
-        "summary": "Create User",
-        "description": "Create a new user account and start a session.",
-        "operationId": "createUser",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreateUserRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "201": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/UserResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/api/v1/users/current": {
       "get": {
         "tags": [
@@ -81,24 +39,6 @@
         "summary": "Get Current User",
         "description": "Return the currently authenticated user.",
         "operationId": "getCurrentUser",
-        "parameters": [
-          {
-            "name": "sessionid",
-            "in": "cookie",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Sessionid"
-            }
-          }
-        ],
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -106,101 +46,6 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/UserResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/user-sessions": {
-      "post": {
-        "tags": [
-          "user-sessions"
-        ],
-        "summary": "Create User Session",
-        "description": "Authenticate and create a new session.",
-        "operationId": "createUserSession",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreateUserSessionRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/UserSessionResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/user-sessions/current": {
-      "delete": {
-        "tags": [
-          "user-sessions"
-        ],
-        "summary": "Delete Current Session",
-        "description": "Log out by invalidating the current session.",
-        "operationId": "deleteCurrentSession",
-        "parameters": [
-          {
-            "name": "sessionid",
-            "in": "cookie",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Sessionid"
-            }
-          }
-        ],
-        "responses": {
-          "204": {
-            "description": "Successful Response"
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
                 }
               }
             }
@@ -216,24 +61,6 @@
         "summary": "Create Upload",
         "description": "Create a new GPX file upload and return a presigned URL.",
         "operationId": "createUpload",
-        "parameters": [
-          {
-            "name": "sessionid",
-            "in": "cookie",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Sessionid"
-            }
-          }
-        ],
         "requestBody": {
           "required": true,
           "content": {
@@ -339,22 +166,6 @@
               "$ref": "#/components/schemas/SortOrder",
               "default": "desc"
             }
-          },
-          {
-            "name": "sessionid",
-            "in": "cookie",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Sessionid"
-            }
           }
         ],
         "responses": {
@@ -402,46 +213,6 @@
         ],
         "title": "CreateUploadRequest",
         "description": "Request body for creating a new upload."
-      },
-      "CreateUserRequest": {
-        "properties": {
-          "email": {
-            "type": "string",
-            "format": "email",
-            "title": "Email"
-          },
-          "password": {
-            "type": "string",
-            "title": "Password"
-          }
-        },
-        "type": "object",
-        "required": [
-          "email",
-          "password"
-        ],
-        "title": "CreateUserRequest",
-        "description": "Request body for user registration."
-      },
-      "CreateUserSessionRequest": {
-        "properties": {
-          "email": {
-            "type": "string",
-            "format": "email",
-            "title": "Email"
-          },
-          "password": {
-            "type": "string",
-            "title": "Password"
-          }
-        },
-        "type": "object",
-        "required": [
-          "email",
-          "password"
-        ],
-        "title": "CreateUserSessionRequest",
-        "description": "Request body for login."
       },
       "HTTPValidationError": {
         "properties": {
@@ -611,34 +382,20 @@
           "email": {
             "type": "string",
             "title": "Email"
+          },
+          "role": {
+            "type": "string",
+            "title": "Role"
           }
         },
         "type": "object",
         "required": [
           "uid",
-          "email"
+          "email",
+          "role"
         ],
         "title": "UserResponse",
         "description": "Response body for user endpoints."
-      },
-      "UserSessionResponse": {
-        "properties": {
-          "uid": {
-            "type": "string",
-            "title": "Uid"
-          },
-          "email": {
-            "type": "string",
-            "title": "Email"
-          }
-        },
-        "type": "object",
-        "required": [
-          "uid",
-          "email"
-        ],
-        "title": "UserSessionResponse",
-        "description": "Response body after successful login."
       },
       "ValidationError": {
         "properties": {

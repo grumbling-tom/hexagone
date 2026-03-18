@@ -12,7 +12,7 @@ from mypy_boto3_s3 import S3Client
 from sqlalchemy import StaticPool, create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
-from src.app.dependencies import db_session, file_storage
+from src.app.dependencies import authenticated_user, db_session, file_storage
 from src.app.main import app
 from src.app.repository import (
     BaseModel,
@@ -22,9 +22,7 @@ from src.app.repository import (
     UploadStatusValue,
     User,
 )
-from src.app.services.password import hash_password
 from src.app.services.storage import S3StorageBackend
-from src.app.services.user_session import create_session
 
 
 @pytest.fixture(autouse=True)
@@ -62,7 +60,8 @@ def test_user(test_db: Session) -> User:
     """Create and return a test user."""
     user = User(
         email="test@example.com",
-        password_hash=hash_password("testpassword123"),
+        external_auth_id="test_clerk_user_id",
+        role="user",
     )
     test_db.add(user)
     test_db.commit()
@@ -135,11 +134,9 @@ def client(test_db: Session, test_user: User) -> Generator[TestClient]:
 
     app.dependency_overrides[db_session] = override_get_db
     app.dependency_overrides[file_storage] = S3StorageBackend
-
-    session = create_session(test_db, test_user.uid, "testclient", "testclient")
+    app.dependency_overrides[authenticated_user] = lambda: test_user
 
     with TestClient(app) as c:
-        c.cookies.set("sessionid", session.uid)
         yield c
 
     app.dependency_overrides.clear()

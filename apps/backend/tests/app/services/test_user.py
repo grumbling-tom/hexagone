@@ -1,68 +1,34 @@
 """Tests for the user service."""
 
-import pytest
 from sqlalchemy.orm import Session
 
 from src.app.repository import User
-from src.app.services.password import hash_password
-from src.app.services.user import (
-    DuplicateEmailError,
-    authenticate_user,
-    create_user,
-)
+from src.app.services.user import get_or_create_user
 
 
-def test_authenticate_user_success(test_db: Session):
-    user = User(
-        email="auth@example.com",
-        password_hash=hash_password("password123"),
-    )
-    test_db.add(user)
-    test_db.commit()
-
-    result = authenticate_user(test_db, "auth@example.com", "password123")
-    assert result is not None
-    assert result.email == "auth@example.com"
-
-
-def test_authenticate_user_wrong_password(test_db: Session):
-    user = User(
-        email="auth2@example.com",
-        password_hash=hash_password("password123"),
-    )
-    test_db.add(user)
-    test_db.commit()
-
-    result = authenticate_user(test_db, "auth2@example.com", "wrongpassword")
-    assert result is None
-
-
-def test_authenticate_user_archived(test_db: Session):
-    user = User(
-        email="archived@example.com",
-        password_hash=hash_password("password123"),
-        archived=True,
-    )
-    test_db.add(user)
-    test_db.commit()
-
-    result = authenticate_user(test_db, "archived@example.com", "password123")
-    assert result is None
-
-
-def test_authenticate_user_nonexistent(test_db: Session):
-    result = authenticate_user(test_db, "nobody@example.com", "password123")
-    assert result is None
-
-
-def test_create_user_success(test_db: Session):
-    user = create_user(test_db, "new@example.com", "password123")
+def test_get_or_create_user_creates_new(test_db: Session):
+    user = get_or_create_user(test_db, "clerk_id_1", "new@example.com")
     assert user.email == "new@example.com"
+    assert user.external_auth_id == "clerk_id_1"
+    assert user.role == "user"
     assert user.uid is not None
-    assert user.password_hash != "password123"
 
 
-def test_create_user_duplicate_email(test_db: Session):
-    create_user(test_db, "dupe@example.com", "password123")
-    with pytest.raises(DuplicateEmailError):
-        create_user(test_db, "dupe@example.com", "password456")
+def test_get_or_create_user_returns_existing(test_db: Session):
+    existing = User(
+        email="existing@example.com",
+        external_auth_id="clerk_id_2",
+    )
+    test_db.add(existing)
+    test_db.commit()
+    test_db.refresh(existing)
+
+    user = get_or_create_user(test_db, "clerk_id_2", "existing@example.com")
+    assert user.uid == existing.uid
+    assert user.email == "existing@example.com"
+
+
+def test_get_or_create_user_different_ids_create_different_users(test_db: Session):
+    user1 = get_or_create_user(test_db, "clerk_id_a", "a@example.com")
+    user2 = get_or_create_user(test_db, "clerk_id_b", "b@example.com")
+    assert user1.uid != user2.uid

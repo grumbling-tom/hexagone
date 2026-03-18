@@ -25,7 +25,6 @@ from src.app.repository import (
     UploadStatusValue,
     User,
 )
-from src.app.services.password import hash_password
 from src.app.settings import settings
 from src.app.utils import SortOrder
 
@@ -644,7 +643,7 @@ def test_in_filter_on_current_status_composes_with_equals(
 ):
     other_user = User(
         email="other@example.com",
-        password_hash=hash_password("pass"),
+        external_auth_id="other_clerk_id",
     )
     test_db.add(other_user)
     test_db.commit()

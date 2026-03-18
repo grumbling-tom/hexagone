@@ -27,18 +27,11 @@ export interface ValidationError {
 }
 
 /**
- * Response body after successful login.
- */
-export interface UserSessionResponse {
-  email: string;
-  uid: string;
-}
-
-/**
  * Response body for user endpoints.
  */
 export interface UserResponse {
   email: string;
+  role: string;
   uid: string;
 }
 
@@ -125,22 +118,6 @@ Returns:
 
 export interface HTTPValidationError {
   detail?: ValidationError[];
-}
-
-/**
- * Request body for login.
- */
-export interface CreateUserSessionRequest {
-  email: string;
-  password: string;
-}
-
-/**
- * Request body for user registration.
- */
-export interface CreateUserRequest {
-  email: string;
-  password: string;
 }
 
 /**

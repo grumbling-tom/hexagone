@@ -59,6 +59,53 @@ resource "aws_cloudfront_function" "spa_routing" {
 }
 
 # ---------------------------------------------------------------------------
+# Response headers policy — CSP + security headers
+# ---------------------------------------------------------------------------
+
+resource "aws_cloudfront_response_headers_policy" "security_headers" {
+  name = "hexagone-security-headers"
+
+  security_headers_config {
+    content_type_options {
+      override = true
+    }
+
+    frame_options {
+      frame_option = "DENY"
+      override     = true
+    }
+
+    referrer_policy {
+      referrer_policy = "strict-origin-when-cross-origin"
+      override        = true
+    }
+
+    strict_transport_security {
+      access_control_max_age_sec = 31536000
+      include_subdomains         = true
+      preload                    = true
+      override                   = true
+    }
+
+    content_security_policy {
+      content_security_policy = join("; ", [
+        "default-src 'self'",
+        "script-src 'self'",
+        "style-src 'self' 'unsafe-inline'",
+        "img-src 'self' https://img.clerk.com",
+        "connect-src 'self' https://*.clerk.accounts.dev",
+        "worker-src 'self' blob:",
+        "frame-src https://*.clerk.accounts.dev https://challenges.cloudflare.com",
+        "font-src 'self'",
+        "object-src 'none'",
+        "base-uri 'self'",
+      ])
+      override = true
+    }
+  }
+}
+
+# ---------------------------------------------------------------------------
 # CloudFront distribution
 # ---------------------------------------------------------------------------
 
@@ -119,6 +166,8 @@ resource "aws_cloudfront_distribution" "web" {
       event_type   = "viewer-request"
       function_arn = aws_cloudfront_function.spa_routing.arn
     }
+
+    response_headers_policy_id = aws_cloudfront_response_headers_policy.security_headers.id
   }
 
   restrictions {
