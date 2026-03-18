@@ -32,10 +32,11 @@ export function AppRoutes() {
 }
 
 export default function App() {
-  console.log(import.meta.env.PUBLIC_CLERK_PUBLISHABLE_KEY);
   return (
     <ClerkProvider
       publishableKey={import.meta.env.PUBLIC_CLERK_PUBLISHABLE_KEY}
+      signInUrl="/app/sign-in"
+      afterSignOutUrl="/app/sign-in"
     >
       <AuthTokenSync />
       <QueryClientProvider client={queryClient}>

@@ -41,6 +41,28 @@ class Settings(BaseSettings):
 
     @model_validator(mode="before")
     @classmethod
+    def validate_clerk_settings(cls, data: dict[str, Any]) -> dict[str, Any]:
+        env = data.get("ENV", "DEV")
+
+        if env == "TEST":
+            return data
+
+        if not data.get("CLERK_JWKS_URL"):
+            msg = "CLERK_JWKS_URL must be set to enable JWT authentication"
+            raise ValueError(msg)
+
+        if not data.get("CLERK_ISSUER"):
+            msg = "CLERK_ISSUER must be set to enable JWT authentication"
+            raise ValueError(msg)
+
+        if not data.get("CLERK_AUTHORIZED_PARTIES"):
+            msg = "CLERK_AUTHORIZED_PARTIES must be set to enable JWT authentication"
+            raise ValueError(msg)
+
+        return data
+
+    @model_validator(mode="before")
+    @classmethod
     def validate_database_url(cls, data: dict[str, Any]) -> dict[str, Any]:
         """Validate and set default DATABASE_URL for DEV environment.
 
