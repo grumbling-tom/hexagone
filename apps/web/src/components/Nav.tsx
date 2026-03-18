@@ -10,7 +10,7 @@ export default function Nav() {
   async function handleLogout() {
     setIsPending(true);
     await signOut();
-    navigate("/sign-in");
+    navigate("/login");
   }
 
   return (

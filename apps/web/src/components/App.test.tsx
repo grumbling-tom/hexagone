@@ -40,14 +40,14 @@ beforeEach(() => {
   vi.clearAllMocks();
 });
 
-test("redirects unauthenticated users to sign-in", () => {
+test("redirects unauthenticated users to login", () => {
   (useAuthContext as Mock).mockReturnValue({
     isSignedIn: false,
     isLoaded: true,
   });
 
   renderWithProviders("/");
-  expect(screen.getByText("Sign in redirect")).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "Log in" })).toBeInTheDocument();
 });
 
 test("renders dashboard for authenticated users", () => {

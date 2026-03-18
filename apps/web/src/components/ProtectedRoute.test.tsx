@@ -8,10 +8,6 @@ vi.mock("@/lib/auth", () => ({
   useAuthContext: vi.fn(),
 }));
 
-vi.mock("@clerk/clerk-react", () => ({
-  RedirectToSignIn: () => <p>Sign in page</p>,
-}));
-
 import { useAuthContext } from "@/lib/auth";
 
 function renderWithRouter() {
@@ -23,6 +19,7 @@ function renderWithRouter() {
           <Route element={<ProtectedRoute />}>
             <Route path="/" element={<p>Protected content</p>} />
           </Route>
+          <Route path="/login" element={<p>Sign in page</p>} />
         </Routes>
       </MemoryRouter>
     </QueryClientProvider>,
