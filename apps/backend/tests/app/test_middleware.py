@@ -53,7 +53,7 @@ def _make_token(
     return pyjwt.encode(payload, _private_key_pem, algorithm="RS256")
 
 
-def _mock_jwks_client() -> MagicMock:
+def _mock_jwk_client() -> MagicMock:
     mock_client = MagicMock()
     mock_signing_key = MagicMock()
     mock_signing_key.key = _public_key
@@ -100,7 +100,7 @@ def _mock_clerk(monkeypatch: pytest.MonkeyPatch):  # pyright: ignore[reportUnuse
     mock_settings.CLERK_AUTHORIZED_PARTIES = [TEST_AZP]
 
     monkeypatch.setattr("src.app.middleware.settings", mock_settings)
-    monkeypatch.setattr("src.app.middleware._get_jwks_client", _mock_jwks_client)
+    monkeypatch.setattr("src.app.middleware.JWK_CLIENT", _mock_jwk_client())
 
 
 @pytest.mark.usefixtures("_mock_clerk")
