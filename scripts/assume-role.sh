@@ -14,6 +14,9 @@
 
 set -euo pipefail
 
+# Ensure these are exported so child processes (e.g. aws CLI) can see them
+export AWS_PROFILE AWS_ACCOUNT_ID
+
 # Configuration
 ROLE_ARN="arn:aws:iam::${AWS_ACCOUNT_ID}:role/HexagoneInfrastructureAdmin"
 SESSION_NAME="local-terraform-$(date +%Y%m%d-%H%M%S)"
