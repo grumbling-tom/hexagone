@@ -155,6 +155,16 @@ resource "aws_route_table_association" "private" {
   route_table_id = aws_route_table.private.id
 }
 
+# S3 Gateway Endpoint — keeps Lambda↔S3 traffic on the AWS backbone
+# instead of routing through fck-nat → IGW → public internet.
+# Gateway endpoints for S3 are free.
+resource "aws_vpc_endpoint" "s3" {
+  vpc_id       = aws_vpc.main.id
+  service_name = "com.amazonaws.eu-west-1.s3"
+
+  route_table_ids = [aws_route_table.private.id]
+}
+
 resource "aws_security_group" "lambda" {
   name        = "hexagone-lambda-sg"
   description = "Security group for Hexagone Lambda functions"
