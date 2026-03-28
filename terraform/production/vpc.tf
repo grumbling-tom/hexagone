@@ -12,7 +12,7 @@ resource "aws_internet_gateway" "main" {
   vpc_id = aws_vpc.main.id
 }
 
-# Public subnets for NAT Gateway
+# Public subnets for fck-nat and Internet Gateway access
 # Using /19 CIDR blocks to efficiently utilize the VPC IP range
 # 3 public subnets: 10.0.0.0/19, 10.0.32.0/19, 10.0.64.0/19
 resource "aws_subnet" "public" {
@@ -33,48 +33,96 @@ resource "aws_subnet" "private" {
   availability_zone = data.aws_availability_zones.available.names[count.index]
 }
 
-# NAT Gateway gives Lambda (in private subnets) outbound internet access
+# fck-nat gives Lambda (in private subnets) outbound internet access
 # without exposing it to inbound traffic from the internet.
-# Traffic flow: Lambda → NAT Gateway (public subnet) → Internet Gateway → Internet
-#
-# To restrict outbound traffic to specific domains, add an AWS Network Firewall
-# between the private subnets and the NAT Gateway. Example:
-#
-#   resource "aws_networkfirewall_firewall" "main" {
-#     name                = "clank-firewall"
-#     firewall_policy_arn = aws_networkfirewall_firewall_policy.main.arn
-#     vpc_id              = aws_vpc.main.id
-#     subnet_mapping { subnet_id = aws_subnet.firewall[0].id }
-#   }
-#
-#   resource "aws_networkfirewall_rule_group" "domain_allow" {
-#     capacity = 100
-#     name     = "clank-allowed-domains"
-#     type     = "STATEFUL"
-#     rule_group {
-#       rules_source {
-#         rules_source_list {
-#           generated_rules_type = "ALLOWLIST"
-#           target_types         = ["TLS_SNI", "HTTP_HOST"]
-#           targets              = [".example.com"]
-#         }
-#       }
-#     }
-#   }
-#
-# This requires a dedicated firewall subnet tier and modified route tables so
-# private subnet traffic routes through the firewall endpoints before reaching
-# the NAT Gateway. See: https://docs.aws.amazon.com/network-firewall/latest/developerguide/arch-igw-ngw.html
+# Uses a t4g.nano EC2 instance (~$3/mo) instead of managed NAT Gateway (~$39/mo).
+# Traffic flow: Lambda → fck-nat instance (public subnet) → Internet Gateway → Internet
+# Auto-recovery: ASG (min=max=1) replaces the instance on failure.
 
-resource "aws_eip" "nat" {
-  domain = "vpc"
+data "aws_ami" "fck_nat" {
+  most_recent = true
+  owners      = ["568608671756"]
+
+  filter {
+    name   = "name"
+    values = ["fck-nat-al2023-*-arm64-*"]
+  }
+
+  filter {
+    name   = "architecture"
+    values = ["arm64"]
+  }
 }
 
-resource "aws_nat_gateway" "main" {
-  allocation_id = aws_eip.nat.id
-  subnet_id     = aws_subnet.public[0].id
+resource "aws_security_group" "fck_nat" {
+  name        = "hexagone-fck-nat-sg"
+  description = "Security group for fck-nat NAT instance"
+  vpc_id      = aws_vpc.main.id
 
-  depends_on = [aws_internet_gateway.main]
+  ingress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = [for s in aws_subnet.private : s.cidr_block]
+    description = "Allow all traffic from private subnets"
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+    description = "Allow all outbound traffic"
+  }
+}
+
+resource "aws_network_interface" "fck_nat" {
+  subnet_id         = aws_subnet.public[0].id
+  security_groups   = [aws_security_group.fck_nat.id]
+  source_dest_check = false
+  description       = "Stable ENI for fck-nat instance, persists across ASG replacements"
+}
+
+resource "aws_launch_template" "fck_nat" {
+  name_prefix   = "hexagone-fck-nat-"
+  image_id      = data.aws_ami.fck_nat.id
+  instance_type = "t4g.micro"
+
+  network_interfaces {
+    network_interface_id = aws_network_interface.fck_nat.id
+    device_index         = 0
+  }
+
+  tag_specifications {
+    resource_type = "instance"
+    tags = {
+      Name = "hexagone-fck-nat"
+    }
+  }
+}
+
+resource "aws_autoscaling_group" "fck_nat" {
+  name_prefix      = "hexagone-fck-nat-"
+  min_size         = 1
+  max_size         = 1
+  desired_capacity = 1
+
+  availability_zones = [data.aws_availability_zones.available.names[0]]
+
+  launch_template {
+    id      = aws_launch_template.fck_nat.id
+    version = "$Latest"
+  }
+
+  tag {
+    key                 = "Name"
+    value               = "hexagone-fck-nat"
+    propagate_at_launch = true
+  }
+
+  lifecycle {
+    create_before_destroy = true
+  }
 }
 
 resource "aws_route_table" "public" {
@@ -96,8 +144,8 @@ resource "aws_route_table" "private" {
   vpc_id = aws_vpc.main.id
 
   route {
-    cidr_block     = "0.0.0.0/0"
-    nat_gateway_id = aws_nat_gateway.main.id
+    cidr_block           = "0.0.0.0/0"
+    network_interface_id = aws_network_interface.fck_nat.id
   }
 }
 
@@ -105,6 +153,16 @@ resource "aws_route_table_association" "private" {
   count          = 3
   subnet_id      = aws_subnet.private[count.index].id
   route_table_id = aws_route_table.private.id
+}
+
+# S3 Gateway Endpoint — keeps Lambda↔S3 traffic on the AWS backbone
+# instead of routing through fck-nat → IGW → public internet.
+# Gateway endpoints for S3 are free.
+resource "aws_vpc_endpoint" "s3" {
+  vpc_id       = aws_vpc.main.id
+  service_name = "com.amazonaws.eu-west-1.s3"
+
+  route_table_ids = [aws_route_table.private.id]
 }
 
 resource "aws_security_group" "lambda" {

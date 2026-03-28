@@ -11,7 +11,7 @@
     "check": "tsc --noEmit",
     "lint:css": "stylelint 'src/**/*.css'",
     "test:watch": "vitest",
-    "api:gen-spec": "uv run python ../backend/src/scripts/generate_openapi.py",
+    "api:gen-spec": "UV_WORKING_DIRECTORY=../backend uv run python src/scripts/generate_openapi.py",
     "api:gen-client": "orval --config ./orval.config.ts",
     "api:gen": "pnpm api:gen-spec && pnpm api:gen-client"
   },

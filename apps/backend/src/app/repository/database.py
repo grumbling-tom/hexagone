@@ -12,7 +12,14 @@ from ..utils import get_logger
 
 logger = get_logger(__name__)
 
-engine = create_engine(settings.DATABASE_URL, pool_pre_ping=True)
+engine = create_engine(
+    settings.DATABASE_URL,
+    pool_pre_ping=True,
+    # We run on AWS Lambda, which will create a new instance for each invocation,
+    # so we don't need a connection pool.
+    pool_size=1,
+    max_overflow=0,
+)
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 

@@ -2763,7 +2763,7 @@
       "id": "0wOsh5NJMmlXrrYvRS7KM",
       "type": "rectangle",
       "x": 683.919159111143,
-      "y": -158.4051562258785,
+      "y": -158.58489921427844,
       "width": 251.4531730416763,
       "height": 217.8181551248196,
       "angle": 0,
@@ -2781,11 +2781,11 @@
         "type": 3
       },
       "seed": 1276821408,
-      "version": 857,
-      "versionNonce": 93602400,
+      "version": 858,
+      "versionNonce": 63335762,
       "isDeleted": false,
       "boundElements": [],
-      "updated": 1773081390786,
+      "updated": 1774616222237,
       "link": null,
       "locked": false
     },

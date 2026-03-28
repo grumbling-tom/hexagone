@@ -54,13 +54,33 @@
       ]
     },
     {
+      "Sid": "EC2NetworkInterface",
+      "Effect": "Allow",
+      "Action": [
+        "ec2:CreateNetworkInterface",
+        "ec2:DeleteNetworkInterface",
+        "ec2:ModifyNetworkInterfaceAttribute"
+      ],
+      "Resource": [
+        "arn:aws:ec2:eu-west-1:*:network-interface/*",
+        "arn:aws:ec2:eu-west-1:*:subnet/*",
+        "arn:aws:ec2:eu-west-1:*:security-group/*"
+      ]
+    },
+    {
       "Sid": "EC2ElasticIP",
       "Effect": "Allow",
       "Action": [
         "ec2:AllocateAddress",
-        "ec2:ReleaseAddress"
+        "ec2:ReleaseAddress",
+        "ec2:AssociateAddress",
+        "ec2:DisassociateAddress"
       ],
-      "Resource": "arn:aws:ec2:eu-west-1:*:elastic-ip/*"
+      "Resource": [
+        "arn:aws:ec2:eu-west-1:*:elastic-ip/*",
+        "arn:aws:ec2:eu-west-1:*:network-interface/*",
+        "arn:aws:ec2:eu-west-1:*:natgateway/*"
+      ]
     },
     {
       "Sid": "EC2RouteTable",
@@ -70,6 +90,7 @@
         "ec2:DeleteRouteTable",
         "ec2:CreateRoute",
         "ec2:DeleteRoute",
+        "ec2:ReplaceRoute",
         "ec2:AssociateRouteTable",
         "ec2:DisassociateRouteTable"
       ],
@@ -78,7 +99,8 @@
         "arn:aws:ec2:eu-west-1:*:subnet/*",
         "arn:aws:ec2:eu-west-1:*:vpc/*",
         "arn:aws:ec2:eu-west-1:*:internet-gateway/*",
-        "arn:aws:ec2:eu-west-1:*:natgateway/*"
+        "arn:aws:ec2:eu-west-1:*:natgateway/*",
+        "arn:aws:ec2:eu-west-1:*:network-interface/*"
       ]
     },
     {
@@ -121,7 +143,9 @@
         "ec2:DescribeImages",
         "ec2:DescribeTags",
         "ec2:DescribeVolumes",
-        "ec2:DescribeInstanceCreditSpecifications"
+        "ec2:DescribeInstanceCreditSpecifications",
+        "ec2:DescribeLaunchTemplates",
+        "ec2:DescribeLaunchTemplateVersions"
       ],
       "Resource": "*"
     },
@@ -142,7 +166,8 @@
         "arn:aws:ec2:eu-west-1:*:network-interface/*",
         "arn:aws:ec2:eu-west-1:*:security-group/*",
         "arn:aws:ec2:eu-west-1:*:subnet/*",
-        "arn:aws:ec2:eu-west-1:*:image/*"
+        "arn:aws:ec2:eu-west-1:*:image/*",
+        "arn:aws:ec2:eu-west-1:*:launch-template/*"
       ]
     },
     {
