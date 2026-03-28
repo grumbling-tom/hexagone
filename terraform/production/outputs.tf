@@ -42,3 +42,40 @@ output "uploads_s3_bucket_name" {
   description = "S3 bucket name for GPX uploads"
   value       = aws_s3_bucket.uploads.id
 }
+
+output "tailscale_instance_id" {
+  description = "Tailscale subnet router instance ID (for SSM Session Manager)"
+  value       = aws_instance.tailscale.id
+}
+
+output "db_connection_command" {
+  description = "Command to connect to the database via Tailscale"
+  value       = "psql \"postgresql://${aws_db_instance.main.username}@${aws_db_instance.main.address}:${aws_db_instance.main.port}/${aws_db_instance.main.db_name}\""
+  sensitive   = true
+}
+
+output "database_host" {
+  description = "RDS instance endpoint hostname"
+  value       = aws_db_instance.main.address
+}
+
+output "database_port" {
+  description = "RDS instance port"
+  value       = aws_db_instance.main.port
+}
+
+output "database_user" {
+  description = "RDS master username"
+  value       = aws_db_instance.main.username
+}
+
+output "database_name" {
+  description = "RDS database name"
+  value       = aws_db_instance.main.db_name
+}
+
+output "db_password" {
+  description = "Database password (sensitive)"
+  value       = random_password.db_password.result
+  sensitive   = true
+}

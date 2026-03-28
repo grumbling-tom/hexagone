@@ -133,6 +133,14 @@ resource "aws_security_group" "rds" {
     description     = "Allow PostgreSQL access from Lambda"
   }
 
+  ingress {
+    from_port       = 5432
+    to_port         = 5432
+    protocol        = "tcp"
+    security_groups = [aws_security_group.tailscale.id]
+    description     = "Allow PostgreSQL access from Tailscale subnet router"
+  }
+
   egress {
     from_port       = 0
     to_port         = 65535

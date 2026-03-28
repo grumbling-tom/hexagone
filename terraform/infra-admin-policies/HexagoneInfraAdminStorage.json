@@ -1,0 +1,153 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "S3WebBucket",
+      "Effect": "Allow",
+      "Action": [
+        "s3:CreateBucket",
+        "s3:DeleteBucket",
+        "s3:ListBucket",
+        "s3:GetBucketLocation",
+        "s3:GetBucketVersioning",
+        "s3:GetBucketAcl",
+        "s3:GetBucketCORS",
+        "s3:GetBucketLogging",
+        "s3:GetBucketObjectLockConfiguration",
+        "s3:GetBucketPolicy",
+        "s3:GetBucketRequestPayment",
+        "s3:GetBucketTagging",
+        "s3:GetBucketWebsite",
+        "s3:GetAccelerateConfiguration",
+        "s3:GetEncryptionConfiguration",
+        "s3:GetLifecycleConfiguration",
+        "s3:GetReplicationConfiguration",
+        "s3:PutBucketPolicy",
+        "s3:DeleteBucketPolicy",
+        "s3:PutBucketPublicAccessBlock",
+        "s3:GetBucketPublicAccessBlock",
+        "s3:PutBucketTagging"
+      ],
+      "Resource": "arn:aws:s3:::hexagone-web"
+    },
+    {
+      "Sid": "S3UploadsBucket",
+      "Effect": "Allow",
+      "Action": [
+        "s3:CreateBucket",
+        "s3:DeleteBucket",
+        "s3:ListBucket",
+        "s3:GetBucketLocation",
+        "s3:GetBucketVersioning",
+        "s3:GetBucketAcl",
+        "s3:GetBucketCORS",
+        "s3:PutBucketCORS",
+        "s3:GetBucketLogging",
+        "s3:GetBucketObjectLockConfiguration",
+        "s3:GetBucketPolicy",
+        "s3:GetBucketRequestPayment",
+        "s3:GetBucketTagging",
+        "s3:GetBucketWebsite",
+        "s3:GetAccelerateConfiguration",
+        "s3:GetEncryptionConfiguration",
+        "s3:GetLifecycleConfiguration",
+        "s3:GetReplicationConfiguration",
+        "s3:PutBucketPolicy",
+        "s3:DeleteBucketPolicy",
+        "s3:PutBucketPublicAccessBlock",
+        "s3:GetBucketPublicAccessBlock",
+        "s3:PutBucketTagging",
+        "s3:PutBucketNotification",
+        "s3:GetBucketNotification"
+      ],
+      "Resource": "arn:aws:s3:::hexagone-uploads"
+    },
+    {
+      "Sid": "DeployAssets",
+      "Effect": "Allow",
+      "Action": [
+        "s3:PutObject",
+        "s3:DeleteObject"
+      ],
+      "Resource": "arn:aws:s3:::hexagone-web/*"
+    },
+    {
+      "Sid": "CloudFrontDistribution",
+      "Effect": "Allow",
+      "Action": [
+        "cloudfront:CreateDistribution",
+        "cloudfront:GetDistribution",
+        "cloudfront:UpdateDistribution",
+        "cloudfront:DeleteDistribution",
+        "cloudfront:TagResource",
+        "cloudfront:UntagResource",
+        "cloudfront:ListTagsForResource"
+      ],
+      "Resource": "arn:aws:cloudfront::*:distribution/*"
+    },
+    {
+      "Sid": "CloudFrontOAC",
+      "Effect": "Allow",
+      "Action": [
+        "cloudfront:CreateOriginAccessControl",
+        "cloudfront:GetOriginAccessControl",
+        "cloudfront:UpdateOriginAccessControl",
+        "cloudfront:DeleteOriginAccessControl"
+      ],
+      "Resource": "arn:aws:cloudfront::*:origin-access-control/*"
+    },
+    {
+      "Sid": "CloudFrontFunction",
+      "Effect": "Allow",
+      "Action": [
+        "cloudfront:CreateFunction",
+        "cloudfront:DescribeFunction",
+        "cloudfront:GetFunction",
+        "cloudfront:UpdateFunction",
+        "cloudfront:DeleteFunction",
+        "cloudfront:PublishFunction"
+      ],
+      "Resource": "arn:aws:cloudfront::*:function/*"
+    },
+    {
+      "Sid": "CloudFrontInvalidation",
+      "Effect": "Allow",
+      "Action": "cloudfront:CreateInvalidation",
+      "Resource": "arn:aws:cloudfront::*:distribution/*"
+    },
+    {
+      "Sid": "ACMCertificate",
+      "Effect": "Allow",
+      "Action": [
+        "acm:RequestCertificate",
+        "acm:DescribeCertificate",
+        "acm:DeleteCertificate",
+        "acm:ListTagsForCertificate",
+        "acm:AddTagsToCertificate",
+        "acm:RemoveTagsFromCertificate"
+      ],
+      "Resource": "arn:aws:acm:us-east-1:*:certificate/*"
+    },
+    {
+      "Sid": "Route53Zone",
+      "Effect": "Allow",
+      "Action": [
+        "route53:CreateHostedZone",
+        "route53:GetHostedZone",
+        "route53:DeleteHostedZone",
+        "route53:ListResourceRecordSets",
+        "route53:ChangeResourceRecordSets",
+        "route53:ListTagsForResource",
+        "route53:ChangeTagsForResource",
+        "route53:GetChange"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "Route53Changes",
+      "Effect": "Allow",
+      "Action": "route53:GetChange",
+      "Resource": "arn:aws:route53:::change/*"
+    }
+  ]
+}
