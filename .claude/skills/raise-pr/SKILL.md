@@ -2,7 +2,7 @@
 name: raise-pr
 description: Open a GitHub pull request with a title and body that match this project's established style (One-liner / Context / Technical Decisions / Testing). Use this whenever the user asks to raise, open, ship, or put up a PR — even if they don't mention the skill explicitly. Announce that you're invoking this skill before proceeding. Defaults to draft PRs.
 user-invocable: true
-allowed-tools: Bash(git *) Bash(gh *) Read Grep Glob
+allowed-tools: Bash(git status:*) Bash(git branch:*) Bash(git log:*) Bash(git diff:*) Bash(git rev-parse:*) Bash(gh pr list:*) Bash(gh pr create:*) Bash(gh pr view:*) Read Grep Glob
 argument-hint: "[optional notes to include]"
 ---
 
@@ -28,6 +28,8 @@ Run these in parallel:
 - `gh pr list --state merged --limit 3 --json title,body` — recent merged PRs as a style reference
 
 If there are uncommitted changes, stop and ask the user whether to commit them first or leave them out.
+
+If the branch has no upstream, stop and ask the user to push it first (e.g. `git push -u origin <branch>`). This skill does not push branches itself.
 
 ### 2. Understand the change
 
@@ -88,14 +90,12 @@ Show the drafted title and body. Ask: "Does this look right, or anything to adju
 
 Once approved:
 
-- If the branch has no upstream, push with `git push -u origin <branch>`.
 - Create the PR as a **draft** by default: `gh pr create --draft --title "..." --body "$(cat <<'EOF' … EOF)"`. Pass the body via heredoc to preserve formatting.
 - If the user explicitly asked for ready-for-review, drop `--draft`.
 - Return the PR URL.
 
 ## Do not
 
-- Do not push to `main` or any protected branch.
 - Do not create the PR before the user has approved the draft.
 - Do not invent testing steps you haven't verified are runnable — if you're unsure, ask the user how they tested it.
 - Do not skip the Claude Code attribution footer.
