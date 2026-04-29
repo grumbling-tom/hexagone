@@ -1,12 +1,13 @@
 """Tests for the GPX processing service.
 
-Pure-function tests (no DB). Each happy-path test synthesises a minimal
-GPX XML document inline so the test is self-contained and easy to read.
+Pure-function tests (no DB). Each happy-path test pulls factory fixtures
+from ``conftest.py`` to synthesise GPX payloads inline.
 """
 
 from __future__ import annotations
 
-from datetime import UTC, datetime, timedelta
+from collections.abc import Callable
+from datetime import UTC, datetime
 
 import pytest
 
@@ -21,91 +22,6 @@ from src.app.handlers.file_upload.gpx_processing import (
     is_degenerate,
 )
 from src.app.settings import settings
-
-# ---------------------------------------------------------------------------
-# GPX builders
-# ---------------------------------------------------------------------------
-
-# Roughly 11 metres in latitude and longitude near London.
-_LAT_STEP_11M = 0.0001
-_LON_STEP_11M = 0.00015
-
-_BASE_LAT = 51.5
-_BASE_LON = -0.12
-
-
-def _trkpt(lat: float, lon: float, ts: datetime | None = None) -> str:
-    if ts is None:
-        return f'      <trkpt lat="{lat:.7f}" lon="{lon:.7f}"/>\n'
-    iso = ts.strftime("%Y-%m-%dT%H:%M:%SZ")
-    return (
-        f'      <trkpt lat="{lat:.7f}" lon="{lon:.7f}">\n'
-        f"        <time>{iso}</time>\n"
-        f"      </trkpt>\n"
-    )
-
-
-def _gpx_doc(segments: list[list[Point]]) -> bytes:
-    """Render a GPX document containing one track with the given segments."""
-    parts: list[str] = [
-        '<?xml version="1.0" encoding="UTF-8"?>\n',
-        '<gpx version="1.1" creator="test" '
-        'xmlns="http://www.topografix.com/GPX/1/1">\n',
-        "  <trk>\n",
-    ]
-    for points in segments:
-        parts.append("    <trkseg>\n")
-        for lat, lon, ts in points:
-            parts.append(_trkpt(lat, lon, ts))
-        parts.append("    </trkseg>\n")
-    parts.append("  </trk>\n</gpx>\n")
-    return "".join(parts).encode()
-
-
-def _square_loop(
-    *,
-    base_lat: float = _BASE_LAT,
-    base_lon: float = _BASE_LON,
-    side_steps: int = 6,
-    start_time: datetime | None = None,
-    step: timedelta = timedelta(seconds=10),
-) -> list[Point]:
-    """A square loop centred at (base_lat, base_lon).
-
-    side_steps controls how many trackpoints are emitted on each side of
-    the square. The loop closes by returning to (and slightly past) the
-    starting point so `detect_polygons` registers it.
-    """
-    pts: list[Point] = []
-    cur_time = start_time
-
-    def emit(lat: float, lon: float) -> None:
-        nonlocal cur_time
-        pts.append((lat, lon, cur_time))
-        if cur_time is not None:
-            cur_time = cur_time + step
-
-    side = side_steps
-    # Bottom edge: lon increases.
-    for i in range(side):
-        emit(base_lat, base_lon + i * _LON_STEP_11M)
-    # Right edge: lat increases.
-    for i in range(side):
-        emit(base_lat + i * _LAT_STEP_11M, base_lon + (side - 1) * _LON_STEP_11M)
-    # Top edge: lon decreases.
-    for i in range(side):
-        emit(
-            base_lat + (side - 1) * _LAT_STEP_11M,
-            base_lon + (side - 1 - i) * _LON_STEP_11M,
-        )
-    # Left edge: lat decreases. End back where we started.
-    for i in range(side):
-        emit(base_lat + (side - 1 - i) * _LAT_STEP_11M, base_lon)
-    # Final closing point — overshoot slightly so the closure detector
-    # finds a sub-min_distance return-to-start.
-    emit(base_lat, base_lon)
-    return pts
-
 
 # ---------------------------------------------------------------------------
 # Pure-function tests
@@ -140,8 +56,10 @@ def test_detect_polygons_returns_empty_for_short_track() -> None:
     assert detect_polygons(pts, min_distance=10.0, min_loop_length=50.0) == []
 
 
-def test_detect_polygons_finds_loop() -> None:
-    pts = _square_loop()
+def test_detect_polygons_finds_loop(
+    make_square_loop: Callable[..., list[Point]],
+) -> None:
+    pts = make_square_loop()
     found = detect_polygons(pts, min_distance=10.0, min_loop_length=50.0)
     assert len(found) == 1
     i, j = found[0]
@@ -185,10 +103,13 @@ def test_is_degenerate_false_for_real_triangle() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_gpx_bytes_to_polygons_one_loop_with_timestamps() -> None:
+def test_gpx_bytes_to_polygons_one_loop_with_timestamps(
+    make_square_loop: Callable[..., list[Point]],
+    make_gpx_doc: Callable[[list[list[Point]]], bytes],
+) -> None:
     start = datetime(2024, 1, 1, 12, 0, 0, tzinfo=UTC)
-    pts = _square_loop(start_time=start)
-    data = _gpx_doc([pts])
+    pts = make_square_loop(start_time=start)
+    data = make_gpx_doc([pts])
 
     polygons = gpx_bytes_to_polygons(data, resolution=12, simplify=0.0)
 
@@ -214,9 +135,12 @@ def test_gpx_bytes_to_polygons_one_loop_with_timestamps() -> None:
     assert poly.completed_at.timestamp() == expected_ts.timestamp()
 
 
-def test_gpx_bytes_to_polygons_no_timestamps_yields_completed_at_none() -> None:
-    pts = _square_loop(start_time=None)
-    data = _gpx_doc([pts])
+def test_gpx_bytes_to_polygons_no_timestamps_yields_completed_at_none(
+    make_square_loop: Callable[..., list[Point]],
+    make_gpx_doc: Callable[[list[list[Point]]], bytes],
+) -> None:
+    pts = make_square_loop(start_time=None)
+    data = make_gpx_doc([pts])
 
     polygons = gpx_bytes_to_polygons(data, resolution=12, simplify=0.0)
 
@@ -224,23 +148,26 @@ def test_gpx_bytes_to_polygons_no_timestamps_yields_completed_at_none() -> None:
     assert polygons[0].completed_at is None
 
 
-def test_gpx_bytes_to_polygons_open_track_returns_empty() -> None:
-    # A straight line — never closes back on itself.
-    pts: list[Point] = [
-        (_BASE_LAT, _BASE_LON + i * _LON_STEP_11M, None) for i in range(20)
-    ]
-    data = _gpx_doc([pts])
+def test_gpx_bytes_to_polygons_open_track_returns_empty(
+    make_open_track: Callable[..., list[Point]],
+    make_gpx_doc: Callable[[list[list[Point]]], bytes],
+) -> None:
+    pts = make_open_track()
+    data = make_gpx_doc([pts])
 
     polygons = gpx_bytes_to_polygons(data, resolution=12, simplify=0.0)
 
     assert polygons == []
 
 
-def test_gpx_bytes_to_polygons_two_loops_indexed_sequentially() -> None:
-    loop_a = _square_loop(base_lat=_BASE_LAT, base_lon=_BASE_LON)
-    loop_b = _square_loop(base_lat=_BASE_LAT + 0.01, base_lon=_BASE_LON + 0.01)
+def test_gpx_bytes_to_polygons_two_loops_indexed_sequentially(
+    make_square_loop: Callable[..., list[Point]],
+    make_gpx_doc: Callable[[list[list[Point]]], bytes],
+) -> None:
+    loop_a = make_square_loop()
+    loop_b = make_square_loop(base_lat=51.51, base_lon=-0.11)
     # Two separate segments — each one self-closes.
-    data = _gpx_doc([loop_a, loop_b])
+    data = make_gpx_doc([loop_a, loop_b])
 
     polygons = gpx_bytes_to_polygons(data, resolution=12, simplify=0.0)
 
@@ -301,34 +228,44 @@ def test_billion_laughs_rejected() -> None:
         gpx_bytes_to_polygons(payload, resolution=12)
 
 
-def test_too_many_trackpoints_rejected(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_too_many_trackpoints_rejected(
+    monkeypatch: pytest.MonkeyPatch,
+    make_open_track: Callable[..., list[Point]],
+    make_gpx_doc: Callable[[list[list[Point]]], bytes],
+) -> None:
     # Tighten the cap so we don't have to synthesise 200k points.
     monkeypatch.setattr(settings, "MAX_GPX_POINTS", 5)
-    pts: list[Point] = [
-        (_BASE_LAT, _BASE_LON + i * _LON_STEP_11M, None) for i in range(10)
-    ]
-    data = _gpx_doc([pts])
+    pts = make_open_track(n=10)
+    data = make_gpx_doc([pts])
 
     with pytest.raises(GpxValidationError) as excinfo:
         gpx_bytes_to_polygons(data, resolution=12, simplify=0.0)
     assert excinfo.value.reason == "too many trackpoints"
 
 
-def test_too_many_polygons_rejected(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_too_many_polygons_rejected(
+    monkeypatch: pytest.MonkeyPatch,
+    make_square_loop: Callable[..., list[Point]],
+    make_gpx_doc: Callable[[list[list[Point]]], bytes],
+) -> None:
     monkeypatch.setattr(settings, "MAX_GPX_POLYGONS", 1)
-    loop_a = _square_loop(base_lat=_BASE_LAT, base_lon=_BASE_LON)
-    loop_b = _square_loop(base_lat=_BASE_LAT + 0.01, base_lon=_BASE_LON + 0.01)
-    data = _gpx_doc([loop_a, loop_b])
+    loop_a = make_square_loop()
+    loop_b = make_square_loop(base_lat=51.51, base_lon=-0.11)
+    data = make_gpx_doc([loop_a, loop_b])
 
     with pytest.raises(GpxValidationError) as excinfo:
         gpx_bytes_to_polygons(data, resolution=12, simplify=0.0)
     assert excinfo.value.reason == "too many polygons"
 
 
-def test_too_many_cells_rejected(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_too_many_cells_rejected(
+    monkeypatch: pytest.MonkeyPatch,
+    make_square_loop: Callable[..., list[Point]],
+    make_gpx_doc: Callable[[list[list[Point]]], bytes],
+) -> None:
     monkeypatch.setattr(settings, "MAX_GPX_CELLS", 1)
-    pts = _square_loop()
-    data = _gpx_doc([pts])
+    pts = make_square_loop()
+    data = make_gpx_doc([pts])
 
     with pytest.raises(GpxValidationError) as excinfo:
         gpx_bytes_to_polygons(data, resolution=12, simplify=0.0)

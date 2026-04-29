@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Generator
 from contextlib import contextmanager
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from typing import Any
 
 import boto3
@@ -23,79 +23,11 @@ from src.app.repository import (
 from src.app.settings import settings
 
 # ---------------------------------------------------------------------------
-# GPX builders (mirrored from sibling test_gpx_processing.py)
-# ---------------------------------------------------------------------------
-
-_LAT_STEP_11M = 0.0001
-_LON_STEP_11M = 0.00015
-
-_BASE_LAT = 51.5
-_BASE_LON = -0.12
-
-
-def _trkpt(lat: float, lon: float, ts: datetime | None = None) -> str:
-    if ts is None:
-        return f'      <trkpt lat="{lat:.7f}" lon="{lon:.7f}"/>\n'
-    iso = ts.strftime("%Y-%m-%dT%H:%M:%SZ")
-    return (
-        f'      <trkpt lat="{lat:.7f}" lon="{lon:.7f}">\n'
-        f"        <time>{iso}</time>\n"
-        f"      </trkpt>\n"
-    )
-
-
-def _gpx_doc(segments: list[list[Point]]) -> bytes:
-    parts: list[str] = [
-        '<?xml version="1.0" encoding="UTF-8"?>\n',
-        '<gpx version="1.1" creator="test" '
-        'xmlns="http://www.topografix.com/GPX/1/1">\n',
-        "  <trk>\n",
-    ]
-    for points in segments:
-        parts.append("    <trkseg>\n")
-        for lat, lon, ts in points:
-            parts.append(_trkpt(lat, lon, ts))
-        parts.append("    </trkseg>\n")
-    parts.append("  </trk>\n</gpx>\n")
-    return "".join(parts).encode()
-
-
-def _square_loop(
-    *,
-    base_lat: float = _BASE_LAT,
-    base_lon: float = _BASE_LON,
-    side_steps: int = 6,
-    start_time: datetime | None = None,
-    step: timedelta = timedelta(seconds=10),
-) -> list[Point]:
-    """Build a closed square loop centred at (base_lat, base_lon)."""
-    pts: list[Point] = []
-    cur_time = start_time
-
-    def emit(lat: float, lon: float) -> None:
-        nonlocal cur_time
-        pts.append((lat, lon, cur_time))
-        if cur_time is not None:
-            cur_time = cur_time + step
-
-    side = side_steps
-    for i in range(side):
-        emit(base_lat, base_lon + i * _LON_STEP_11M)
-    for i in range(side):
-        emit(base_lat + i * _LAT_STEP_11M, base_lon + (side - 1) * _LON_STEP_11M)
-    for i in range(side):
-        emit(
-            base_lat + (side - 1) * _LAT_STEP_11M,
-            base_lon + (side - 1 - i) * _LON_STEP_11M,
-        )
-    for i in range(side):
-        emit(base_lat + (side - 1 - i) * _LAT_STEP_11M, base_lon)
-    emit(base_lat, base_lon)
-    return pts
-
-
-# ---------------------------------------------------------------------------
 # Fixtures
+#
+# GPX-payload factories (make_square_loop / make_open_track / make_gpx_doc)
+# live in the sibling conftest.py so they're shared with
+# test_gpx_processing.py.
 # ---------------------------------------------------------------------------
 
 
@@ -116,18 +48,23 @@ def s3_client() -> S3Client:
     return boto3.client("s3", region_name="eu-west-2")  # pyright: ignore[reportUnknownMemberType]
 
 
-def _make_event(key: str) -> dict[str, Any]:
+@pytest.fixture
+def make_s3_event() -> Callable[[str], dict[str, Any]]:
     """Build the minimal S3 ObjectCreated event the handler validates."""
-    return {
-        "Records": [
-            {
-                "s3": {
-                    "bucket": {"name": settings.HEXAGONE_S3_BUCKET},
-                    "object": {"key": key},
-                },
-            }
-        ],
-    }
+
+    def _factory(key: str) -> dict[str, Any]:
+        return {
+            "Records": [
+                {
+                    "s3": {
+                        "bucket": {"name": settings.HEXAGONE_S3_BUCKET},
+                        "object": {"key": key},
+                    },
+                }
+            ],
+        }
+
+    return _factory
 
 
 class _FakeContext:
@@ -138,10 +75,6 @@ class _FakeContext:
 
     def get_remaining_time_in_millis(self) -> int:
         return 60_000
-
-
-def _put_object(s3: S3Client, key: str, data: bytes) -> None:
-    s3.put_object(Bucket=settings.HEXAGONE_S3_BUCKET, Key=key, Body=data)
 
 
 def _latest_status(db: Session, upload: Upload) -> UploadStatus:
@@ -158,25 +91,25 @@ def _hex_claims_for(db: Session, upload: Upload) -> list[HexClaim]:
     )
 
 
-# ---------------------------------------------------------------------------
-# Tests
-# ---------------------------------------------------------------------------
-
-
 def test_happy_path_inserts_hex_claims_and_marks_success(
     test_db: Session,
     s3_client: S3Client,
     patch_get_db: None,
     create_upload: Callable[..., Upload],
+    make_square_loop: Callable[..., list[Point]],
+    make_gpx_doc: Callable[[list[list[Point]]], bytes],
+    make_s3_event: Callable[[str], dict[str, Any]],
 ):
     start = datetime(2024, 1, 1, 12, 0, 0, tzinfo=UTC)
-    pts = _square_loop(start_time=start)
-    data = _gpx_doc([pts])
+    pts = make_square_loop(start_time=start)
+    data = make_gpx_doc([pts])
 
     upload = create_upload("happy.gpx", file_size_bytes=len(data))
-    _put_object(s3_client, upload.s3_key, data)
+    s3_client.put_object(
+        Bucket=settings.HEXAGONE_S3_BUCKET, Key=upload.s3_key, Body=data
+    )
 
-    response = handler_module.handler(_make_event(upload.s3_key), _FakeContext())
+    response = handler_module.handler(make_s3_event(upload.s3_key), _FakeContext())
 
     assert response == {"statusCode": 200, "body": "OK"}
 
@@ -216,20 +149,25 @@ def test_two_overlapping_loops_produce_distinct_polygon_indices(
     s3_client: S3Client,
     patch_get_db: None,
     create_upload: Callable[..., Upload],
+    make_square_loop: Callable[..., list[Point]],
+    make_gpx_doc: Callable[[list[list[Point]]], bytes],
+    make_s3_event: Callable[[str], dict[str, Any]],
 ):
     # Two identical square loops in two segments → cells fully overlap,
     # but each loop is a distinct polygon with its own polygon_index and
     # closing timestamp.
     start_a = datetime(2024, 1, 1, 12, 0, 0, tzinfo=UTC)
     start_b = datetime(2024, 1, 1, 13, 0, 0, tzinfo=UTC)
-    loop_a = _square_loop(start_time=start_a)
-    loop_b = _square_loop(start_time=start_b)
-    data = _gpx_doc([loop_a, loop_b])
+    loop_a = make_square_loop(start_time=start_a)
+    loop_b = make_square_loop(start_time=start_b)
+    data = make_gpx_doc([loop_a, loop_b])
 
     upload = create_upload("overlap.gpx", file_size_bytes=len(data))
-    _put_object(s3_client, upload.s3_key, data)
+    s3_client.put_object(
+        Bucket=settings.HEXAGONE_S3_BUCKET, Key=upload.s3_key, Body=data
+    )
 
-    response = handler_module.handler(_make_event(upload.s3_key), _FakeContext())
+    response = handler_module.handler(make_s3_event(upload.s3_key), _FakeContext())
     assert response == {"statusCode": 200, "body": "OK"}
 
     rows = _hex_claims_for(test_db, upload)
@@ -259,14 +197,19 @@ def test_no_timestamps_yields_completed_at_null(
     s3_client: S3Client,
     patch_get_db: None,
     create_upload: Callable[..., Upload],
+    make_square_loop: Callable[..., list[Point]],
+    make_gpx_doc: Callable[[list[list[Point]]], bytes],
+    make_s3_event: Callable[[str], dict[str, Any]],
 ):
-    pts = _square_loop(start_time=None)
-    data = _gpx_doc([pts])
+    pts = make_square_loop(start_time=None)
+    data = make_gpx_doc([pts])
 
     upload = create_upload("no-time.gpx", file_size_bytes=len(data))
-    _put_object(s3_client, upload.s3_key, data)
+    s3_client.put_object(
+        Bucket=settings.HEXAGONE_S3_BUCKET, Key=upload.s3_key, Body=data
+    )
 
-    response = handler_module.handler(_make_event(upload.s3_key), _FakeContext())
+    response = handler_module.handler(make_s3_event(upload.s3_key), _FakeContext())
     assert response == {"statusCode": 200, "body": "OK"}
 
     rows = _hex_claims_for(test_db, upload)
@@ -282,6 +225,7 @@ def test_oversized_payload_marks_invalid(
     s3_client: S3Client,
     patch_get_db: None,
     create_upload: Callable[..., Upload],
+    make_s3_event: Callable[[str], dict[str, Any]],
     monkeypatch: pytest.MonkeyPatch,
 ):
     # Tighten the cap so we don't have to push an actual 10 MiB blob.
@@ -289,9 +233,11 @@ def test_oversized_payload_marks_invalid(
     data = b"x" * 32
 
     upload = create_upload("oversize.gpx", file_size_bytes=len(data))
-    _put_object(s3_client, upload.s3_key, data)
+    s3_client.put_object(
+        Bucket=settings.HEXAGONE_S3_BUCKET, Key=upload.s3_key, Body=data
+    )
 
-    response = handler_module.handler(_make_event(upload.s3_key), _FakeContext())
+    response = handler_module.handler(make_s3_event(upload.s3_key), _FakeContext())
     assert response == {"statusCode": 400, "body": "file too large"}
 
     assert _hex_claims_for(test_db, upload) == []
@@ -305,12 +251,15 @@ def test_malformed_xml_marks_invalid(
     s3_client: S3Client,
     patch_get_db: None,
     create_upload: Callable[..., Upload],
+    make_s3_event: Callable[[str], dict[str, Any]],
 ):
     data = b"not xml at all"
     upload = create_upload("bad.gpx", file_size_bytes=len(data))
-    _put_object(s3_client, upload.s3_key, data)
+    s3_client.put_object(
+        Bucket=settings.HEXAGONE_S3_BUCKET, Key=upload.s3_key, Body=data
+    )
 
-    response = handler_module.handler(_make_event(upload.s3_key), _FakeContext())
+    response = handler_module.handler(make_s3_event(upload.s3_key), _FakeContext())
     assert response == {"statusCode": 400, "body": "invalid GPX"}
 
     assert _hex_claims_for(test_db, upload) == []
@@ -324,6 +273,7 @@ def test_xxe_attempt_marks_invalid(
     s3_client: S3Client,
     patch_get_db: None,
     create_upload: Callable[..., Upload],
+    make_s3_event: Callable[[str], dict[str, Any]],
 ):
     data = (
         b'<?xml version="1.0"?>\n'
@@ -335,9 +285,11 @@ def test_xxe_attempt_marks_invalid(
         b"</trkseg></trk></gpx>\n"
     )
     upload = create_upload("xxe.gpx", file_size_bytes=len(data))
-    _put_object(s3_client, upload.s3_key, data)
+    s3_client.put_object(
+        Bucket=settings.HEXAGONE_S3_BUCKET, Key=upload.s3_key, Body=data
+    )
 
-    response = handler_module.handler(_make_event(upload.s3_key), _FakeContext())
+    response = handler_module.handler(make_s3_event(upload.s3_key), _FakeContext())
     assert response["statusCode"] == 400
     assert _hex_claims_for(test_db, upload) == []
 
@@ -350,6 +302,7 @@ def test_billion_laughs_marks_invalid(
     s3_client: S3Client,
     patch_get_db: None,
     create_upload: Callable[..., Upload],
+    make_s3_event: Callable[[str], dict[str, Any]],
 ):
     lol = b"&lol;" * 10
     lol2 = b"&lol2;" * 10
@@ -365,9 +318,11 @@ def test_billion_laughs_marks_invalid(
         b'<gpx version="1.1"><trk><name>&lol4;</name></trk></gpx>\n'
     )
     upload = create_upload("lol.gpx", file_size_bytes=len(data))
-    _put_object(s3_client, upload.s3_key, data)
+    s3_client.put_object(
+        Bucket=settings.HEXAGONE_S3_BUCKET, Key=upload.s3_key, Body=data
+    )
 
-    response = handler_module.handler(_make_event(upload.s3_key), _FakeContext())
+    response = handler_module.handler(make_s3_event(upload.s3_key), _FakeContext())
     assert response["statusCode"] == 400
     assert _hex_claims_for(test_db, upload) == []
 
@@ -380,17 +335,19 @@ def test_no_closed_loops_succeeds_with_zero_rows(
     s3_client: S3Client,
     patch_get_db: None,
     create_upload: Callable[..., Upload],
+    make_open_track: Callable[..., list[Point]],
+    make_gpx_doc: Callable[[list[list[Point]]], bytes],
+    make_s3_event: Callable[[str], dict[str, Any]],
 ):
-    # A straight line — never closes back on itself.
-    pts: list[Point] = [
-        (_BASE_LAT, _BASE_LON + i * _LON_STEP_11M, None) for i in range(20)
-    ]
-    data = _gpx_doc([pts])
+    pts = make_open_track()
+    data = make_gpx_doc([pts])
 
     upload = create_upload("open.gpx", file_size_bytes=len(data))
-    _put_object(s3_client, upload.s3_key, data)
+    s3_client.put_object(
+        Bucket=settings.HEXAGONE_S3_BUCKET, Key=upload.s3_key, Body=data
+    )
 
-    response = handler_module.handler(_make_event(upload.s3_key), _FakeContext())
+    response = handler_module.handler(make_s3_event(upload.s3_key), _FakeContext())
     assert response == {"statusCode": 200, "body": "OK"}
 
     assert _hex_claims_for(test_db, upload) == []
@@ -404,9 +361,12 @@ def test_replay_of_already_received_upload_returns_400(
     s3_client: S3Client,
     patch_get_db: None,
     create_upload: Callable[..., Upload],
+    make_square_loop: Callable[..., list[Point]],
+    make_gpx_doc: Callable[[list[list[Point]]], bytes],
+    make_s3_event: Callable[[str], dict[str, Any]],
 ):
-    pts = _square_loop()
-    data = _gpx_doc([pts])
+    pts = make_square_loop()
+    data = make_gpx_doc([pts])
 
     upload = create_upload(
         "replay.gpx",
@@ -416,9 +376,11 @@ def test_replay_of_already_received_upload_returns_400(
             UploadStatusValue.UPLOAD_RECEIVED,
         ],
     )
-    _put_object(s3_client, upload.s3_key, data)
+    s3_client.put_object(
+        Bucket=settings.HEXAGONE_S3_BUCKET, Key=upload.s3_key, Body=data
+    )
 
-    response = handler_module.handler(_make_event(upload.s3_key), _FakeContext())
+    response = handler_module.handler(make_s3_event(upload.s3_key), _FakeContext())
 
     assert response["statusCode"] == 400
     assert "cannot be processed" in response["body"]
