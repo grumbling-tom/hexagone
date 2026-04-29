@@ -31,7 +31,14 @@ from .filters import (
     NotInFilter,
     RangeFilter,
 )
-from .models import Upload, UploadStatus, UploadStatusValue, User, UserSession
+from .models import (
+    HexClaim,
+    Upload,
+    UploadStatus,
+    UploadStatusValue,
+    User,
+    UserSession,
+)
 from .repository import Repository
 
 __all__ = [
@@ -40,6 +47,7 @@ __all__ = [
     "Filter",
     "GreaterThanFilter",
     "GreaterThanOrEqualFilter",
+    "HexClaim",
     "InFilter",
     "IsNullFilter",
     "LessThanFilter",

@@ -16,6 +16,7 @@ from src.app.dependencies import db_session, file_storage
 from src.app.main import app
 from src.app.repository import (
     BaseModel,
+    HexClaim,
     Repository,
     Upload,
     UploadStatus,
@@ -117,6 +118,44 @@ def create_upload(test_db: Session, test_user: User) -> Callable[..., Upload]:
         test_db.commit()
         test_db.refresh(upload)
         return upload
+
+    return _factory
+
+
+@pytest.fixture
+def create_hex_claim(test_db: Session) -> Callable[..., HexClaim]:
+    """Return a factory that creates a HexClaim row.
+
+    The claim is attributed to ``upload.user_uid`` and uses the default
+    H3 resolution (12). Tests that need to override resolution, git_sha,
+    or user can mutate the returned ORM instance before re-committing.
+
+    Args passed to the returned callable:
+        upload: Parent Upload to attach the claim to.
+        h3_cell: H3 cell ID (default a fixed valid res-12 cell).
+        polygon_index: 0-based polygon index (default 0).
+        completed_at: Closing timestamp; None by default.
+    """
+
+    def _factory(
+        upload: Upload,
+        *,
+        h3_cell: str = "8c1f1d2806467ff",
+        polygon_index: int = 0,
+        completed_at: datetime | None = None,
+    ) -> HexClaim:
+        claim = HexClaim(
+            upload_uid=upload.uid,
+            user_uid=upload.user_uid,
+            h3_cell=h3_cell,
+            h3_resolution=12,
+            polygon_index=polygon_index,
+            completed_at=completed_at,
+        )
+        test_db.add(claim)
+        test_db.commit()
+        test_db.refresh(claim)
+        return claim
 
     return _factory
 
