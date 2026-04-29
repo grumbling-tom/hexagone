@@ -113,6 +113,33 @@ def create_upload(
     return upload
 
 
+def set_upload_status(
+    db: DBSession,
+    upload: Upload,
+    status: UploadStatusValue,
+    *,
+    detail: str | None = None,
+    commit: bool = True,
+) -> None:
+    """Append a new UploadStatus row.
+
+    By default this commits the surrounding transaction; pass
+    ``commit=False`` to defer the commit so the caller can batch the
+    status flip with other writes (e.g. bulk hex_claim inserts) into a
+    single transaction.
+    """
+    db.add(
+        UploadStatus(
+            upload_uid=upload.uid,
+            status=status,
+            git_sha=settings.GIT_SHA,
+            detail=detail,
+        )
+    )
+    if commit:
+        db.commit()
+
+
 def list_uploads(  # noqa: PLR0913
     db: DBSession,
     user: User,

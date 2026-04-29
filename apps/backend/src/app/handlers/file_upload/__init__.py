@@ -3,7 +3,6 @@
 from typing import Any
 from urllib.parse import unquote_plus
 
-from sqlalchemy import insert
 from sqlalchemy.orm import Session
 
 from src.app.handlers.file_upload.gpx_processing import (
@@ -15,11 +14,11 @@ from src.app.repository import (
     HexClaim,
     Repository,
     Upload,
-    UploadStatus,
     UploadStatusValue,
     get_db,
 )
 from src.app.services.storage import S3StorageBackend, StorageBackend
+from src.app.services.upload import set_upload_status
 from src.app.settings import settings
 from src.app.utils import get_logger
 from src.app.utils.lambda_types import LambdaContext, LambdaResponse
@@ -44,33 +43,6 @@ def find_upload_by_s3_key(db: Session, key: str) -> Upload | None:
         page_size=1,
     )
     return result.items[0] if result.items else None
-
-
-def set_upload_status(
-    db: Session,
-    upload: Upload,
-    status: UploadStatusValue,
-    *,
-    detail: str | None = None,
-    commit: bool = True,
-) -> None:
-    """Append a new UploadStatus row.
-
-    By default this commits the surrounding transaction; pass
-    ``commit=False`` to defer the commit so the caller can batch the
-    status flip with other writes (e.g. bulk hex_claim inserts) into a
-    single transaction.
-    """
-    db.add(
-        UploadStatus(
-            upload_uid=upload.uid,
-            status=status,
-            git_sha=settings.GIT_SHA,
-            detail=detail,
-        )
-    )
-    if commit:
-        db.commit()
 
 
 def handler(
@@ -122,32 +94,32 @@ def handler(
             )
             return {"statusCode": 400, "body": e.reason}
 
-        rows = [
-            {
-                "upload_uid": upload.uid,
-                "user_uid": upload.user_uid,
-                "h3_cell": cell,
-                "h3_resolution": settings.H3_RESOLUTION,
-                "polygon_index": polygon.polygon_index,
-                "completed_at": polygon.completed_at,
-                "git_sha": settings.GIT_SHA,
-            }
+        claims = [
+            HexClaim(
+                upload_uid=upload.uid,
+                user_uid=upload.user_uid,
+                h3_cell=cell,
+                h3_resolution=settings.H3_RESOLUTION,
+                polygon_index=polygon.polygon_index,
+                completed_at=polygon.completed_at,
+                git_sha=settings.GIT_SHA,
+            )
             for polygon in polygons
             for cell in polygon.cells
         ]
 
         # Bulk insert + UPLOAD_SUCCESS share a single transaction so a
         # failed insert does not leave a misleading success status.
-        if rows:
-            db.execute(insert(HexClaim), rows)
+        db.add_all(claims)
         set_upload_status(db, upload, UploadStatusValue.UPLOAD_SUCCESS, commit=False)
         db.commit()
 
+        # TODO: Consider an UPLOAD_FAILED status for bulk insert failures.
         logger.info(
             "upload_processed",
             key=key,
             polygon_count=len(polygons),
-            cells_inserted=len(rows),
+            cells_inserted=len(claims),
         )
 
     return {"statusCode": 200, "body": "OK"}
