@@ -1,6 +1,6 @@
 import UploadList from "@/components/UploadList";
 
-export default function Dashboard() {
+export default function UploadsPage() {
   return (
     <main className="page">
       <UploadList />
