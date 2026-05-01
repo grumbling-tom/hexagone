@@ -380,10 +380,261 @@
           }
         }
       }
+    },
+    "/api/v1/hex-claims": {
+      "get": {
+        "tags": [
+          "hex-claims"
+        ],
+        "summary": "List Hex Claims Endpoint",
+        "description": "List the authenticated user's raw hex claims.",
+        "operationId": "listHexClaims",
+        "parameters": [
+          {
+            "name": "page_size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "exclusiveMinimum": 0,
+              "default": 20,
+              "title": "Page Size"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          },
+          {
+            "name": "upload_uid",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Restrict results to claims belonging to these uploads.",
+              "title": "Upload Uid"
+            },
+            "description": "Restrict results to claims belonging to these uploads."
+          },
+          {
+            "name": "sort_field",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/HexClaimSortField",
+              "default": "created_at"
+            }
+          },
+          {
+            "name": "sort_order",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/SortOrder",
+              "default": "desc"
+            }
+          },
+          {
+            "name": "sessionid",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Sessionid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaginatedResult_HexClaimResponse_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/aggregated-hex-claims": {
+      "get": {
+        "tags": [
+          "aggregated-hex-claims"
+        ],
+        "summary": "List Aggregated Hex Claims Endpoint",
+        "description": "Aggregate the user's hex claims along the requested dimension.",
+        "operationId": "listAggregatedHexClaims",
+        "parameters": [
+          {
+            "name": "by",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/AggregateHexClaimBy",
+              "description": "Dimension to aggregate by. Required \u2014 the URL is meaningless without it."
+            },
+            "description": "Dimension to aggregate by. Required \u2014 the URL is meaningless without it."
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 10000,
+              "exclusiveMinimum": 0,
+              "description": "Cap raised to 10k so the map can fetch a full user territory in a handful of round-trips.",
+              "default": 20,
+              "title": "Page Size"
+            },
+            "description": "Cap raised to 10k so the map can fetch a full user territory in a handful of round-trips."
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          },
+          {
+            "name": "sessionid",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Sessionid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaginatedResult_AggregatedHexClaimByCell_"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
     "schemas": {
+      "AggregateHexClaimBy": {
+        "type": "string",
+        "enum": [
+          "hex_cell"
+        ],
+        "title": "AggregateHexClaimBy",
+        "description": "Dimensions the aggregated-hex-claims endpoint can roll up over."
+      },
+      "AggregatedHexClaimByCell": {
+        "properties": {
+          "h3_cell": {
+            "type": "string",
+            "title": "H3 Cell"
+          },
+          "claim_count": {
+            "type": "integer",
+            "title": "Claim Count"
+          },
+          "upload_count": {
+            "type": "integer",
+            "title": "Upload Count"
+          },
+          "first_claimed_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "First Claimed At"
+          },
+          "last_claimed_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Last Claimed At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "h3_cell",
+          "claim_count",
+          "upload_count",
+          "first_claimed_at",
+          "last_claimed_at"
+        ],
+        "title": "AggregatedHexClaimByCell",
+        "description": "One aggregated row when ``by=hex_cell``."
+      },
       "CreateUploadRequest": {
         "properties": {
           "original_filename": {
@@ -455,6 +706,182 @@
         },
         "type": "object",
         "title": "HTTPValidationError"
+      },
+      "HexClaimResponse": {
+        "properties": {
+          "uid": {
+            "type": "string",
+            "title": "Uid"
+          },
+          "h3_cell": {
+            "type": "string",
+            "title": "H3 Cell"
+          },
+          "h3_resolution": {
+            "type": "integer",
+            "title": "H3 Resolution"
+          },
+          "upload_uid": {
+            "type": "string",
+            "title": "Upload Uid"
+          },
+          "polygon_index": {
+            "type": "integer",
+            "title": "Polygon Index"
+          },
+          "completed_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "uid",
+          "h3_cell",
+          "h3_resolution",
+          "upload_uid",
+          "polygon_index",
+          "completed_at",
+          "created_at"
+        ],
+        "title": "HexClaimResponse",
+        "description": "One hex-claim row exactly as stored."
+      },
+      "HexClaimSortField": {
+        "type": "string",
+        "enum": [
+          "created_at",
+          "completed_at"
+        ],
+        "title": "HexClaimSortField",
+        "description": "Allowed sort fields for raw hex-claim listing."
+      },
+      "PaginatedResult_AggregatedHexClaimByCell_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/AggregatedHexClaimByCell"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "previous_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previous Cursor"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          },
+          "has_previous": {
+            "type": "boolean",
+            "title": "Has Previous"
+          },
+          "has_next": {
+            "type": "boolean",
+            "title": "Has Next"
+          },
+          "page_size": {
+            "type": "integer",
+            "title": "Page Size",
+            "description": "Number of items returned in this page.\n\nReturns:\n    The length of the items list.",
+            "readOnly": true
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "previous_cursor",
+          "next_cursor",
+          "has_previous",
+          "has_next",
+          "page_size"
+        ],
+        "title": "PaginatedResult[AggregatedHexClaimByCell]"
+      },
+      "PaginatedResult_HexClaimResponse_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/HexClaimResponse"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "previous_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previous Cursor"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          },
+          "has_previous": {
+            "type": "boolean",
+            "title": "Has Previous"
+          },
+          "has_next": {
+            "type": "boolean",
+            "title": "Has Next"
+          },
+          "page_size": {
+            "type": "integer",
+            "title": "Page Size",
+            "description": "Number of items returned in this page.\n\nReturns:\n    The length of the items list.",
+            "readOnly": true
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "previous_cursor",
+          "next_cursor",
+          "has_previous",
+          "has_next",
+          "page_size"
+        ],
+        "title": "PaginatedResult[HexClaimResponse]"
       },
       "PaginatedResult_UploadResponse_": {
         "properties": {
