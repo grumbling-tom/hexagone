@@ -52,7 +52,7 @@ function buildGrid() {
   return cells;
 }
 
-export default function MapPage() {
+export default function HexMap() {
   const cells = buildGrid();
 
   return (

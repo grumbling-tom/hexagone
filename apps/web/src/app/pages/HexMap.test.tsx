@@ -1,12 +1,12 @@
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { expect, test } from "vitest";
-import MapPage from "./MapPage";
+import HexMap from "./HexMap";
 
 test("renders skeleton heading and CTA to uploads", () => {
   render(
     <MemoryRouter>
-      <MapPage />
+      <HexMap />
     </MemoryRouter>,
   );
   expect(
