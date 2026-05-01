@@ -36,6 +36,25 @@ apps/web/src/
 
 **Imports**: always use the `@/` alias (mapped to `src/`). Do not use deep relative paths like `../../features/uploads/UploadList`.
 
+### Frontend Import Rules
+
+Adapted from [bulletproof-react](https://github.com/alan2207/bulletproof-react/blob/master/docs/project-structure.md). Enforced by `pnpm lint:imports` (script at `apps/web/scripts/check-imports.mjs`, runs on pre-commit via lefthook).
+
+Two rules:
+
+1. **No cross-feature imports.** A file in `features/uploads/` may not import from `features/map/`. Compose features at the page/app layer instead.
+2. **Unidirectional layers.** Code flows `shared → features → app`, never the other way:
+
+   | From ↓ \ To →             | `app/` | `features/` | shared (`components`, `hooks`, `lib`, `types`, `utils`) |
+   | ------------------------- | ------ | ----------- | ------------------------------------------------------- |
+   | `app/`                    | ✅     | ✅          | ✅                                                       |
+   | `features/<x>/`           | ❌     | only `<x>`  | ✅                                                       |
+   | shared layers             | ❌     | ❌          | ✅                                                       |
+
+   Anything outside these layers (e.g. `__generated__/`, `styles/`, Astro `pages/`) is unrestricted on both sides.
+
+If you need to share something between two features, lift it into one of the shared layers — don't import sideways. If two features genuinely depend on each other, that's a sign they're one feature.
+
 ## CSS Styling — BEM Conventions
 
 All styles use **BEM** (Block Element Modifier) class names. No inline `style` props, no CSS-in-JS, no utility frameworks.
