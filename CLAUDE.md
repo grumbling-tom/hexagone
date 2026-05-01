@@ -4,6 +4,38 @@
 
 Use `pnpm` exclusively. Never use `npm` or `npx`.
 
+## Frontend File Organisation
+
+Code under `apps/web/src/` is grouped by **feature**, not by file type. New components default to a feature folder; only promote to top-level `components/` once something is genuinely reused across features.
+
+```
+apps/web/src/
+  app/                  App shell: routing, providers, page chrome
+    App.tsx             Root <BrowserRouter> + <QueryClientProvider>
+    Nav.tsx             Top nav
+    ProtectedRoute.tsx  Auth guard
+    pages/              Route components — kept thin, compose feature components
+  features/             One folder per domain feature
+    uploads/
+      UploadList.tsx
+      UploadForm.tsx
+      ...
+    map/                (added when MapView lands)
+  components/           Truly shared, generic primitives (e.g. Button) — empty until needed
+  lib/                  Cross-cutting non-React utilities (fetch client, etc.)
+  styles/               theme.css + main.css (see CSS section below)
+  __generated__/        Orval-generated API client — do not edit by hand
+  pages/                Astro entry points (`index.astro`, `app.astro`) — not React routes
+```
+
+**Where to put a new file**:
+- Used by exactly one feature → `features/<feature>/`
+- Part of the app chrome or routing → `app/`
+- Reused across two or more features → `components/`
+- Non-React utility → `lib/`
+
+**Imports**: always use the `@/` alias (mapped to `src/`). Do not use deep relative paths like `../../features/uploads/UploadList`.
+
 ## CSS Styling — BEM Conventions
 
 All styles use **BEM** (Block Element Modifier) class names. No inline `style` props, no CSS-in-JS, no utility frameworks.

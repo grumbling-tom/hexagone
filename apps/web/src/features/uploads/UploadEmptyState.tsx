@@ -1,5 +1,5 @@
-import UploadForm from "@/components/UploadForm";
-import UploadHelp from "@/components/UploadHelp";
+import UploadForm from "@/features/uploads/UploadForm";
+import UploadHelp from "@/features/uploads/UploadHelp";
 
 interface UploadEmptyStateProps {
   onUploadComplete?: () => void;

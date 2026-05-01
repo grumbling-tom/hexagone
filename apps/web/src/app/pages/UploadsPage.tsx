@@ -1,4 +1,4 @@
-import UploadList from "@/components/UploadList";
+import UploadList from "@/features/uploads/UploadList";
 
 export default function UploadsPage() {
   return (
