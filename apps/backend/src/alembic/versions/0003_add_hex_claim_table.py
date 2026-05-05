@@ -11,7 +11,6 @@ from collections.abc import Sequence
 import sqlalchemy as sa
 
 from alembic import op
-from src.app.repository.views import HexClaimByCell, create_view_ddl, drop_view_ddl
 
 # revision identifiers, used by Alembic.
 revision: str = "c8447fb674f0"
@@ -22,6 +21,15 @@ depends_on: str | Sequence[str] | None = None
 
 def upgrade() -> None:
     """Upgrade schema."""
+    # Imported lazily so that loading this module (e.g. in the
+    # validate-migrations pre-commit hook, which only walks revisions
+    # via ``ScriptDirectory.walk_revisions``) doesn't drag in
+    # ``src.app.settings`` and demand DEV runtime credentials.
+    from src.app.repository.views import (  # noqa: PLC0415
+        HexClaimByCell,
+        create_view_ddl,
+    )
+
     op.create_table(
         "hex_claim",
         sa.Column("upload_uid", sa.String(length=36), nullable=False),
@@ -60,6 +68,9 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     """Downgrade schema."""
+    # Lazy import — see comment in ``upgrade``.
+    from src.app.repository.views import HexClaimByCell, drop_view_ddl  # noqa: PLC0415
+
     op.execute(drop_view_ddl(HexClaimByCell))
 
     with op.batch_alter_table("hex_claim", schema=None) as batch_op:
