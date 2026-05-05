@@ -2,7 +2,14 @@
 
 import pytest
 
-from src.app.repository import EqualsFilter, HexClaim, Upload, User, UserSession
+from src.app.repository import (
+    EqualsFilter,
+    HexClaim,
+    HexClaimByCell,
+    Upload,
+    User,
+    UserSession,
+)
 from src.app.services.permissions import permission_filters
 
 
@@ -17,6 +24,15 @@ def test_upload_permission_filters(test_user: User):
 
 def test_hex_claim_permission_filters(test_user: User):
     filters = permission_filters(test_user, HexClaim)
+    assert len(filters) == 1
+    f = filters[0]
+    assert isinstance(f, EqualsFilter)
+    assert f.field == "user_uid"
+    assert f.value == test_user.uid  # pyright: ignore[reportUnknownMemberType]
+
+
+def test_hex_claim_by_cell_permission_filters(test_user: User):
+    filters = permission_filters(test_user, HexClaimByCell)
     assert len(filters) == 1
     f = filters[0]
     assert isinstance(f, EqualsFilter)

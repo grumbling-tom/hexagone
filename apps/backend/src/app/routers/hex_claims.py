@@ -157,14 +157,7 @@ def list_aggregated_hex_claims_endpoint(
         )
         return PaginatedResult(
             items=[
-                AggregatedHexClaimByCell(
-                    h3_cell=row.h3_cell,
-                    claim_count=row.claim_count,
-                    upload_count=row.upload_count,
-                    first_claimed_at=row.first_claimed_at,
-                    last_claimed_at=row.last_claimed_at,
-                )
-                for row in result.items
+                AggregatedHexClaimByCell.model_validate(row) for row in result.items
             ],
             previous_cursor=result.previous_cursor,
             next_cursor=result.next_cursor,

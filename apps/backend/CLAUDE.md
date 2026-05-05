@@ -91,6 +91,31 @@ Rules:
 - Numbering must match Alembic revision chain order
 - Validation is enforced via pre-commit hook (`validate-migrations` in lefthook)
 
+### Database Views
+
+When a PR introduces a `View` subclass (see "View-Backed Models" below),
+the same migration that adds the underlying table also creates the view.
+Use the `create_view_ddl` / `drop_view_ddl` helpers so the migration reads
+the name and SELECT from the same source as the runtime registration:
+
+```python
+from src.app.repository.views import (
+    HexClaimByCell, create_view_ddl, drop_view_ddl,
+)
+
+def upgrade() -> None:
+    # ... CREATE TABLE for the underlying entity ...
+    op.execute(create_view_ddl(HexClaimByCell))
+
+def downgrade() -> None:
+    op.execute(drop_view_ddl(HexClaimByCell))
+    # ... DROP TABLE for the underlying entity ...
+```
+
+The in-memory SQLite test DB picks up the view automatically via the
+`view()` helper's metadata event listeners — no `conftest.py` changes
+required.
+
 ## Query Parameters
 
 Define query parameters as a Pydantic schema (inheriting `BaseSchema`) and
@@ -180,6 +205,34 @@ schemas. The router layer converts ORM instances into response schemas.
 
 Enforced by `test_services_do_not_return_pydantic_schemas` in
 `tests/app/test_service_returns.py`.
+
+## View-Backed Models for Aggregated Endpoints
+
+When the response shape doesn't map 1:1 to a base table — typically
+aggregations, rollups, or projections — define a **view-backed ORM model**
+rather than hand-rolling `select(...).group_by(...)` in the service. The
+view becomes the canonical entity; `Repository`, `permission_filters`, and
+the cursor pipeline all work unchanged.
+
+All view-backed models live in `repository/views.py` and inherit from the
+abstract `View` base. The pattern is adapted from the SQLAlchemy wiki Views
+recipe ([sqlalchemy/sqlalchemy/wiki/Views](https://github.com/sqlalchemy/sqlalchemy/wiki/Views))
+— the link is reproduced as a comment in `views.py` so future maintainers
+can verify against the source.
+
+Each subclass declares:
+- `__view_selectable__`: a SQLAlchemy `select(...)` whose columns include
+  synthetic `uid` (made unique via column concatenation, e.g.
+  `col_a + literal(":") + col_b`) and `created_at` (e.g.
+  `func.min(<timestamp_col>)`) to satisfy `BaseModel`'s requirements.
+- `__table__ = view("<name>", BaseModel.metadata, __view_selectable__)`.
+
+See `HexClaimByCell` in `repository/views.py` for the canonical example.
+
+The view is created in production by the migration that adds the
+underlying table (see "Database Views" under "Database Migrations" above)
+and in the test DB automatically via the `view()` helper's metadata event
+listeners.
 
 ## Bulk Inserts — Use ORM Instances + `session.add_all`
 

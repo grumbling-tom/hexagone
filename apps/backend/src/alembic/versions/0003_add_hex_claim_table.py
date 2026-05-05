@@ -11,6 +11,7 @@ from collections.abc import Sequence
 import sqlalchemy as sa
 
 from alembic import op
+from src.app.repository.views import HexClaimByCell, create_view_ddl, drop_view_ddl
 
 # revision identifiers, used by Alembic.
 revision: str = "c8447fb674f0"
@@ -54,9 +55,13 @@ def upgrade() -> None:
             batch_op.f("ix_hex_claim_h3_cell"), ["h3_cell"], unique=False
         )
 
+    op.execute(create_view_ddl(HexClaimByCell))
+
 
 def downgrade() -> None:
     """Downgrade schema."""
+    op.execute(drop_view_ddl(HexClaimByCell))
+
     with op.batch_alter_table("hex_claim", schema=None) as batch_op:
         batch_op.drop_index(batch_op.f("ix_hex_claim_h3_cell"))
         batch_op.drop_index(batch_op.f("ix_hex_claim_user_uid"))

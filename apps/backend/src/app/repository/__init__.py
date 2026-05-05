@@ -40,6 +40,7 @@ from .models import (
     UserSession,
 )
 from .repository import Repository
+from .views import HexClaimByCell, View
 
 __all__ = [
     "BaseModel",
@@ -48,6 +49,7 @@ __all__ = [
     "GreaterThanFilter",
     "GreaterThanOrEqualFilter",
     "HexClaim",
+    "HexClaimByCell",
     "InFilter",
     "IsNullFilter",
     "LessThanFilter",
@@ -63,6 +65,7 @@ __all__ = [
     "UploadStatusValue",
     "User",
     "UserSession",
+    "View",
     "check_database_health",
     "engine",
     "get_db",

@@ -1,6 +1,6 @@
 """Permission filters for entity access control."""
 
-from src.app.repository import EqualsFilter, HexClaim, Upload
+from src.app.repository import EqualsFilter, HexClaim, HexClaimByCell, Upload
 from src.app.repository.database import BaseModel
 from src.app.repository.filters import Filter
 from src.app.repository.models import User
@@ -19,7 +19,7 @@ def permission_filters(user: User, entity: type[BaseModel]) -> list[Filter]:
     Raises:
         ValueError: If no permission filters are defined for the entity.
     """
-    if entity is Upload or entity is HexClaim:
+    if entity is Upload or entity is HexClaim or entity is HexClaimByCell:
         return [EqualsFilter(field="user_uid", value=user.uid)]
 
     msg = f"No permission filters defined for {entity.__name__}"
