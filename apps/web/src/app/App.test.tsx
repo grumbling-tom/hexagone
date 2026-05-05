@@ -27,6 +27,14 @@ vi.mock("@/__generated__/backend-client/uploads", () => ({
   })),
 }));
 
+vi.mock("@/__generated__/backend-client/aggregated-hex-claims", () => ({
+  useListAggregatedHexClaims: vi.fn(() => ({
+    data: undefined,
+    isLoading: true,
+    isError: false,
+  })),
+}));
+
 import { useGetCurrentUser } from "@/__generated__/backend-client/users";
 
 function renderWithProviders(route: string) {

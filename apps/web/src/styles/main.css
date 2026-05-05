@@ -160,6 +160,40 @@ a {
   }
 }
 
+/** @define map-view */
+.map-view {
+  position: relative;
+  width: 100%;
+  /* Definite height — ``min-height`` doesn't always establish a containing
+   * block size for absolute children, which left MapLibre's canvas at 0px. */
+  height: calc(100vh - 4rem);
+}
+.map-view__canvas {
+  width: 100%;
+  height: 100%;
+}
+
+/** @define map-error */
+.map-error {
+  position: relative;
+  width: 100%;
+  min-height: calc(100vh - 4rem);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-md);
+}
+.map-error__copy {
+  max-width: 28rem;
+  margin: 0;
+  padding: var(--space-md);
+  text-align: center;
+  background: var(--color-bg);
+  border: var(--sketch-border);
+  border-radius: var(--sketch-radius);
+  box-shadow: var(--sketch-shadow);
+}
+
 /** @define upload-form */
 .upload-form {
   display: flex;
