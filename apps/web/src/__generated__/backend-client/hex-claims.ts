@@ -30,7 +30,7 @@ import type { ErrorType } from '../../lib/fetch-client';
 
 /**
  * List the authenticated user's raw hex claims.
- * @summary List Hex Claims Endpoint
+ * @summary List Hex Claims
  */
 export const listHexClaims = (
     params?: ListHexClaimsParams,
@@ -98,7 +98,7 @@ export function useListHexClaims<TData = Awaited<ReturnType<typeof listHexClaims
 
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
 /**
- * @summary List Hex Claims Endpoint
+ * @summary List Hex Claims
  */
 
 export function useListHexClaims<TData = Awaited<ReturnType<typeof listHexClaims>>, TError = ErrorType<HTTPValidationError>>(

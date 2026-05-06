@@ -30,7 +30,7 @@ import type { ErrorType } from '../../lib/fetch-client';
 
 /**
  * Aggregate the user's hex claims along the requested dimension.
- * @summary List Aggregated Hex Claims Endpoint
+ * @summary List Aggregated Hex Claims
  */
 export const listAggregatedHexClaims = (
     params: ListAggregatedHexClaimsParams,
@@ -98,7 +98,7 @@ export function useListAggregatedHexClaims<TData = Awaited<ReturnType<typeof lis
 
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
 /**
- * @summary List Aggregated Hex Claims Endpoint
+ * @summary List Aggregated Hex Claims
  */
 
 export function useListAggregatedHexClaims<TData = Awaited<ReturnType<typeof listAggregatedHexClaims>>, TError = ErrorType<HTTPValidationError>>(

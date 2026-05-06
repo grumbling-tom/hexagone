@@ -386,7 +386,7 @@
         "tags": [
           "hex-claims"
         ],
-        "summary": "List Hex Claims Endpoint",
+        "summary": "List Hex Claims",
         "description": "List the authenticated user's raw hex claims.",
         "operationId": "listHexClaims",
         "parameters": [
@@ -503,7 +503,7 @@
         "tags": [
           "aggregated-hex-claims"
         ],
-        "summary": "List Aggregated Hex Claims Endpoint",
+        "summary": "List Aggregated Hex Claims",
         "description": "Aggregate the user's hex claims along the requested dimension.",
         "operationId": "listAggregatedHexClaims",
         "parameters": [

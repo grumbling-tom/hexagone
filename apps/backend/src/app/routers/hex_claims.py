@@ -16,8 +16,10 @@ from sqlalchemy.orm import Session
 from src.app.dependencies import authenticated_user, db_session
 from src.app.repository.models import User
 from src.app.services.hex_claim import (
-    aggregate_hex_claims_by_cell,
-    list_hex_claims,
+    aggregate_hex_claims_by_cell as aggregate_hex_claims_by_cell_service,
+)
+from src.app.services.hex_claim import (
+    list_hex_claims as list_hex_claims_service,
 )
 from src.app.settings import settings
 from src.app.utils import BaseSchema, PaginatedResult, SortOrder
@@ -62,13 +64,13 @@ class ListHexClaimsParams(BaseSchema):
 
 
 @hex_claims_router.get("/hex-claims", operation_id="listHexClaims")
-def list_hex_claims_endpoint(
+def list_hex_claims(
     user: Annotated[User, Depends(authenticated_user)],
     db: Annotated[Session, Depends(db_session)],
     params: Annotated[ListHexClaimsParams, Query()],
 ) -> PaginatedResult[HexClaimResponse]:
     """List the authenticated user's raw hex claims."""
-    result = list_hex_claims(
+    result = list_hex_claims_service(
         db=db,
         user=user,
         page_size=params.page_size,
@@ -141,7 +143,7 @@ class ListAggregatedHexClaimsParams(BaseSchema):
 @aggregated_hex_claims_router.get(
     "/aggregated-hex-claims", operation_id="listAggregatedHexClaims"
 )
-def list_aggregated_hex_claims_endpoint(
+def list_aggregated_hex_claims(
     user: Annotated[User, Depends(authenticated_user)],
     db: Annotated[Session, Depends(db_session)],
     params: Annotated[ListAggregatedHexClaimsParams, Query()],
@@ -149,7 +151,7 @@ def list_aggregated_hex_claims_endpoint(
     """Aggregate the user's hex claims along the requested dimension."""
     # Today only one `by` value exists; this branches once a second is added.
     if params.by is AggregateHexClaimBy.hex_cell:
-        result = aggregate_hex_claims_by_cell(
+        result = aggregate_hex_claims_by_cell_service(
             db=db,
             user=user,
             page_size=params.page_size,
