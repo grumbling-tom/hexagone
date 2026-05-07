@@ -3,6 +3,7 @@
 from fastapi import APIRouter, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from src.app.middleware import RequestThrottlerMiddleware
 from src.app.routers.health import router as health_router
 from src.app.routers.hex_claims import (
     aggregated_hex_claims_router,
@@ -28,6 +29,11 @@ def create_app(settings: Settings = settings) -> FastAPI:
             allow_methods=["GET", "POST", "PUT", "DELETE"],
             allow_headers=["*"],
             allow_credentials=True,
+        )
+
+    if settings.THROTTLE_DELAY_SECONDS is not None:
+        app.add_middleware(
+            RequestThrottlerMiddleware, delay_seconds=settings.THROTTLE_DELAY_SECONDS
         )
 
     api_v1_router = APIRouter(prefix="/api/v1")

@@ -44,6 +44,8 @@ class Settings(BaseSettings):
 
     GIT_SHA: str = "unknown"
 
+    THROTTLE_DELAY_SECONDS: float | None = None
+
     @property
     def session_expiry_seconds(self) -> int:
         """Compute session expiry in seconds from hours."""
