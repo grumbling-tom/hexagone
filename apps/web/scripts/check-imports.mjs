@@ -1,10 +1,12 @@
 #!/usr/bin/env node
 // Enforces frontend import rules. See CLAUDE.md → "Frontend Import Rules".
 //
-// Two rules, after bulletproof-react:
+// Three rules, after bulletproof-react:
 //   1. No cross-feature imports — features/X cannot import from features/Y.
 //   2. Unidirectional layers — shared (components/hooks/lib/types/utils) cannot
 //      import from features or app; features cannot import from app.
+//   3. No routing in features — features may not import from react-router-dom
+//      or any other routing library; routing is an app-level concern.
 
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
@@ -13,6 +15,11 @@ const SRC = resolve(import.meta.dirname, "..", "src");
 const ALIAS_PREFIX = "@/";
 const SHARED_LAYERS = ["components", "hooks", "lib", "types", "utils"];
 const SKIP_DIRS = new Set(["__generated__", "node_modules"]);
+const ROUTING_PACKAGES = ["react-router-dom", "react-router"];
+
+function isRoutingImport(spec) {
+  return ROUTING_PACKAGES.some((p) => spec === p || spec.startsWith(`${p}/`));
+}
 
 function* walk(dir) {
   for (const name of readdirSync(dir)) {
@@ -79,6 +86,12 @@ for (const file of walk(SRC)) {
   if (!fromCls) continue;
   const source = readFileSync(file, "utf8");
   for (const spec of extractImports(source)) {
+    if (fromCls.layer === "features" && isRoutingImport(spec)) {
+      errors.push(
+        `${relative(SRC, file)}\n    import "${spec}" — features may not import routing libraries (rule 3)`,
+      );
+      continue;
+    }
     const resolved = resolveSpec(spec, file);
     if (!resolved) continue;
     const toCls = classify(resolved);
