@@ -2,8 +2,9 @@ import { Link } from "react-router-dom";
 import { UploadStatusValue } from "@/__generated__/backend-client/backend.schemas";
 import { useListUploads } from "@/__generated__/backend-client/uploads";
 import EmptyMap from "@/features/hexMap/EmptyMap";
+import HexMap from "@/features/hexMap/HexMap";
 
-export default function HexMap() {
+export default function Home() {
   const { data, isPending, isError } = useListUploads({
     statuses: [UploadStatusValue.UPLOAD_SUCCESS],
   });
@@ -29,5 +30,5 @@ export default function HexMap() {
     );
   }
 
-  return <div>TODO: Map with {data.items.length} uploads</div>;
+  return <HexMap />;
 }

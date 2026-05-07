@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { expect, test } from "vitest";
-import HexMap from "./HexMap";
+import HexMap from "./Home";
 
 test("renders skeleton heading and CTA to uploads", () => {
   render(
