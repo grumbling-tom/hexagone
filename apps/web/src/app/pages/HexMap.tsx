@@ -1,17 +1,19 @@
 import { Link } from "react-router-dom";
+import { UploadStatusValue } from "@/__generated__/backend-client/backend.schemas";
 import { useListUploads } from "@/__generated__/backend-client/uploads";
 import EmptyMap from "@/features/hexMap/EmptyMap";
 
 export default function HexMap() {
-  const { data, isPending, isError } = useListUploads();
+  const { data, isPending, isError } = useListUploads({
+    statuses: [UploadStatusValue.UPLOAD_SUCCESS],
+  });
 
   if (isPending) {
-    // FIXME: Seeing loading states flash up twice: once on the protected route, and again when the query runs.
-    // Ideally, we'd see this exactly once.
     return <div className="auth-loading">Loading</div>;
   }
 
   if (isError || !data) {
+    // TODO: Consider adding error boundaries to the app.
     throw new Error("Failed to load uploads");
   }
 
