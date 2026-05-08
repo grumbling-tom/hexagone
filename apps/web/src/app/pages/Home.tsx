@@ -20,13 +20,15 @@ export default function Home() {
 
   if (data.items.length === 0) {
     return (
-      <EmptyMap
-        uploadsLink={
-          <Link to="/uploads" className="button button--primary">
-            Add your first upload
-          </Link>
-        }
-      />
+      <main className="page">
+        <EmptyMap
+          uploadsLink={
+            <Link to="/uploads" className="button button--primary">
+              Add your first upload
+            </Link>
+          }
+        />
+      </main>
     );
   }
 
