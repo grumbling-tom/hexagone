@@ -91,8 +91,7 @@ def list_user_groups(
     """List the caller's non-archived groups, newest first."""
     groups = user_group_service.list_groups_for_user(db, user)
     return [
-        _to_group_response(g, user_group_service.count_members(db, g))
-        for g in groups
+        _to_group_response(g, user_group_service.count_members(db, g)) for g in groups
     ]
 
 
@@ -119,9 +118,7 @@ def update_user_group(
 ) -> UserGroupResponse:
     """Rename a group. Owner only."""
     try:
-        group = user_group_service.update_group(
-            db, user, group_uid, name=body.name
-        )
+        group = user_group_service.update_group(db, user, group_uid, name=body.name)
     except user_group_service.UserGroupNotFoundError:
         raise HTTPException(status_code=404, detail="Group not found") from None
     except user_group_service.NotGroupOwnerError:

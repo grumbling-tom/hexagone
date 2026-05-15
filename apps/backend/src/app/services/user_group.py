@@ -118,9 +118,7 @@ def get_group(db: DBSession, user: User, group_uid: str) -> UserGroup:
     return group
 
 
-def update_group(
-    db: DBSession, user: User, group_uid: str, *, name: str
-) -> UserGroup:
+def update_group(db: DBSession, user: User, group_uid: str, *, name: str) -> UserGroup:
     """Rename a group. Owner-only."""
     group, _ = _get_visible_group(db, user, group_uid)
     _assert_is_owner(group, user)
@@ -191,9 +189,7 @@ def _load_membership_for_access(
     return membership, group
 
 
-def remove_membership(
-    db: DBSession, user: User, membership_uid: str
-) -> None:
+def remove_membership(db: DBSession, user: User, membership_uid: str) -> None:
     """Delete a membership. Allowed for self-leave or owner-kick.
 
     Rejects with SoleOwnerCannotLeaveError if the owner tries to leave a

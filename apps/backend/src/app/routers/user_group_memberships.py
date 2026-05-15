@@ -49,9 +49,7 @@ def delete_user_group_membership(
     try:
         user_group_service.remove_membership(db, user, membership_uid)
     except user_group_service.UserGroupMembershipNotFoundError:
-        raise HTTPException(
-            status_code=404, detail="Membership not found"
-        ) from None
+        raise HTTPException(status_code=404, detail="Membership not found") from None
     except user_group_service.SoleOwnerCannotLeaveError:
         raise HTTPException(
             status_code=409,
@@ -79,9 +77,7 @@ def update_user_group_membership(
             db, user, membership_uid, consent=body.share_consent
         )
     except user_group_service.UserGroupMembershipNotFoundError:
-        raise HTTPException(
-            status_code=404, detail="Membership not found"
-        ) from None
+        raise HTTPException(status_code=404, detail="Membership not found") from None
     except user_group_service.NotMembershipSelfError:
         raise HTTPException(
             status_code=403,

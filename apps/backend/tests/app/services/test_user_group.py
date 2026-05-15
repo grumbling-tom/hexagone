@@ -9,9 +9,7 @@ from src.app.repository import User, UserGroup, UserGroupMembership
 from src.app.services import user_group as user_group_service
 
 
-def test_create_group_creates_owner_membership(
-    test_db: Session, test_user: User
-):
+def test_create_group_creates_owner_membership(test_db: Session, test_user: User):
     group = user_group_service.create_group(test_db, test_user, name="Solo")
 
     assert group.owner_uid == test_user.uid
@@ -105,9 +103,7 @@ def test_set_share_consent_toggles_flag(
     create_group: Callable[..., UserGroup],
 ):
     group = create_group(name="Mine")
-    [membership] = user_group_service.list_members(
-        test_db, test_user, group.uid
-    )
+    [membership] = user_group_service.list_members(test_db, test_user, group.uid)
 
     updated = user_group_service.set_share_consent(
         test_db, test_user, membership.uid, consent=False
@@ -138,6 +134,4 @@ def test_remove_owner_with_other_members_rejected(
     ]
 
     with pytest.raises(user_group_service.SoleOwnerCannotLeaveError):
-        user_group_service.remove_membership(
-            test_db, test_user, owner_membership.uid
-        )
+        user_group_service.remove_membership(test_db, test_user, owner_membership.uid)

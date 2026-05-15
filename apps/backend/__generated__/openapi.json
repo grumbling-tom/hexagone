@@ -1563,7 +1563,7 @@
             "type": "boolean",
             "title": "Share Consent"
           },
-          "invited_by_user_uid": {
+          "invited_by_uid": {
             "anyOf": [
               {
                 "type": "string"
@@ -1572,7 +1572,7 @@
                 "type": "null"
               }
             ],
-            "title": "Invited By User Uid"
+            "title": "Invited By Uid"
           },
           "joined_at": {
             "type": "string",
@@ -1586,7 +1586,7 @@
           "user_uid",
           "email",
           "share_consent",
-          "invited_by_user_uid",
+          "invited_by_uid",
           "joined_at"
         ],
         "title": "UserGroupMemberResponse",
@@ -1610,7 +1610,7 @@
             "type": "boolean",
             "title": "Share Consent"
           },
-          "invited_by_user_uid": {
+          "invited_by_uid": {
             "anyOf": [
               {
                 "type": "string"
@@ -1619,7 +1619,7 @@
                 "type": "null"
               }
             ],
-            "title": "Invited By User Uid"
+            "title": "Invited By Uid"
           },
           "joined_at": {
             "type": "string",
@@ -1633,7 +1633,7 @@
           "user_uid",
           "user_group_uid",
           "share_consent",
-          "invited_by_user_uid",
+          "invited_by_uid",
           "joined_at"
         ],
         "title": "UserGroupMembershipResponse",
@@ -1649,9 +1649,9 @@
             "type": "string",
             "title": "Name"
           },
-          "owner_user_uid": {
+          "owner_uid": {
             "type": "string",
-            "title": "Owner User Uid"
+            "title": "Owner Uid"
           },
           "created_at": {
             "type": "string",
@@ -1667,7 +1667,7 @@
         "required": [
           "uid",
           "name",
-          "owner_user_uid",
+          "owner_uid",
           "created_at",
           "member_count"
         ],

@@ -185,9 +185,7 @@ def create_user(test_db: Session) -> Callable[..., User]:
 
 
 @pytest.fixture
-def create_group(
-    test_db: Session, test_user: User
-) -> Callable[..., UserGroup]:
+def create_group(test_db: Session, test_user: User) -> Callable[..., UserGroup]:
     """Return a factory that creates a UserGroup with the owner's membership.
 
     Args passed to the returned callable:
@@ -201,9 +199,7 @@ def create_group(
         owner: User | None = None,
     ) -> UserGroup:
         actual_owner = owner or test_user
-        group = UserGroup(
-            name=name, owner_uid=actual_owner.uid, archived=False
-        )
+        group = UserGroup(name=name, owner_uid=actual_owner.uid, archived=False)
         test_db.add(group)
         test_db.flush()
         test_db.add(

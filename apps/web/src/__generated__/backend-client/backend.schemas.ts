@@ -5,29 +5,29 @@
  * OpenAPI spec version: 0.1.0
  */
 export type ListAggregatedHexClaimsParams = {
-/**
- * Dimension to aggregate by. Required — the URL is meaningless without it.
- */
-by: AggregateHexClaimBy;
-/**
- * Cap raised to 10k so the map can fetch a full user territory in a handful of round-trips.
- */
-page_size?: number;
-cursor?: string | null;
+  /**
+   * Dimension to aggregate by. Required — the URL is meaningless without it.
+   */
+  by: AggregateHexClaimBy;
+  /**
+   * Cap raised to 10k so the map can fetch a full user territory in a handful of round-trips.
+   */
+  page_size?: number;
+  cursor?: string | null;
 };
 
 export type ListHexClaimsParams = {
-page_size?: number;
-cursor?: string | null;
-/**
- * Restrict results to claims belonging to these uploads.
- */
-upload_uid?: string[] | null;
-sort_field?: HexClaimSortField;
-sort_order?: SortOrder;
+  page_size?: number;
+  cursor?: string | null;
+  /**
+   * Restrict results to claims belonging to these uploads.
+   */
+  upload_uid?: string[] | null;
+  sort_field?: HexClaimSortField;
+  sort_order?: SortOrder;
 };
 
-export type GetHealth200 = {[key: string]: string};
+export type GetHealth200 = { [key: string]: string };
 
 export type ValidationErrorLocItem = string | number;
 
@@ -64,17 +64,17 @@ export interface UserGroupResponse {
   created_at: string;
   member_count: number;
   name: string;
-  owner_user_uid: string;
+  owner_uid: string;
   uid: string;
 }
 
-export type UserGroupMembershipResponseInvitedByUserUid = string | null;
+export type UserGroupMembershipResponseInvitedByUid = string | null;
 
 /**
  * Response body for membership endpoints.
  */
 export interface UserGroupMembershipResponse {
-  invited_by_user_uid: UserGroupMembershipResponseInvitedByUserUid;
+  invited_by_uid: UserGroupMembershipResponseInvitedByUid;
   joined_at: string;
   share_consent: boolean;
   uid: string;
@@ -82,14 +82,14 @@ export interface UserGroupMembershipResponse {
   user_uid: string;
 }
 
-export type UserGroupMemberResponseInvitedByUserUid = string | null;
+export type UserGroupMemberResponseInvitedByUid = string | null;
 
 /**
  * Response body describing a single member of a group.
  */
 export interface UserGroupMemberResponse {
   email: string;
-  invited_by_user_uid: UserGroupMemberResponseInvitedByUserUid;
+  invited_by_uid: UserGroupMemberResponseInvitedByUid;
   joined_at: string;
   share_consent: boolean;
   uid: string;
@@ -99,32 +99,33 @@ export interface UserGroupMemberResponse {
 /**
  * Allowed status values for upload processing.
  */
-export type UploadStatusValue = typeof UploadStatusValue[keyof typeof UploadStatusValue];
-
+export type UploadStatusValue =
+  (typeof UploadStatusValue)[keyof typeof UploadStatusValue];
 
 // eslint-disable-next-line @typescript-eslint/no-redeclare
 export const UploadStatusValue = {
-  UPLOAD_PENDING: 'UPLOAD_PENDING',
-  UPLOAD_RECEIVED: 'UPLOAD_RECEIVED',
-  UPLOAD_SUCCESS: 'UPLOAD_SUCCESS',
-  UPLOAD_INVALID: 'UPLOAD_INVALID',
+  UPLOAD_PENDING: "UPLOAD_PENDING",
+  UPLOAD_RECEIVED: "UPLOAD_RECEIVED",
+  UPLOAD_SUCCESS: "UPLOAD_SUCCESS",
+  UPLOAD_INVALID: "UPLOAD_INVALID",
 } as const;
 
 /**
  * Allowed sort fields for upload listing.
  */
-export type UploadSortField = typeof UploadSortField[keyof typeof UploadSortField];
-
+export type UploadSortField =
+  (typeof UploadSortField)[keyof typeof UploadSortField];
 
 // eslint-disable-next-line @typescript-eslint/no-redeclare
 export const UploadSortField = {
-  created_at: 'created_at',
-  original_filename: 'original_filename',
+  created_at: "created_at",
+  original_filename: "original_filename",
 } as const;
 
-export type UploadResponseRequiredHeadersAnyOf = {[key: string]: string};
+export type UploadResponseRequiredHeadersAnyOf = { [key: string]: string };
 
-export type UploadResponseRequiredHeaders = UploadResponseRequiredHeadersAnyOf | null;
+export type UploadResponseRequiredHeaders =
+  UploadResponseRequiredHeadersAnyOf | null;
 
 export type UploadResponsePresignedUrl = string | null;
 
@@ -169,21 +170,20 @@ Attributes:
     ASC: Ascending sort order.
     DESC: Descending sort order.
  */
-export type SortOrder = typeof SortOrder[keyof typeof SortOrder];
-
+export type SortOrder = (typeof SortOrder)[keyof typeof SortOrder];
 
 // eslint-disable-next-line @typescript-eslint/no-redeclare
 export const SortOrder = {
-  asc: 'asc',
-  desc: 'desc',
+  asc: "asc",
+  desc: "desc",
 } as const;
 
 export type ListUploadsParams = {
-page_size?: number;
-cursor?: string | null;
-statuses?: UploadStatusValue[] | null;
-sort_field?: UploadSortField;
-sort_order?: SortOrder;
+  page_size?: number;
+  cursor?: string | null;
+  statuses?: UploadStatusValue[] | null;
+  sort_field?: UploadSortField;
+  sort_order?: SortOrder;
 };
 
 export type PaginatedResultUploadResponsePreviousCursor = string | null;
@@ -207,7 +207,9 @@ export type PaginatedResultHexClaimResponsePreviousCursor = string | null;
 
 export type PaginatedResultHexClaimResponseNextCursor = string | null;
 
-export type PaginatedResultAggregatedHexClaimByCellPreviousCursor = string | null;
+export type PaginatedResultAggregatedHexClaimByCellPreviousCursor =
+  | string
+  | null;
 
 export type PaginatedResultAggregatedHexClaimByCellNextCursor = string | null;
 
@@ -227,13 +229,13 @@ Returns:
 /**
  * Allowed sort fields for raw hex-claim listing.
  */
-export type HexClaimSortField = typeof HexClaimSortField[keyof typeof HexClaimSortField];
-
+export type HexClaimSortField =
+  (typeof HexClaimSortField)[keyof typeof HexClaimSortField];
 
 // eslint-disable-next-line @typescript-eslint/no-redeclare
 export const HexClaimSortField = {
-  created_at: 'created_at',
-  completed_at: 'completed_at',
+  created_at: "created_at",
+  completed_at: "completed_at",
 } as const;
 
 export type HexClaimResponseCompletedAt = string | null;
@@ -317,11 +319,10 @@ export interface AggregatedHexClaimByCell {
 /**
  * Dimensions the aggregated-hex-claims endpoint can roll up over.
  */
-export type AggregateHexClaimBy = typeof AggregateHexClaimBy[keyof typeof AggregateHexClaimBy];
-
+export type AggregateHexClaimBy =
+  (typeof AggregateHexClaimBy)[keyof typeof AggregateHexClaimBy];
 
 // eslint-disable-next-line @typescript-eslint/no-redeclare
 export const AggregateHexClaimBy = {
-  hex_cell: 'hex_cell',
+  hex_cell: "hex_cell",
 } as const;
-

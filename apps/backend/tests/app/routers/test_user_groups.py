@@ -89,9 +89,7 @@ def test_update_user_group_as_owner(
     client: TestClient, create_group: Callable[..., UserGroup]
 ):
     group = create_group(name="Old")
-    response = client.patch(
-        f"/api/v1/user-groups/{group.uid}", json={"name": "New"}
-    )
+    response = client.patch(f"/api/v1/user-groups/{group.uid}", json={"name": "New"})
     assert response.status_code == 200
     assert response.json()["name"] == "New"
 
@@ -108,9 +106,7 @@ def test_update_user_group_as_non_owner_returns_403(
     group = create_group(name="Theirs", owner=owner)
     create_membership(group=group, user=test_user, invited_by=owner)
 
-    response = client.patch(
-        f"/api/v1/user-groups/{group.uid}", json={"name": "Stolen"}
-    )
+    response = client.patch(f"/api/v1/user-groups/{group.uid}", json={"name": "Stolen"})
     assert response.status_code == 403
 
 

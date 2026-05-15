@@ -13,9 +13,7 @@ from src.app.repository import (
 )
 
 
-def _membership_uid(
-    db: Session, group: UserGroup, user: User
-) -> str:
+def _membership_uid(db: Session, group: UserGroup, user: User) -> str:
     stmt = (
         select(UserGroupMembership.uid)
         .where(UserGroupMembership.user_group_uid == group.uid)
@@ -37,9 +35,7 @@ def test_self_leaves_group(
     create_membership(group=group, user=test_user, invited_by=owner)
     membership_uid = _membership_uid(test_db, group, test_user)
 
-    response = client.delete(
-        f"/api/v1/user-group-memberships/{membership_uid}"
-    )
+    response = client.delete(f"/api/v1/user-group-memberships/{membership_uid}")
     assert response.status_code == 204
 
     # The caller can no longer see the group (no membership left).
@@ -60,9 +56,7 @@ def test_sole_owner_cannot_leave_group_with_other_members(
     create_membership(group=group, user=other, invited_by=test_user)
     membership_uid = _membership_uid(test_db, group, test_user)
 
-    response = client.delete(
-        f"/api/v1/user-group-memberships/{membership_uid}"
-    )
+    response = client.delete(f"/api/v1/user-group-memberships/{membership_uid}")
     assert response.status_code == 409
 
 
@@ -75,9 +69,7 @@ def test_sole_owner_can_leave_empty_group(
     group = create_group(name="Solo", owner=test_user)
     membership_uid = _membership_uid(test_db, group, test_user)
 
-    response = client.delete(
-        f"/api/v1/user-group-memberships/{membership_uid}"
-    )
+    response = client.delete(f"/api/v1/user-group-memberships/{membership_uid}")
     assert response.status_code == 204
 
 
@@ -94,9 +86,7 @@ def test_owner_can_remove_other_member(
     create_membership(group=group, user=other, invited_by=test_user)
     membership_uid = _membership_uid(test_db, group, other)
 
-    response = client.delete(
-        f"/api/v1/user-group-memberships/{membership_uid}"
-    )
+    response = client.delete(f"/api/v1/user-group-memberships/{membership_uid}")
     assert response.status_code == 204
 
 
@@ -116,9 +106,7 @@ def test_non_owner_cannot_remove_other_member(
     create_membership(group=group, user=third, invited_by=owner)
     third_membership_uid = _membership_uid(test_db, group, third)
 
-    response = client.delete(
-        f"/api/v1/user-group-memberships/{third_membership_uid}"
-    )
+    response = client.delete(f"/api/v1/user-group-memberships/{third_membership_uid}")
     # test_user is neither the target nor the owner → 404 (don't leak existence).
     assert response.status_code == 404
 
@@ -165,9 +153,7 @@ def test_patch_share_consent_for_others_is_forbidden(
 def test_unauthenticated_membership_endpoints(
     unauthenticated_client: TestClient,
 ):
-    response = unauthenticated_client.delete(
-        "/api/v1/user-group-memberships/anything"
-    )
+    response = unauthenticated_client.delete("/api/v1/user-group-memberships/anything")
     assert response.status_code == 401
     response = unauthenticated_client.patch(
         "/api/v1/user-group-memberships/anything",
