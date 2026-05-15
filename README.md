@@ -14,12 +14,21 @@ Fullstack platform with a FastAPI backend and Astro + React frontend.
 
 ## Getting Started
 
+For local application development:
+
 ```bash
 corepack enable
 brew install lefthook
 pnpm -C apps/web install
-cd apps/backend && uv sync && cd ../..
+UV_WORKING_DIRECTORY=apps/backend uv sync
 lefthook install
+```
+
+For infrastructure development:
+
+```bash
+eval $(AWS_PROFILE=hexagone-local-dev AWS_ACCOUNT_ID=... scripts/assume-role.sh)
+terraform -chdir=terraform/production init
 ```
 
 ## Frontend (`apps/web/`)
