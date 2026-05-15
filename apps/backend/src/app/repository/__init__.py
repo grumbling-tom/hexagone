@@ -31,6 +31,7 @@ from .filters import (
     NotInFilter,
     OrFilter,
     RangeFilter,
+    RelationFilter,
 )
 from .models import (
     HexClaim,
@@ -62,6 +63,7 @@ __all__ = [
     "NotInFilter",
     "OrFilter",
     "RangeFilter",
+    "RelationFilter",
     "Repository",
     "SessionLocal",
     "Upload",

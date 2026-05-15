@@ -183,6 +183,14 @@ class UserGroup(BaseModel):
             archive the group, and they cannot leave it while it has
             other members (they must archive instead).
         archived: Soft-delete flag.
+        members: Read-only many-to-many traversal to User through
+            ``user_group_membership``. Exposed so that filters can
+            ask "is this user a member of this group?" via the
+            standard Filter pattern (e.g. ``RelationFilter(
+            field="members", inner=EqualsFilter(field="uid", value=X)
+            )``). Writes go through ``UserGroupMembership`` directly
+            so ``share_consent`` and ``invited_by_uid`` stay
+            first-class.
     """
 
     __tablename__ = "user_group"
@@ -192,6 +200,20 @@ class UserGroup(BaseModel):
         String(36), ForeignKey("user.uid"), nullable=False, index=True
     )
     archived: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+
+    # Explicit primaryjoin/secondaryjoin: UserGroupMembership has two FKs to
+    # user.uid (user_uid + invited_by_uid), so SQLAlchemy can't disambiguate
+    # without help. viewonly=True so this side never tries to manage writes.
+    # lazy="raise" so loaded UserGroup instances never silently trigger
+    # N+1s; the relationship is a query-shape primitive.
+    members: Mapped[list[User]] = relationship(
+        "User",
+        secondary="user_group_membership",
+        primaryjoin="UserGroup.uid == foreign(UserGroupMembership.user_group_uid)",
+        secondaryjoin="User.uid == foreign(UserGroupMembership.user_uid)",
+        viewonly=True,
+        lazy="raise",
+    )
 
 
 class UserGroupMembership(BaseModel):
@@ -223,9 +245,7 @@ class UserGroupMembership(BaseModel):
     user_group_uid: Mapped[str] = mapped_column(
         String(36), ForeignKey("user_group.uid"), nullable=False, index=True
     )
-    share_consent: Mapped[bool] = mapped_column(
-        Boolean, default=True, nullable=False
-    )
+    share_consent: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     invited_by_uid: Mapped[str | None] = mapped_column(
         String(36), ForeignKey("user.uid"), nullable=True
     )

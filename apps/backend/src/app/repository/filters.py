@@ -366,3 +366,52 @@ class OrFilter(Filter):
         if not clauses:
             return stmt
         return stmt.where(or_(*clauses))
+
+
+class RelationFilter(Filter):
+    """Filter rows whose named SQLAlchemy relationship contains a row
+    satisfying an inner Filter.
+
+    ``field`` is the name of a relationship attribute on the outer entity
+    (to-many or to-one). ``inner`` is any Filter, interpreted against the
+    related entity's class. The composite SQL is
+    ``EXISTS (SELECT 1 FROM <related> WHERE <inner>)``, produced via
+    SQLAlchemy's ``.any()`` for collection relationships or ``.has()``
+    for scalar (to-one) relationships.
+
+    The inner filter is run against a fresh ``select(<related entity>)``
+    and its WHERE clause is extracted via ``Select.whereclause`` — the same
+    trick ``OrFilter`` uses — so any Filter can be the inner, including
+    ``OrFilter``, ``InFilter``, or another ``RelationFilter`` for
+    multi-hop traversal.
+
+    Example:
+        # Uploads with at least one status of UPLOAD_SUCCESS
+        RelationFilter(
+            field="statuses",
+            inner=EqualsFilter(field="status", value="UPLOAD_SUCCESS"),
+        )
+    """
+
+    field: str = Field(
+        ..., description="Name of the relationship attribute on the outer entity"
+    )
+    inner: Filter = Field(..., description="Filter to apply against the related entity")
+
+    def apply(
+        self, stmt: Select[tuple[Any, ...]], entity: type[BaseModel]
+    ) -> Select[tuple[Any, ...]]:
+        """Wrap the inner filter's condition in EXISTS over the relationship."""
+        relationship_attr = getattr(entity, self.field)
+        target_class = relationship_attr.property.mapper.class_
+        applied = self.inner.apply(sa_select(target_class), target_class)
+        condition = applied.whereclause
+        if condition is None:
+            return stmt
+        # `.any()` for to-many (uselist=True), `.has()` for to-one.
+        op = (
+            relationship_attr.any
+            if relationship_attr.property.uselist
+            else relationship_attr.has
+        )
+        return stmt.where(op(condition))

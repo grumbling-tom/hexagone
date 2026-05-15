@@ -20,6 +20,7 @@ from src.app.repository import (
     NotInFilter,
     OrFilter,
     RangeFilter,
+    RelationFilter,
     Repository,
     Upload,
     UploadStatus,
@@ -349,6 +350,41 @@ def test_in_filter(test_db: Session, create_upload: Callable[..., Upload]):
     )
     assert len(result.items) == 2
     assert {u.original_filename for u in result.items} == {"alpha.gpx", "gamma.gpx"}
+
+
+def test_relation_filter_matches_outer_rows_with_any_inner_match(
+    test_db: Session, create_upload: Callable[..., Upload]
+):
+    """`RelationFilter` should match outer rows whose named relationship
+    contains at least one related row satisfying the inner filter.
+
+    Uses the existing `Upload.statuses` one-to-many relationship: each
+    Upload has a list of UploadStatus rows; we want the uploads that have
+    ever been marked UPLOAD_SUCCESS at any point in their status history."""
+    create_upload("alpha.gpx", status_values=[UploadStatusValue.UPLOAD_SUCCESS])
+    create_upload("beta.gpx", status_values=[UploadStatusValue.UPLOAD_INVALID])
+    create_upload(
+        "gamma.gpx",
+        status_values=[
+            UploadStatusValue.UPLOAD_PENDING,
+            UploadStatusValue.UPLOAD_SUCCESS,
+        ],
+    )
+
+    repo = Repository(test_db, Upload)
+    result = repo.get_filtered(
+        filters=[
+            RelationFilter(
+                field="statuses",
+                inner=EqualsFilter(
+                    field="status", value=UploadStatusValue.UPLOAD_SUCCESS
+                ),
+            ),
+        ],
+    )
+
+    names = {u.original_filename for u in result.items}
+    assert names == {"alpha.gpx", "gamma.gpx"}
 
 
 def test_or_filter_returns_rows_matching_any_inner_filter(
