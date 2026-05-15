@@ -22,6 +22,7 @@ logger = get_logger(__name__)
 class UserGroupNotFoundError(Exception):
     """Group not found, archived, or not visible to the requesting user."""
 
+
 class DuplicateMembershipError(Exception):
     """A membership row already exists for this (user, group) pair."""
 

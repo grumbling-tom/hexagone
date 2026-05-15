@@ -94,7 +94,7 @@ def test_update_user_group_as_owner(
     assert response.json()["name"] == "New"
 
 
-def test_update_user_group_as_non_owner_returns_403(
+def test_update_user_group_as_non_owner_returns_404(
     client: TestClient,
     create_user: Callable[..., User],
     create_group: Callable[..., UserGroup],
@@ -102,12 +102,15 @@ def test_update_user_group_as_non_owner_returns_403(
     test_user: User,
     authenticate_as: Callable[[User], TestClient],
 ):
+    """Non-owners get 404, not 403 — the `owner_only` filter doesn't
+    distinguish "doesn't exist" from "you can't update this", which keeps
+    ownership of unrelated groups hidden from the caller."""
     owner = create_user()
     group = create_group(name="Theirs", owner=owner)
     create_membership(group=group, user=test_user)
 
     response = client.patch(f"/api/v1/user-groups/{group.uid}", json={"name": "Stolen"})
-    assert response.status_code == 403
+    assert response.status_code == 404
 
 
 def test_delete_user_group_as_owner_soft_deletes(
@@ -122,19 +125,20 @@ def test_delete_user_group_as_owner_soft_deletes(
     assert response.status_code == 404
 
 
-def test_delete_user_group_as_non_owner_returns_403(
+def test_delete_user_group_as_non_owner_returns_404(
     client: TestClient,
     create_user: Callable[..., User],
     create_group: Callable[..., UserGroup],
     create_membership: Callable[..., None],
     test_user: User,
 ):
+    """Same rationale as the update case — 404 not 403."""
     owner = create_user()
     group = create_group(name="Theirs", owner=owner)
     create_membership(group=group, user=test_user)
 
     response = client.delete(f"/api/v1/user-groups/{group.uid}")
-    assert response.status_code == 403
+    assert response.status_code == 404
 
 
 def test_list_members_as_member(
@@ -176,7 +180,6 @@ def test_member_count_reflects_membership_changes(
     create_user: Callable[..., User],
     create_group: Callable[..., UserGroup],
     create_membership: Callable[..., None],
-    test_user: User,
 ):
     other = create_user()
     group = create_group(name="Two-up")

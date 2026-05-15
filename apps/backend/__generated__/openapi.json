@@ -938,58 +938,6 @@
           }
         }
       }
-    },
-    "/api/v1/user-group-memberships/{membership_uid}": {
-      "delete": {
-        "tags": [
-          "user-group-memberships"
-        ],
-        "summary": "Delete User Group Membership",
-        "description": "Remove a membership. Allowed for self (leave) or group owner (kick).\n\nA group owner cannot leave their own group while it has other members;\nthey must archive the group instead.",
-        "operationId": "deleteUserGroupMembership",
-        "parameters": [
-          {
-            "name": "membership_uid",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Membership Uid"
-            }
-          },
-          {
-            "name": "sessionid",
-            "in": "cookie",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Sessionid"
-            }
-          }
-        ],
-        "responses": {
-          "204": {
-            "description": "Successful Response"
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
     }
   },
   "components": {

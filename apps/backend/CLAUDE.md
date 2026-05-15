@@ -325,3 +325,129 @@ reusable, unit-testable, and compose with `Repository.get_filtered`.
 Note: this section is about *queries*. Writes (`db.add`, `db.delete`,
 attribute mutation followed by `db.commit`) go through the session
 directly — `Repository` is a query helper, not a unit-of-work wrapper.
+
+## Service Layer — Workhorse `list_<things>` + Thin `get_<thing>` Wrapper
+
+When a service exposes both "list" and "fetch one of those things" for
+the same entity, write **one** `list_<things>` function that builds the
+filter list (including `permission_filters`, archived check, scoping
+flags) and returns `PaginatedResult[Thing]`. Then make `get_<thing>` a
+one-line wrapper that delegates to it with a `uid` filter and returns
+the first item — the filter logic, including any auth scoping, lives in
+one place and is exercised by both endpoints.
+
+### Good
+
+```python
+def list_groups(  # noqa: PLR0913
+    db, user, *,
+    page_size=settings.DEFAULT_PAGE_SIZE,
+    group_uid=None,
+    owner_only=False,
+    sort_field="created_at",
+    sort_order=SortOrder.DESC,
+) -> PaginatedResult[UserGroup]:
+    filters = [
+        *permission_filters(user, UserGroup),
+        EqualsFilter(field="archived", value=False),
+    ]
+    if owner_only:
+        filters.append(EqualsFilter(field="owner_uid", value=user.uid))
+    if group_uid is not None:
+        filters.append(EqualsFilter(field="uid", value=group_uid))
+    return Repository(db, UserGroup).get_filtered(filters=filters, ...)
+
+
+def get_group(db, user, group_uid, *, owner_only=False) -> UserGroup | None:
+    try:
+        return list_groups(
+            db, user, group_uid=group_uid, owner_only=owner_only,
+        ).items[0]
+    except IndexError:
+        return None
+```
+
+### Bad — duplicated filter logic
+
+```python
+def list_groups(db, user):
+    return Repository(db, UserGroup).get_filtered(
+        filters=[*permission_filters(user, UserGroup),
+                 EqualsFilter(field="archived", value=False)],
+    )
+
+def get_group(db, user, group_uid):
+    # Same filter list, restated by hand — drifts the moment list_groups grows a clause:
+    return Repository(db, UserGroup).get_filtered(
+        filters=[*permission_filters(user, UserGroup),
+                 EqualsFilter(field="archived", value=False),
+                 EqualsFilter(field="uid", value=group_uid)],
+    ).items[0]
+```
+
+Scoping flags like `owner_only=True` are how access modifiers get
+expressed today — they layer an extra filter onto the read permission
+set. When `permission_filters(user, entity, operation)` lands
+(operation ∈ {READ, UPDATE, DELETE, …}), these flags can move into the
+permissions layer.
+
+## Service Layer — Return `None` for Absence; Routers Raise HTTP
+
+Service "fetch one" functions return the entity or `None` when not
+found/not visible — they **don't** raise a custom `*NotFoundError`. The
+router translates `None` into the right HTTP response (usually 404).
+
+Why: services compose with other services and with tests. Forcing every
+caller through a try/except for "not found" leaks routing concerns into
+the service layer and makes simple cases like "delete if exists" noisy.
+
+### Good
+
+```python
+# service
+def get_group(db, user, group_uid) -> UserGroup | None:
+    try:
+        return list_groups(db, user, group_uid=group_uid).items[0]
+    except IndexError:
+        return None
+
+# router
+group = user_group_service.get_group(db, user, group_uid)
+if group is None:
+    raise HTTPException(status_code=404, detail="Group not found")
+```
+
+### Bad — exception flow for "not found"
+
+```python
+# service
+def get_group(db, user, group_uid) -> UserGroup:
+    group = ...
+    if group is None:
+        raise UserGroupNotFoundError(group_uid)
+    return group
+
+# router has to catch what the service threw
+try:
+    group = user_group_service.get_group(db, user, group_uid)
+except user_group_service.UserGroupNotFoundError:
+    raise HTTPException(status_code=404, ...) from None
+```
+
+Exceptions are still appropriate for **business-rule violations** —
+writes the caller couldn't avoid by branching, like
+`DuplicateMembershipError` (uniqueness conflict during an insert) or
+`UserGroupNotFoundError` raised from a *mutation* service function
+(`update_group`, `archive_group`) where there's no sensible "no-op on
+missing" semantics. The pattern then looks like:
+
+```python
+def update_group(db, user, group_uid, *, name) -> UserGroup:
+    group = get_group(db, user, group_uid, owner_only=True)
+    if group is None:
+        raise UserGroupNotFoundError(group_uid)
+    ...
+```
+
+— the wrapper still returns `None`, the mutation service raises
+explicitly, and the router catches the mutation-specific exceptions.

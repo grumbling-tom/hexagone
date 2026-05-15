@@ -85,9 +85,10 @@ def list_user_groups(
     db: Annotated[Session, Depends(db_session)],
 ) -> list[UserGroupResponse]:
     """List the caller's non-archived groups, newest first."""
-    groups = user_group_service.list_groups(db, user)
+    result = user_group_service.list_groups(db, user)
     return [
-        _to_group_response(g, user_group_service.count_members(db, g)) for g in groups
+        _to_group_response(g, user_group_service.count_members(db, g))
+        for g in result.items
     ]
 
 
@@ -98,10 +99,9 @@ def get_user_group(
     db: Annotated[Session, Depends(db_session)],
 ) -> UserGroupResponse:
     """Return one group the caller belongs to. 404 if not a member."""
-    try:
-        group = user_group_service.get_group(db, user, group_uid)
-    except user_group_service.UserGroupNotFoundError:
-        raise HTTPException(status_code=404, detail="Group not found") from None
+    group = user_group_service.get_group(db, user, group_uid)
+    if group is None:
+        raise HTTPException(status_code=404, detail="Group not found")
     return _to_group_response(group, user_group_service.count_members(db, group))
 
 
