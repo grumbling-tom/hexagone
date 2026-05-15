@@ -206,7 +206,6 @@ def create_group(test_db: Session, test_user: User) -> Callable[..., UserGroup]:
             UserGroupMembership(
                 user_uid=actual_owner.uid,
                 user_group_uid=group.uid,
-                share_consent=True,
                 invited_by_uid=None,
             )
         )
@@ -226,7 +225,6 @@ def create_membership(
     Args:
         group: The group to join.
         user: The user being added.
-        share_consent: Defaults to True (consistent with the service default).
         invited_by: Optional inviter (defaults to None — founder-style).
     """
 
@@ -234,13 +232,11 @@ def create_membership(
         *,
         group: UserGroup,
         user: User,
-        share_consent: bool = True,
         invited_by: User | None = None,
     ) -> UserGroupMembership:
         membership = UserGroupMembership(
             user_uid=user.uid,
             user_group_uid=group.uid,
-            share_consent=share_consent,
             invited_by_uid=invited_by.uid if invited_by else None,
         )
         test_db.add(membership)

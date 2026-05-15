@@ -189,8 +189,7 @@ class UserGroup(BaseModel):
             standard Filter pattern (e.g. ``RelationFilter(
             field="members", inner=EqualsFilter(field="uid", value=X)
             )``). Writes go through ``UserGroupMembership`` directly
-            so ``share_consent`` and ``invited_by_uid`` stay
-            first-class.
+            so ``invited_by_uid`` stays first-class.
     """
 
     __tablename__ = "user_group"
@@ -217,14 +216,11 @@ class UserGroup(BaseModel):
 
 
 class UserGroupMembership(BaseModel):
-    """Many-to-many link between users and groups, with a sharing flag.
+    """Many-to-many link between users and groups.
 
     Attributes:
         user_uid: The member.
         user_group_uid: The group.
-        share_consent: Whether this member's hex claims and profile are
-            visible to other group members. Defaults to True (joining is
-            an act of consent); a member can flip this off at any time.
         invited_by_uid: The user who invited this member. NULL for
             the group's founding owner. Stored on the membership row so
             the relationship graph survives invitation cleanup.
@@ -245,7 +241,6 @@ class UserGroupMembership(BaseModel):
     user_group_uid: Mapped[str] = mapped_column(
         String(36), ForeignKey("user_group.uid"), nullable=False, index=True
     )
-    share_consent: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     invited_by_uid: Mapped[str | None] = mapped_column(
         String(36), ForeignKey("user.uid"), nullable=True
     )

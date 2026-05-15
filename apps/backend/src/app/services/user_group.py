@@ -27,10 +27,6 @@ class NotGroupOwnerError(Exception):
     """Action requires the requesting user to be the group's owner."""
 
 
-class NotMembershipSelfError(Exception):
-    """Action can only be taken by the user whose membership it is."""
-
-
 class SoleOwnerCannotLeaveError(Exception):
     """Sole owner of a group with other members cannot leave; archive instead."""
 
@@ -73,7 +69,7 @@ def create_group(db: DBSession, owner: User, name: str) -> UserGroup:
     """Create a new group with `owner` as the sole initial member.
 
     The caller is recorded as the group's owner and automatically gets a
-    membership row with `share_consent=True` and `invited_by_uid=NULL`.
+    membership row with `invited_by_uid=NULL`.
     """
     group = UserGroup(name=name, owner_uid=owner.uid, archived=False)
     db.add(group)
@@ -82,7 +78,6 @@ def create_group(db: DBSession, owner: User, name: str) -> UserGroup:
     membership = UserGroupMembership(
         user_uid=owner.uid,
         user_group_uid=group.uid,
-        share_consent=True,
         invited_by_uid=None,
     )
     db.add(membership)
@@ -215,20 +210,6 @@ def remove_membership(db: DBSession, user: User, membership_uid: str) -> None:
     )
 
 
-def set_share_consent(
-    db: DBSession, user: User, membership_uid: str, *, consent: bool
-) -> UserGroupMembership:
-    """Toggle a member's share_consent flag. Self only."""
-    membership, _ = _load_membership_for_access(db, user, membership_uid)
-    if membership.user_uid != user.uid:
-        raise NotMembershipSelfError(membership_uid)
-
-    membership.share_consent = consent
-    db.commit()
-    db.refresh(membership)
-    return membership
-
-
 def invite_member(
     db: DBSession,
     *,
@@ -246,7 +227,6 @@ def invite_member(
     membership = UserGroupMembership(
         user_uid=user_to_add.uid,
         user_group_uid=group.uid,
-        share_consent=True,
         invited_by_uid=invited_by.uid,
     )
     db.add(membership)

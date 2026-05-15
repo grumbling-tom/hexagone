@@ -68,20 +68,6 @@ export interface UserGroupResponse {
   uid: string;
 }
 
-export type UserGroupMembershipResponseInvitedByUid = string | null;
-
-/**
- * Response body for membership endpoints.
- */
-export interface UserGroupMembershipResponse {
-  invited_by_uid: UserGroupMembershipResponseInvitedByUid;
-  joined_at: string;
-  share_consent: boolean;
-  uid: string;
-  user_group_uid: string;
-  user_uid: string;
-}
-
 export type UserGroupMemberResponseInvitedByUid = string | null;
 
 /**
@@ -91,7 +77,6 @@ export interface UserGroupMemberResponse {
   email: string;
   invited_by_uid: UserGroupMemberResponseInvitedByUid;
   joined_at: string;
-  share_consent: boolean;
   uid: string;
   user_uid: string;
 }
@@ -121,6 +106,14 @@ export const UploadSortField = {
   created_at: "created_at",
   original_filename: "original_filename",
 } as const;
+
+export type ListUploadsParams = {
+  page_size?: number;
+  cursor?: string | null;
+  statuses?: UploadStatusValue[] | null;
+  sort_field?: UploadSortField;
+  sort_order?: SortOrder;
+};
 
 export type UploadResponseRequiredHeadersAnyOf = { [key: string]: string };
 
@@ -154,13 +147,6 @@ export interface UpdateUserGroupRequest {
 }
 
 /**
- * Request body for updating a membership's share_consent flag.
- */
-export interface UpdateUserGroupMembershipRequest {
-  share_consent: boolean;
-}
-
-/**
  * Sort order enumeration for pagination.
 
 Provides ASC and DESC values for sorting, with support for negation
@@ -177,14 +163,6 @@ export const SortOrder = {
   asc: "asc",
   desc: "desc",
 } as const;
-
-export type ListUploadsParams = {
-  page_size?: number;
-  cursor?: string | null;
-  statuses?: UploadStatusValue[] | null;
-  sort_field?: UploadSortField;
-  sort_order?: SortOrder;
-};
 
 export type PaginatedResultUploadResponsePreviousCursor = string | null;
 

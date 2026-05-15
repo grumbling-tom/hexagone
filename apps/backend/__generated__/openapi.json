@@ -989,73 +989,6 @@
             }
           }
         }
-      },
-      "patch": {
-        "tags": [
-          "user-group-memberships"
-        ],
-        "summary": "Update User Group Membership",
-        "description": "Toggle share_consent on the caller's own membership.",
-        "operationId": "updateUserGroupMembership",
-        "parameters": [
-          {
-            "name": "membership_uid",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Membership Uid"
-            }
-          },
-          {
-            "name": "sessionid",
-            "in": "cookie",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Sessionid"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/UpdateUserGroupMembershipRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/UserGroupMembershipResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
       }
     }
   },
@@ -1435,20 +1368,6 @@
         "title": "SortOrder",
         "description": "Sort order enumeration for pagination.\n\nProvides ASC and DESC values for sorting, with support for negation\nto flip the sort order.\n\nAttributes:\n    ASC: Ascending sort order.\n    DESC: Descending sort order."
       },
-      "UpdateUserGroupMembershipRequest": {
-        "properties": {
-          "share_consent": {
-            "type": "boolean",
-            "title": "Share Consent"
-          }
-        },
-        "type": "object",
-        "required": [
-          "share_consent"
-        ],
-        "title": "UpdateUserGroupMembershipRequest",
-        "description": "Request body for updating a membership's share_consent flag."
-      },
       "UpdateUserGroupRequest": {
         "properties": {
           "name": {
@@ -1559,10 +1478,6 @@
             "type": "string",
             "title": "Email"
           },
-          "share_consent": {
-            "type": "boolean",
-            "title": "Share Consent"
-          },
           "invited_by_uid": {
             "anyOf": [
               {
@@ -1585,59 +1500,11 @@
           "uid",
           "user_uid",
           "email",
-          "share_consent",
           "invited_by_uid",
           "joined_at"
         ],
         "title": "UserGroupMemberResponse",
         "description": "Response body describing a single member of a group."
-      },
-      "UserGroupMembershipResponse": {
-        "properties": {
-          "uid": {
-            "type": "string",
-            "title": "Uid"
-          },
-          "user_uid": {
-            "type": "string",
-            "title": "User Uid"
-          },
-          "user_group_uid": {
-            "type": "string",
-            "title": "User Group Uid"
-          },
-          "share_consent": {
-            "type": "boolean",
-            "title": "Share Consent"
-          },
-          "invited_by_uid": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Invited By Uid"
-          },
-          "joined_at": {
-            "type": "string",
-            "format": "date-time",
-            "title": "Joined At"
-          }
-        },
-        "type": "object",
-        "required": [
-          "uid",
-          "user_uid",
-          "user_group_uid",
-          "share_consent",
-          "invited_by_uid",
-          "joined_at"
-        ],
-        "title": "UserGroupMembershipResponse",
-        "description": "Response body for membership endpoints."
       },
       "UserGroupResponse": {
         "properties": {

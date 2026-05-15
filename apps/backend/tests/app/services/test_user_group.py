@@ -18,7 +18,6 @@ def test_create_group_creates_owner_membership(test_db: Session, test_user: User
     members = user_group_service.list_members(test_db, test_user, group.uid)
     assert len(members) == 1
     assert members[0].user_uid == test_user.uid
-    assert members[0].share_consent is True
     assert members[0].invited_by_uid is None
 
 
@@ -95,25 +94,6 @@ def test_get_group_for_non_member_raises(
 
     with pytest.raises(user_group_service.UserGroupNotFoundError):
         user_group_service.get_group(test_db, test_user, group.uid)
-
-
-def test_set_share_consent_toggles_flag(
-    test_db: Session,
-    test_user: User,
-    create_group: Callable[..., UserGroup],
-):
-    group = create_group(name="Mine")
-    [membership] = user_group_service.list_members(test_db, test_user, group.uid)
-
-    updated = user_group_service.set_share_consent(
-        test_db, test_user, membership.uid, consent=False
-    )
-    assert updated.share_consent is False
-
-    updated = user_group_service.set_share_consent(
-        test_db, test_user, membership.uid, consent=True
-    )
-    assert updated.share_consent is True
 
 
 def test_remove_owner_with_other_members_rejected(

@@ -4,24 +4,16 @@
  * Backend
  * OpenAPI spec version: 0.1.0
  */
-import {
-  useMutation
-} from '@tanstack/react-query'
+
 import type {
   MutationFunction,
   UseMutationOptions,
-  UseMutationResult
-} from '@tanstack/react-query'
-import type {
-  HTTPValidationError,
-  UpdateUserGroupMembershipRequest,
-  UserGroupMembershipResponse
-} from './backend.schemas'
-import { fetchClient } from '../../lib/fetch-client';
-import type { ErrorType } from '../../lib/fetch-client';
-
-
-
+  UseMutationResult,
+} from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
+import type { ErrorType } from "../../lib/fetch-client";
+import { fetchClient } from "../../lib/fetch-client";
+import type { HTTPValidationError } from "./backend.schemas";
 
 /**
  * Remove a membership. Allowed for self (leave) or group owner (kick).
@@ -30,115 +22,70 @@ A group owner cannot leave their own group while it has other members;
 they must archive the group instead.
  * @summary Delete User Group Membership
  */
-export const deleteUserGroupMembership = (
-    membershipUid: string,
- ) => {
-      
-      
-      return fetchClient<void>(
-      {url: `/api/v1/user-group-memberships/${membershipUid}`, method: 'DELETE'
-    },
-      );
-    }
-  
+export const deleteUserGroupMembership = (membershipUid: string) => {
+  return fetchClient<void>({
+    url: `/api/v1/user-group-memberships/${membershipUid}`,
+    method: "DELETE",
+  });
+};
 
+export const getDeleteUserGroupMembershipMutationOptions = <
+  TError = ErrorType<HTTPValidationError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteUserGroupMembership>>,
+    TError,
+    { membershipUid: string },
+    TContext
+  >;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteUserGroupMembership>>,
+  TError,
+  { membershipUid: string },
+  TContext
+> => {
+  const { mutation: mutationOptions } = options ?? {};
 
-export const getDeleteUserGroupMembershipMutationOptions = <TError = ErrorType<HTTPValidationError>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteUserGroupMembership>>, TError,{membershipUid: string}, TContext>, }
-): UseMutationOptions<Awaited<ReturnType<typeof deleteUserGroupMembership>>, TError,{membershipUid: string}, TContext> => {
-const {mutation: mutationOptions} = options ?? {};
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteUserGroupMembership>>,
+    { membershipUid: string }
+  > = (props) => {
+    const { membershipUid } = props ?? {};
 
-      
+    return deleteUserGroupMembership(membershipUid);
+  };
 
+  return { mutationFn, ...mutationOptions };
+};
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteUserGroupMembership>>, {membershipUid: string}> = (props) => {
-          const {membershipUid} = props ?? {};
+export type DeleteUserGroupMembershipMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteUserGroupMembership>>
+>;
 
-          return  deleteUserGroupMembership(membershipUid,)
-        }
+export type DeleteUserGroupMembershipMutationError =
+  ErrorType<HTTPValidationError>;
 
-        
-
-
-  return  { mutationFn, ...mutationOptions }}
-
-    export type DeleteUserGroupMembershipMutationResult = NonNullable<Awaited<ReturnType<typeof deleteUserGroupMembership>>>
-    
-    export type DeleteUserGroupMembershipMutationError = ErrorType<HTTPValidationError>
-
-    /**
+/**
  * @summary Delete User Group Membership
  */
-export const useDeleteUserGroupMembership = <TError = ErrorType<HTTPValidationError>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteUserGroupMembership>>, TError,{membershipUid: string}, TContext>, }
-): UseMutationResult<
-        Awaited<ReturnType<typeof deleteUserGroupMembership>>,
-        TError,
-        {membershipUid: string},
-        TContext
-      > => {
+export const useDeleteUserGroupMembership = <
+  TError = ErrorType<HTTPValidationError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteUserGroupMembership>>,
+    TError,
+    { membershipUid: string },
+    TContext
+  >;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteUserGroupMembership>>,
+  TError,
+  { membershipUid: string },
+  TContext
+> => {
+  const mutationOptions = getDeleteUserGroupMembershipMutationOptions(options);
 
-      const mutationOptions = getDeleteUserGroupMembershipMutationOptions(options);
-
-      return useMutation(mutationOptions);
-    }
-    /**
- * Toggle share_consent on the caller's own membership.
- * @summary Update User Group Membership
- */
-export const updateUserGroupMembership = (
-    membershipUid: string,
-    updateUserGroupMembershipRequest: UpdateUserGroupMembershipRequest,
- ) => {
-      
-      
-      return fetchClient<UserGroupMembershipResponse>(
-      {url: `/api/v1/user-group-memberships/${membershipUid}`, method: 'PATCH',
-      headers: {'Content-Type': 'application/json', },
-      data: updateUserGroupMembershipRequest
-    },
-      );
-    }
-  
-
-
-export const getUpdateUserGroupMembershipMutationOptions = <TError = ErrorType<HTTPValidationError>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateUserGroupMembership>>, TError,{membershipUid: string;data: UpdateUserGroupMembershipRequest}, TContext>, }
-): UseMutationOptions<Awaited<ReturnType<typeof updateUserGroupMembership>>, TError,{membershipUid: string;data: UpdateUserGroupMembershipRequest}, TContext> => {
-const {mutation: mutationOptions} = options ?? {};
-
-      
-
-
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateUserGroupMembership>>, {membershipUid: string;data: UpdateUserGroupMembershipRequest}> = (props) => {
-          const {membershipUid,data} = props ?? {};
-
-          return  updateUserGroupMembership(membershipUid,data,)
-        }
-
-        
-
-
-  return  { mutationFn, ...mutationOptions }}
-
-    export type UpdateUserGroupMembershipMutationResult = NonNullable<Awaited<ReturnType<typeof updateUserGroupMembership>>>
-    export type UpdateUserGroupMembershipMutationBody = UpdateUserGroupMembershipRequest
-    export type UpdateUserGroupMembershipMutationError = ErrorType<HTTPValidationError>
-
-    /**
- * @summary Update User Group Membership
- */
-export const useUpdateUserGroupMembership = <TError = ErrorType<HTTPValidationError>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateUserGroupMembership>>, TError,{membershipUid: string;data: UpdateUserGroupMembershipRequest}, TContext>, }
-): UseMutationResult<
-        Awaited<ReturnType<typeof updateUserGroupMembership>>,
-        TError,
-        {membershipUid: string;data: UpdateUserGroupMembershipRequest},
-        TContext
-      > => {
-
-      const mutationOptions = getUpdateUserGroupMembershipMutationOptions(options);
-
-      return useMutation(mutationOptions);
-    }
-    
+  return useMutation(mutationOptions);
+};
