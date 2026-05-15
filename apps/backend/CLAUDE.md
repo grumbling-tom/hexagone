@@ -274,3 +274,54 @@ that hybrid property.
 
 Push the join/subquery complexity into the model, not into custom filter
 classes. This keeps the filter layer simple and composable.
+
+## Service Layer — Use Repository + Filter Classes for Queries
+
+Service queries access the database through `Repository(db, Model)` plus
+the type-safe `Filter` classes in `repository/filters.py`, composing with
+`permission_filters(user, entity)` from `services/permissions.py` where
+authorisation applies. Avoid raw `select(...)` for service queries — it
+bypasses cursor pagination, the composable Filter contract, and the
+single central permissions layer.
+
+### Good
+
+```python
+def list_groups_for_user(db, user) -> list[UserGroup]:
+    return Repository(db, UserGroup).get_filtered(
+        filters=[
+            *permission_filters(user, UserGroup),
+            EqualsFilter(field="archived", value=False),
+        ],
+        sort_field=UserGroup.created_at,
+        sort_order=SortOrder.DESC,
+    ).items
+```
+
+### Bad
+
+```python
+def list_groups_for_user(db, user) -> list[UserGroup]:
+    stmt = (
+        select(UserGroup)
+        .join(UserGroupMembership, ...)
+        .where(...)
+    )
+    return list(db.execute(stmt).scalars().all())
+```
+
+If a filter you need doesn't exist yet, **add a new `Filter` subclass in
+`repository/filters.py`** rather than dropping to raw SQL. Filters are
+reusable, unit-testable, and compose with `Repository.get_filtered`.
+
+**Exceptions — raw `select(...)` is appropriate when:**
+- Aggregates `Repository` doesn't expose — `func.count(...)`,
+  `func.sum(...)`, etc.
+- Inside a `View` subclass's `__view_selectable__`.
+- The query target genuinely requires multiple entities back in one
+  round-trip (rare; prefer two `Repository.find_by_uid()` calls unless
+  profiling shows a real cost).
+
+Note: this section is about *queries*. Writes (`db.add`, `db.delete`,
+attribute mutation followed by `db.commit`) go through the session
+directly — `Repository` is a query helper, not a unit-of-work wrapper.

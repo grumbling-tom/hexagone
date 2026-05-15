@@ -210,6 +210,11 @@ class UserGroup(BaseModel):
         lazy="raise",
     )
 
+    @hybrid_property
+    def member_count(self) -> int:
+        """Return the number of members in this group."""
+        return len(self.members)
+
 
 class UserGroupMembership(BaseModel):
     """Many-to-many link between users and groups.
