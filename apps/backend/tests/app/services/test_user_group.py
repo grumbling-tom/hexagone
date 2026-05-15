@@ -15,7 +15,7 @@ def test_create_group_creates_owner_membership(test_db: Session, test_user: User
     assert group.owner_uid == test_user.uid
     assert group.archived is False
 
-    members = user_group_service.list_members(test_db, test_user, group.uid)
+    members = user_group_service.list_members(test_db, test_user, group.uid).items
     assert len(members) == 1
     assert members[0].user_uid == test_user.uid
 

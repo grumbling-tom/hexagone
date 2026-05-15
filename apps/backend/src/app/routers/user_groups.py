@@ -3,14 +3,15 @@
 from datetime import datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Response
-from pydantic import Field
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from pydantic import AliasPath, Field
 from sqlalchemy.orm import Session
 
 from src.app.dependencies import authenticated_user, db_session
-from src.app.repository import User, UserGroup, UserGroupMembership
+from src.app.repository import User
 from src.app.services import user_group as user_group_service
-from src.app.utils import BaseSchema
+from src.app.settings import settings
+from src.app.utils import BaseSchema, PaginatedResult
 
 router = APIRouter()
 
@@ -27,6 +28,20 @@ class UpdateUserGroupRequest(BaseSchema):
     name: str = Field(min_length=1, max_length=80)
 
 
+class ListUserGroupsParams(BaseSchema):
+    """Query parameters for listing user groups."""
+
+    page_size: int = Field(default=settings.DEFAULT_PAGE_SIZE, gt=0, le=100)
+    cursor: str | None = Field(default=None)
+
+
+class ListUserGroupMembersParams(BaseSchema):
+    """Query parameters for listing a group's members."""
+
+    page_size: int = Field(default=settings.DEFAULT_PAGE_SIZE, gt=0, le=100)
+    cursor: str | None = Field(default=None)
+
+
 class UserGroupResponse(BaseSchema):
     """Response body for user group endpoints."""
 
@@ -38,33 +53,18 @@ class UserGroupResponse(BaseSchema):
 
 
 class UserGroupMemberResponse(BaseSchema):
-    """Response body describing a single member of a group."""
+    """Response body describing a single member of a group.
+
+    ``email`` is read off the related User via the ``user`` relationship;
+    ``joined_at`` is the membership row's creation timestamp. The
+    ``validation_alias`` declarations let ``model_validate(membership)``
+    walk to those attributes without a helper function.
+    """
 
     uid: str  # membership uid
     user_uid: str
-    email: str
-    joined_at: datetime  # alias of membership.created_at
-
-
-def _to_group_response(group: UserGroup, member_count: int) -> UserGroupResponse:
-    return UserGroupResponse(
-        uid=group.uid,
-        name=group.name,
-        owner_uid=group.owner_uid,
-        created_at=group.created_at,
-        member_count=member_count,
-    )
-
-
-def _to_member_response(
-    membership: UserGroupMembership,
-) -> UserGroupMemberResponse:
-    return UserGroupMemberResponse(
-        uid=membership.uid,
-        user_uid=membership.user_uid,
-        email=membership.user.email,
-        joined_at=membership.created_at,
-    )
+    email: str = Field(validation_alias=AliasPath("user", "email"))
+    joined_at: datetime = Field(validation_alias="created_at")
 
 
 @router.post("/user-groups", status_code=201, operation_id="createUserGroup")
@@ -75,21 +75,29 @@ def create_user_group(
 ) -> UserGroupResponse:
     """Create a new group with the caller as owner and sole initial member."""
     group = user_group_service.create_group(db, user, name=body.name)
-    # Caller is the only member at creation time.
-    return _to_group_response(group, member_count=1)
+    return UserGroupResponse.model_validate(group)
 
 
 @router.get("/user-groups", operation_id="listUserGroups")
 def list_user_groups(
     user: Annotated[User, Depends(authenticated_user)],
     db: Annotated[Session, Depends(db_session)],
-) -> list[UserGroupResponse]:
+    params: Annotated[ListUserGroupsParams, Query()],
+) -> PaginatedResult[UserGroupResponse]:
     """List the caller's non-archived groups, newest first."""
-    result = user_group_service.list_groups(db, user)
-    return [
-        _to_group_response(g, user_group_service.count_members(db, g))
-        for g in result.items
-    ]
+    result = user_group_service.list_groups(
+        db,
+        user,
+        page_size=params.page_size,
+        cursor=params.cursor,
+    )
+    return PaginatedResult(
+        items=[UserGroupResponse.model_validate(g) for g in result.items],
+        previous_cursor=result.previous_cursor,
+        next_cursor=result.next_cursor,
+        has_previous=result.has_previous,
+        has_next=result.has_next,
+    )
 
 
 @router.get("/user-groups/{group_uid}", operation_id="getUserGroup")
@@ -102,7 +110,7 @@ def get_user_group(
     group = user_group_service.get_group(db, user, group_uid)
     if group is None:
         raise HTTPException(status_code=404, detail="Group not found")
-    return _to_group_response(group, user_group_service.count_members(db, group))
+    return UserGroupResponse.model_validate(group)
 
 
 @router.patch("/user-groups/{group_uid}", operation_id="updateUserGroup")
@@ -117,7 +125,7 @@ def update_user_group(
         group = user_group_service.update_group(db, user, group_uid, name=body.name)
     except user_group_service.UserGroupNotFoundError:
         raise HTTPException(status_code=404, detail="Group not found") from None
-    return _to_group_response(group, user_group_service.count_members(db, group))
+    return UserGroupResponse.model_validate(group)
 
 
 @router.delete(
@@ -147,10 +155,23 @@ def list_user_group_members(
     group_uid: str,
     user: Annotated[User, Depends(authenticated_user)],
     db: Annotated[Session, Depends(db_session)],
-) -> list[UserGroupMemberResponse]:
+    params: Annotated[ListUserGroupMembersParams, Query()],
+) -> PaginatedResult[UserGroupMemberResponse]:
     """List members of a group the caller belongs to."""
     try:
-        memberships = user_group_service.list_members(db, user, group_uid)
+        result = user_group_service.list_members(
+            db,
+            user,
+            group_uid,
+            page_size=params.page_size,
+            cursor=params.cursor,
+        )
     except user_group_service.UserGroupNotFoundError:
         raise HTTPException(status_code=404, detail="Group not found") from None
-    return [_to_member_response(m) for m in memberships]
+    return PaginatedResult(
+        items=[UserGroupMemberResponse.model_validate(m) for m in result.items],
+        previous_cursor=result.previous_cursor,
+        next_cursor=result.next_cursor,
+        has_previous=result.has_previous,
+        has_next=result.has_next,
+    )

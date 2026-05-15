@@ -13,10 +13,11 @@ from sqlalchemy import (
     String,
     UniqueConstraint,
     desc,
+    func,
     select,
 )
 from sqlalchemy.ext.hybrid import hybrid_property
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, mapped_column, object_session, relationship
 
 from .database import BaseModel
 
@@ -212,8 +213,38 @@ class UserGroup(BaseModel):
 
     @hybrid_property
     def member_count(self) -> int:
-        """Return the number of members in this group."""
-        return len(self.members)
+        """Number of members in this group.
+
+        Python-side: issues a count() query against the attached session.
+        We can't use ``len(self.members)`` because the ``members``
+        relationship is ``lazy="raise"`` — accessing it on a loaded
+        instance throws rather than implicitly fetching. The cost is one
+        extra query per UserGroup instance whose ``member_count`` is read
+        (mirroring the previous ``count_members`` per-row call).
+
+        SQL-side: see the ``@expression`` form below, which lets
+        ``member_count`` be projected into a SELECT or used inside filters.
+        """
+        session = object_session(self)
+        if session is None:
+            msg = "UserGroup must be attached to a session to read member_count"
+            raise RuntimeError(msg)
+        return session.execute(
+            select(func.count(UserGroupMembership.uid)).where(
+                UserGroupMembership.user_group_uid == self.uid
+            )
+        ).scalar_one()
+
+    @member_count.inplace.expression
+    @classmethod
+    def _member_count_expression(cls) -> ScalarSelect[int]:
+        """SQL-side: correlated subquery counting membership rows."""
+        return (
+            select(func.count(UserGroupMembership.uid))
+            .where(UserGroupMembership.user_group_uid == cls.uid)
+            .correlate(cls)
+            .scalar_subquery()
+        )
 
 
 class UserGroupMembership(BaseModel):

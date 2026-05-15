@@ -1,6 +1,5 @@
 """Service layer for user groups and their memberships."""
 
-from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session as DBSession
 
@@ -75,6 +74,7 @@ def list_groups(  # noqa: PLR0913
     db: DBSession,
     user: User,
     page_size: int = settings.DEFAULT_PAGE_SIZE,
+    cursor: str | None = None,
     group_uid: str | None = None,
     owner_only: bool = False,
     sort_field: str = "created_at",
@@ -103,6 +103,7 @@ def list_groups(  # noqa: PLR0913
         sort_field=getattr(UserGroup, sort_field),
         sort_order=sort_order,
         page_size=page_size,
+        cursor=cursor,
     )
 
 
@@ -136,9 +137,14 @@ def archive_group(db: DBSession, user: User, group_uid: str) -> UserGroup:
 
 
 def list_members(
-    db: DBSession, user: User, group_uid: str
-) -> list[UserGroupMembership]:
-    """Return all memberships of a group the caller belongs to."""
+    db: DBSession,
+    user: User,
+    group_uid: str,
+    *,
+    page_size: int = settings.DEFAULT_PAGE_SIZE,
+    cursor: str | None = None,
+) -> PaginatedResult[UserGroupMembership]:
+    """Return memberships of a group the caller belongs to."""
     group = get_group(db, user, group_uid)
 
     if group is None:
@@ -149,19 +155,9 @@ def list_members(
         filters=[EqualsFilter(field="user_group_uid", value=group.uid)],
         sort_field=UserGroupMembership.created_at,
         sort_order=SortOrder.ASC,
-    ).items
-
-
-def count_members(db: DBSession, group: UserGroup) -> int:
-    """Return the count of memberships for a group.
-
-    Aggregate (`func.count`) — `Repository` doesn't expose `count()`, so
-    this stays as raw SQL per the documented exception in CLAUDE.md.
-    """
-    stmt = select(func.count(UserGroupMembership.uid)).where(
-        UserGroupMembership.user_group_uid == group.uid
+        page_size=page_size,
+        cursor=cursor,
     )
-    return int(db.execute(stmt).scalar_one())
 
 
 def remove_membership(db: DBSession, user: User, membership_uid: str) -> None:

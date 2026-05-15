@@ -36,7 +36,7 @@ def test_list_user_groups_includes_owned(
 
     response = client.get("/api/v1/user-groups")
     assert response.status_code == 200
-    names = {g["name"] for g in response.json()}
+    names = {g["name"] for g in response.json()["items"]}
     assert names == {"One", "Two"}
 
 
@@ -50,7 +50,7 @@ def test_list_user_groups_excludes_groups_caller_is_not_in(
 
     response = client.get("/api/v1/user-groups")
     assert response.status_code == 200
-    assert response.json() == []
+    assert response.json()["items"] == []
 
 
 def test_list_user_groups_excludes_archived(
@@ -61,7 +61,7 @@ def test_list_user_groups_excludes_archived(
 
     response = client.get("/api/v1/user-groups")
     assert response.status_code == 200
-    assert response.json() == []
+    assert response.json()["items"] == []
 
 
 def test_get_user_group_as_member(
@@ -155,7 +155,7 @@ def test_list_members_as_member(
     response = client.get(f"/api/v1/user-groups/{group.uid}/members")
     assert response.status_code == 200
 
-    members = response.json()
+    members = response.json()["items"]
     assert len(members) == 2
     by_user_uid = {m["user_uid"]: m for m in members}
     assert test_user.uid in by_user_uid
