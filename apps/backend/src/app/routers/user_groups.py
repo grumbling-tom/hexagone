@@ -85,7 +85,7 @@ def list_user_groups(
     db: Annotated[Session, Depends(db_session)],
 ) -> list[UserGroupResponse]:
     """List the caller's non-archived groups, newest first."""
-    groups = user_group_service.list_groups_for_user(db, user)
+    groups = user_group_service.list_groups(db, user)
     return [
         _to_group_response(g, user_group_service.count_members(db, g)) for g in groups
     ]
@@ -117,10 +117,6 @@ def update_user_group(
         group = user_group_service.update_group(db, user, group_uid, name=body.name)
     except user_group_service.UserGroupNotFoundError:
         raise HTTPException(status_code=404, detail="Group not found") from None
-    except user_group_service.NotGroupOwnerError:
-        raise HTTPException(
-            status_code=403, detail="Only the group owner can rename this group"
-        ) from None
     return _to_group_response(group, user_group_service.count_members(db, group))
 
 
@@ -139,10 +135,7 @@ def delete_user_group(
         user_group_service.archive_group(db, user, group_uid)
     except user_group_service.UserGroupNotFoundError:
         raise HTTPException(status_code=404, detail="Group not found") from None
-    except user_group_service.NotGroupOwnerError:
-        raise HTTPException(
-            status_code=403, detail="Only the group owner can delete this group"
-        ) from None
+
     return Response(status_code=204)
 
 
