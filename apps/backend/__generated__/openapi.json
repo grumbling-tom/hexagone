@@ -587,6 +587,476 @@
           }
         }
       }
+    },
+    "/api/v1/user-groups": {
+      "post": {
+        "tags": [
+          "user-groups"
+        ],
+        "summary": "Create User Group",
+        "description": "Create a new group with the caller as owner and sole initial member.",
+        "operationId": "createUserGroup",
+        "parameters": [
+          {
+            "name": "sessionid",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Sessionid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateUserGroupRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserGroupResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "user-groups"
+        ],
+        "summary": "List User Groups",
+        "description": "List the caller's non-archived groups, newest first.",
+        "operationId": "listUserGroups",
+        "parameters": [
+          {
+            "name": "sessionid",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Sessionid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/UserGroupResponse"
+                  },
+                  "title": "Response Listusergroups"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/user-groups/{group_uid}": {
+      "get": {
+        "tags": [
+          "user-groups"
+        ],
+        "summary": "Get User Group",
+        "description": "Return one group the caller belongs to. 404 if not a member.",
+        "operationId": "getUserGroup",
+        "parameters": [
+          {
+            "name": "group_uid",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Group Uid"
+            }
+          },
+          {
+            "name": "sessionid",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Sessionid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserGroupResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "user-groups"
+        ],
+        "summary": "Update User Group",
+        "description": "Rename a group. Owner only.",
+        "operationId": "updateUserGroup",
+        "parameters": [
+          {
+            "name": "group_uid",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Group Uid"
+            }
+          },
+          {
+            "name": "sessionid",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Sessionid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateUserGroupRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserGroupResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "user-groups"
+        ],
+        "summary": "Delete User Group",
+        "description": "Soft-delete (archive) a group. Owner only.",
+        "operationId": "deleteUserGroup",
+        "parameters": [
+          {
+            "name": "group_uid",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Group Uid"
+            }
+          },
+          {
+            "name": "sessionid",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Sessionid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/user-groups/{group_uid}/members": {
+      "get": {
+        "tags": [
+          "user-groups"
+        ],
+        "summary": "List User Group Members",
+        "description": "List members of a group the caller belongs to.",
+        "operationId": "listUserGroupMembers",
+        "parameters": [
+          {
+            "name": "group_uid",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Group Uid"
+            }
+          },
+          {
+            "name": "sessionid",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Sessionid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/UserGroupMemberResponse"
+                  },
+                  "title": "Response Listusergroupmembers"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/user-group-memberships/{membership_uid}": {
+      "delete": {
+        "tags": [
+          "user-group-memberships"
+        ],
+        "summary": "Delete User Group Membership",
+        "description": "Remove a membership. Allowed for self (leave) or group owner (kick).\n\nA group owner cannot leave their own group while it has other members;\nthey must archive the group instead.",
+        "operationId": "deleteUserGroupMembership",
+        "parameters": [
+          {
+            "name": "membership_uid",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Membership Uid"
+            }
+          },
+          {
+            "name": "sessionid",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Sessionid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "user-group-memberships"
+        ],
+        "summary": "Update User Group Membership",
+        "description": "Toggle share_consent on the caller's own membership.",
+        "operationId": "updateUserGroupMembership",
+        "parameters": [
+          {
+            "name": "membership_uid",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Membership Uid"
+            }
+          },
+          {
+            "name": "sessionid",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Sessionid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateUserGroupMembershipRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserGroupMembershipResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -653,6 +1123,22 @@
         ],
         "title": "CreateUploadRequest",
         "description": "Request body for creating a new upload."
+      },
+      "CreateUserGroupRequest": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "title": "CreateUserGroupRequest",
+        "description": "Request body for creating a new user group."
       },
       "CreateUserRequest": {
         "properties": {
@@ -949,6 +1435,36 @@
         "title": "SortOrder",
         "description": "Sort order enumeration for pagination.\n\nProvides ASC and DESC values for sorting, with support for negation\nto flip the sort order.\n\nAttributes:\n    ASC: Ascending sort order.\n    DESC: Descending sort order."
       },
+      "UpdateUserGroupMembershipRequest": {
+        "properties": {
+          "share_consent": {
+            "type": "boolean",
+            "title": "Share Consent"
+          }
+        },
+        "type": "object",
+        "required": [
+          "share_consent"
+        ],
+        "title": "UpdateUserGroupMembershipRequest",
+        "description": "Request body for updating a membership's share_consent flag."
+      },
+      "UpdateUserGroupRequest": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "title": "UpdateUserGroupRequest",
+        "description": "Request body for renaming a user group."
+      },
       "UploadResponse": {
         "properties": {
           "uid": {
@@ -1028,6 +1544,135 @@
         ],
         "title": "UploadStatusValue",
         "description": "Allowed status values for upload processing."
+      },
+      "UserGroupMemberResponse": {
+        "properties": {
+          "uid": {
+            "type": "string",
+            "title": "Uid"
+          },
+          "user_uid": {
+            "type": "string",
+            "title": "User Uid"
+          },
+          "email": {
+            "type": "string",
+            "title": "Email"
+          },
+          "share_consent": {
+            "type": "boolean",
+            "title": "Share Consent"
+          },
+          "invited_by_user_uid": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Invited By User Uid"
+          },
+          "joined_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Joined At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "uid",
+          "user_uid",
+          "email",
+          "share_consent",
+          "invited_by_user_uid",
+          "joined_at"
+        ],
+        "title": "UserGroupMemberResponse",
+        "description": "Response body describing a single member of a group."
+      },
+      "UserGroupMembershipResponse": {
+        "properties": {
+          "uid": {
+            "type": "string",
+            "title": "Uid"
+          },
+          "user_uid": {
+            "type": "string",
+            "title": "User Uid"
+          },
+          "user_group_uid": {
+            "type": "string",
+            "title": "User Group Uid"
+          },
+          "share_consent": {
+            "type": "boolean",
+            "title": "Share Consent"
+          },
+          "invited_by_user_uid": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Invited By User Uid"
+          },
+          "joined_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Joined At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "uid",
+          "user_uid",
+          "user_group_uid",
+          "share_consent",
+          "invited_by_user_uid",
+          "joined_at"
+        ],
+        "title": "UserGroupMembershipResponse",
+        "description": "Response body for membership endpoints."
+      },
+      "UserGroupResponse": {
+        "properties": {
+          "uid": {
+            "type": "string",
+            "title": "Uid"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "owner_user_uid": {
+            "type": "string",
+            "title": "Owner User Uid"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "member_count": {
+            "type": "integer",
+            "title": "Member Count"
+          }
+        },
+        "type": "object",
+        "required": [
+          "uid",
+          "name",
+          "owner_user_uid",
+          "created_at",
+          "member_count"
+        ],
+        "title": "UserGroupResponse",
+        "description": "Response body for user group endpoints."
       },
       "UserResponse": {
         "properties": {

@@ -9,6 +9,10 @@ from src.app.routers.hex_claims import (
     hex_claims_router,
 )
 from src.app.routers.uploads import router as uploads_router
+from src.app.routers.user_group_memberships import (
+    router as user_group_memberships_router,
+)
+from src.app.routers.user_groups import router as user_groups_router
 from src.app.routers.user_sessions import router as user_sessions_router
 from src.app.routers.users import router as users_router
 from src.app.settings import Settings, settings
@@ -37,6 +41,10 @@ def create_app(settings: Settings = settings) -> FastAPI:
     api_v1_router.include_router(hex_claims_router, tags=["hex-claims"])
     api_v1_router.include_router(
         aggregated_hex_claims_router, tags=["aggregated-hex-claims"]
+    )
+    api_v1_router.include_router(user_groups_router, tags=["user-groups"])
+    api_v1_router.include_router(
+        user_group_memberships_router, tags=["user-group-memberships"]
     )
 
     app.include_router(health_router, prefix="/api", tags=["health"])

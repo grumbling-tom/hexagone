@@ -58,6 +58,45 @@ export interface UserResponse {
 }
 
 /**
+ * Response body for user group endpoints.
+ */
+export interface UserGroupResponse {
+  created_at: string;
+  member_count: number;
+  name: string;
+  owner_user_uid: string;
+  uid: string;
+}
+
+export type UserGroupMembershipResponseInvitedByUserUid = string | null;
+
+/**
+ * Response body for membership endpoints.
+ */
+export interface UserGroupMembershipResponse {
+  invited_by_user_uid: UserGroupMembershipResponseInvitedByUserUid;
+  joined_at: string;
+  share_consent: boolean;
+  uid: string;
+  user_group_uid: string;
+  user_uid: string;
+}
+
+export type UserGroupMemberResponseInvitedByUserUid = string | null;
+
+/**
+ * Response body describing a single member of a group.
+ */
+export interface UserGroupMemberResponse {
+  email: string;
+  invited_by_user_uid: UserGroupMemberResponseInvitedByUserUid;
+  joined_at: string;
+  share_consent: boolean;
+  uid: string;
+  user_uid: string;
+}
+
+/**
  * Allowed status values for upload processing.
  */
 export type UploadStatusValue = typeof UploadStatusValue[keyof typeof UploadStatusValue];
@@ -83,14 +122,6 @@ export const UploadSortField = {
   original_filename: 'original_filename',
 } as const;
 
-export type ListUploadsParams = {
-page_size?: number;
-cursor?: string | null;
-statuses?: UploadStatusValue[] | null;
-sort_field?: UploadSortField;
-sort_order?: SortOrder;
-};
-
 export type UploadResponseRequiredHeadersAnyOf = {[key: string]: string};
 
 export type UploadResponseRequiredHeaders = UploadResponseRequiredHeadersAnyOf | null;
@@ -111,6 +142,24 @@ export interface UploadResponse {
 }
 
 /**
+ * Request body for renaming a user group.
+ */
+export interface UpdateUserGroupRequest {
+  /**
+   * @minLength 1
+   * @maxLength 80
+   */
+  name: string;
+}
+
+/**
+ * Request body for updating a membership's share_consent flag.
+ */
+export interface UpdateUserGroupMembershipRequest {
+  share_consent: boolean;
+}
+
+/**
  * Sort order enumeration for pagination.
 
 Provides ASC and DESC values for sorting, with support for negation
@@ -128,6 +177,14 @@ export const SortOrder = {
   asc: 'asc',
   desc: 'desc',
 } as const;
+
+export type ListUploadsParams = {
+page_size?: number;
+cursor?: string | null;
+statuses?: UploadStatusValue[] | null;
+sort_field?: UploadSortField;
+sort_order?: SortOrder;
+};
 
 export type PaginatedResultUploadResponsePreviousCursor = string | null;
 
@@ -225,6 +282,17 @@ export interface CreateUserSessionRequest {
 export interface CreateUserRequest {
   email: string;
   password: string;
+}
+
+/**
+ * Request body for creating a new user group.
+ */
+export interface CreateUserGroupRequest {
+  /**
+   * @minLength 1
+   * @maxLength 80
+   */
+  name: string;
 }
 
 /**

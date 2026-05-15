@@ -11,6 +11,7 @@ from sqlalchemy import (
     ForeignKey,
     Integer,
     String,
+    UniqueConstraint,
     desc,
     select,
 )
@@ -171,6 +172,70 @@ class HexClaim(BaseModel):
     git_sha: Mapped[str | None] = mapped_column(String(40), nullable=True)
 
     upload: Mapped[Upload] = relationship(back_populates="hex_claims")
+
+
+class UserGroup(BaseModel):
+    """A named group that users can be members of.
+
+    Attributes:
+        name: Display name. Not unique — identity is the uid.
+        owner_uid: The single owner; only this user can rename or
+            archive the group, and they cannot leave it while it has
+            other members (they must archive instead).
+        archived: Soft-delete flag.
+    """
+
+    __tablename__ = "user_group"
+
+    name: Mapped[str] = mapped_column(String(80), nullable=False)
+    owner_uid: Mapped[str] = mapped_column(
+        String(36), ForeignKey("user.uid"), nullable=False, index=True
+    )
+    archived: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+
+
+class UserGroupMembership(BaseModel):
+    """Many-to-many link between users and groups, with a sharing flag.
+
+    Attributes:
+        user_uid: The member.
+        user_group_uid: The group.
+        share_consent: Whether this member's hex claims and profile are
+            visible to other group members. Defaults to True (joining is
+            an act of consent); a member can flip this off at any time.
+        invited_by_uid: The user who invited this member. NULL for
+            the group's founding owner. Stored on the membership row so
+            the relationship graph survives invitation cleanup.
+    """
+
+    __tablename__ = "user_group_membership"
+    __table_args__ = (
+        UniqueConstraint(
+            "user_uid",
+            "user_group_uid",
+            name="uq_user_group_membership_user_group",
+        ),
+    )
+
+    user_uid: Mapped[str] = mapped_column(
+        String(36), ForeignKey("user.uid"), nullable=False, index=True
+    )
+    user_group_uid: Mapped[str] = mapped_column(
+        String(36), ForeignKey("user_group.uid"), nullable=False, index=True
+    )
+    share_consent: Mapped[bool] = mapped_column(
+        Boolean, default=True, nullable=False
+    )
+    invited_by_uid: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("user.uid"), nullable=True
+    )
+
+    # Two FKs to user, so foreign_keys= is required to disambiguate.
+    user: Mapped[User] = relationship(
+        "User",
+        foreign_keys="UserGroupMembership.user_uid",
+        lazy="selectin",
+    )
 
 
 class UserSession(BaseModel):

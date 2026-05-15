@@ -37,6 +37,8 @@ from .models import (
     UploadStatus,
     UploadStatusValue,
     User,
+    UserGroup,
+    UserGroupMembership,
     UserSession,
 )
 from .repository import Repository
@@ -64,6 +66,8 @@ __all__ = [
     "UploadStatus",
     "UploadStatusValue",
     "User",
+    "UserGroup",
+    "UserGroupMembership",
     "UserSession",
     "View",
     "check_database_health",
