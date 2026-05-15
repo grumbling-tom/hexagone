@@ -62,7 +62,7 @@ def test_user_group_permission_filter_returns_owned_and_member_groups(
     create_group(name="Owned", owner=test_user)
     # test_user is a member of this one but doesn't own it.
     member_of = create_group(name="MemberOf", owner=other)
-    create_membership(group=member_of, user=test_user, invited_by=other)
+    create_membership(group=member_of, user=test_user)
     # test_user has nothing to do with this one.
     create_group(name="Stranger", owner=other)
 

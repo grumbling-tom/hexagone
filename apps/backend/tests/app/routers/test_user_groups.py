@@ -104,7 +104,7 @@ def test_update_user_group_as_non_owner_returns_403(
 ):
     owner = create_user()
     group = create_group(name="Theirs", owner=owner)
-    create_membership(group=group, user=test_user, invited_by=owner)
+    create_membership(group=group, user=test_user)
 
     response = client.patch(f"/api/v1/user-groups/{group.uid}", json={"name": "Stolen"})
     assert response.status_code == 403
@@ -131,7 +131,7 @@ def test_delete_user_group_as_non_owner_returns_403(
 ):
     owner = create_user()
     group = create_group(name="Theirs", owner=owner)
-    create_membership(group=group, user=test_user, invited_by=owner)
+    create_membership(group=group, user=test_user)
 
     response = client.delete(f"/api/v1/user-groups/{group.uid}")
     assert response.status_code == 403
@@ -146,7 +146,7 @@ def test_list_members_as_member(
 ):
     other = create_user(email="other@example.com")
     group = create_group(name="Two-up")
-    create_membership(group=group, user=other, invited_by=test_user)
+    create_membership(group=group, user=other)
 
     response = client.get(f"/api/v1/user-groups/{group.uid}/members")
     assert response.status_code == 200
@@ -157,8 +157,6 @@ def test_list_members_as_member(
     assert test_user.uid in by_user_uid
     assert other.uid in by_user_uid
     assert by_user_uid[other.uid]["email"] == "other@example.com"
-    assert by_user_uid[other.uid]["invited_by_uid"] == test_user.uid
-    assert by_user_uid[test_user.uid]["invited_by_uid"] is None
 
 
 def test_list_members_as_non_member_returns_404(
@@ -182,7 +180,7 @@ def test_member_count_reflects_membership_changes(
 ):
     other = create_user()
     group = create_group(name="Two-up")
-    create_membership(group=group, user=other, invited_by=test_user)
+    create_membership(group=group, user=other)
 
     response = client.get(f"/api/v1/user-groups/{group.uid}")
     assert response.json()["member_count"] == 2

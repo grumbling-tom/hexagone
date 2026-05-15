@@ -43,7 +43,6 @@ class UserGroupMemberResponse(BaseSchema):
     uid: str  # membership uid
     user_uid: str
     email: str
-    invited_by_uid: str | None
     joined_at: datetime  # alias of membership.created_at
 
 
@@ -64,7 +63,6 @@ def _to_member_response(
         uid=membership.uid,
         user_uid=membership.user_uid,
         email=membership.user.email,
-        invited_by_uid=membership.invited_by_uid,
         joined_at=membership.created_at,
     )
 

@@ -1478,17 +1478,6 @@
             "type": "string",
             "title": "Email"
           },
-          "invited_by_uid": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Invited By Uid"
-          },
           "joined_at": {
             "type": "string",
             "format": "date-time",
@@ -1500,7 +1489,6 @@
           "uid",
           "user_uid",
           "email",
-          "invited_by_uid",
           "joined_at"
         ],
         "title": "UserGroupMemberResponse",

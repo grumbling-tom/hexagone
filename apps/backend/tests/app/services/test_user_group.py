@@ -18,10 +18,9 @@ def test_create_group_creates_owner_membership(test_db: Session, test_user: User
     members = user_group_service.list_members(test_db, test_user, group.uid)
     assert len(members) == 1
     assert members[0].user_uid == test_user.uid
-    assert members[0].invited_by_uid is None
 
 
-def test_invite_member_rejects_duplicates(
+def test_add_member_rejects_duplicates(
     test_db: Session,
     test_user: User,
     create_user: Callable[..., User],
@@ -30,20 +29,10 @@ def test_invite_member_rejects_duplicates(
     other = create_user()
     group = create_group(name="Mine", owner=test_user)
 
-    user_group_service.invite_member(
-        test_db,
-        group=group,
-        user_to_add=other,
-        invited_by=test_user,
-    )
+    user_group_service.add_member(test_db, group=group, user_to_add=other)
 
     with pytest.raises(user_group_service.DuplicateMembershipError):
-        user_group_service.invite_member(
-            test_db,
-            group=group,
-            user_to_add=other,
-            invited_by=test_user,
-        )
+        user_group_service.add_member(test_db, group=group, user_to_add=other)
 
 
 def test_list_groups_for_user_excludes_archived(
@@ -77,7 +66,7 @@ def test_archive_group_requires_owner(
 ):
     owner = create_user()
     group = create_group(name="Theirs", owner=owner)
-    create_membership(group=group, user=test_user, invited_by=owner)
+    create_membership(group=group, user=test_user)
 
     with pytest.raises(user_group_service.NotGroupOwnerError):
         user_group_service.archive_group(test_db, test_user, group.uid)
@@ -105,7 +94,7 @@ def test_remove_owner_with_other_members_rejected(
 ):
     other = create_user()
     group = create_group(name="Mine", owner=test_user)
-    create_membership(group=group, user=other, invited_by=test_user)
+    create_membership(group=group, user=other)
 
     [owner_membership] = [
         m

@@ -69,7 +69,7 @@ def create_group(db: DBSession, owner: User, name: str) -> UserGroup:
     """Create a new group with `owner` as the sole initial member.
 
     The caller is recorded as the group's owner and automatically gets a
-    membership row with `invited_by_uid=NULL`.
+    membership row.
     """
     group = UserGroup(name=name, owner_uid=owner.uid, archived=False)
     db.add(group)
@@ -78,7 +78,6 @@ def create_group(db: DBSession, owner: User, name: str) -> UserGroup:
     membership = UserGroupMembership(
         user_uid=owner.uid,
         user_group_uid=group.uid,
-        invited_by_uid=None,
     )
     db.add(membership)
     db.commit()
@@ -210,24 +209,22 @@ def remove_membership(db: DBSession, user: User, membership_uid: str) -> None:
     )
 
 
-def invite_member(
+def add_member(
     db: DBSession,
     *,
     group: UserGroup,
     user_to_add: User,
-    invited_by: User,
 ) -> UserGroupMembership:
     """Internal helper: add an existing user to a group.
 
-    Not exposed via HTTP in this PR — the public flow is invitation-based
-    (next PR). Kept here as the single point at which membership rows are
-    created so test fixtures and the future invitation-accept service share
-    the same uniqueness handling.
+    Not exposed via HTTP — the public flow for adding members will
+    arrive with the invitation feature. Kept here as the single point
+    at which non-owner membership rows are created so the uniqueness
+    handling has one home.
     """
     membership = UserGroupMembership(
         user_uid=user_to_add.uid,
         user_group_uid=group.uid,
-        invited_by_uid=invited_by.uid,
     )
     db.add(membership)
     try:

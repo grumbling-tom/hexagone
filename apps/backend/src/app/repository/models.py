@@ -188,8 +188,7 @@ class UserGroup(BaseModel):
             ask "is this user a member of this group?" via the
             standard Filter pattern (e.g. ``RelationFilter(
             field="members", inner=EqualsFilter(field="uid", value=X)
-            )``). Writes go through ``UserGroupMembership`` directly
-            so ``invited_by_uid`` stays first-class.
+            )``).
     """
 
     __tablename__ = "user_group"
@@ -200,16 +199,13 @@ class UserGroup(BaseModel):
     )
     archived: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
 
-    # Explicit primaryjoin/secondaryjoin: UserGroupMembership has two FKs to
-    # user.uid (user_uid + invited_by_uid), so SQLAlchemy can't disambiguate
-    # without help. viewonly=True so this side never tries to manage writes.
-    # lazy="raise" so loaded UserGroup instances never silently trigger
-    # N+1s; the relationship is a query-shape primitive.
+    # viewonly=True so this side never tries to manage writes; membership
+    # rows are managed via UserGroupMembership directly. lazy="raise" so
+    # loaded UserGroup instances never silently trigger N+1s — the
+    # relationship is a query-shape primitive, not an instance attribute.
     members: Mapped[list[User]] = relationship(
         "User",
         secondary="user_group_membership",
-        primaryjoin="UserGroup.uid == foreign(UserGroupMembership.user_group_uid)",
-        secondaryjoin="User.uid == foreign(UserGroupMembership.user_uid)",
         viewonly=True,
         lazy="raise",
     )
@@ -221,9 +217,6 @@ class UserGroupMembership(BaseModel):
     Attributes:
         user_uid: The member.
         user_group_uid: The group.
-        invited_by_uid: The user who invited this member. NULL for
-            the group's founding owner. Stored on the membership row so
-            the relationship graph survives invitation cleanup.
     """
 
     __tablename__ = "user_group_membership"
@@ -241,16 +234,8 @@ class UserGroupMembership(BaseModel):
     user_group_uid: Mapped[str] = mapped_column(
         String(36), ForeignKey("user_group.uid"), nullable=False, index=True
     )
-    invited_by_uid: Mapped[str | None] = mapped_column(
-        String(36), ForeignKey("user.uid"), nullable=True
-    )
 
-    # Two FKs to user, so foreign_keys= is required to disambiguate.
-    user: Mapped[User] = relationship(
-        "User",
-        foreign_keys="UserGroupMembership.user_uid",
-        lazy="selectin",
-    )
+    user: Mapped[User] = relationship("User", lazy="selectin")
 
 
 class UserSession(BaseModel):

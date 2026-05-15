@@ -49,7 +49,6 @@ def upgrade() -> None:
         "user_group_membership",
         sa.Column("user_uid", sa.String(length=36), nullable=False),
         sa.Column("user_group_uid", sa.String(length=36), nullable=False),
-        sa.Column("invited_by_uid", sa.String(length=36), nullable=True),
         sa.Column("uid", sa.String(length=36), nullable=False),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
         sa.ForeignKeyConstraint(
@@ -59,10 +58,6 @@ def upgrade() -> None:
         sa.ForeignKeyConstraint(
             ["user_group_uid"],
             ["user_group.uid"],
-        ),
-        sa.ForeignKeyConstraint(
-            ["invited_by_uid"],
-            ["user.uid"],
         ),
         sa.PrimaryKeyConstraint("uid"),
         sa.UniqueConstraint(

@@ -206,7 +206,6 @@ def create_group(test_db: Session, test_user: User) -> Callable[..., UserGroup]:
             UserGroupMembership(
                 user_uid=actual_owner.uid,
                 user_group_uid=group.uid,
-                invited_by_uid=None,
             )
         )
         test_db.commit()
@@ -225,19 +224,16 @@ def create_membership(
     Args:
         group: The group to join.
         user: The user being added.
-        invited_by: Optional inviter (defaults to None — founder-style).
     """
 
     def _factory(
         *,
         group: UserGroup,
         user: User,
-        invited_by: User | None = None,
     ) -> UserGroupMembership:
         membership = UserGroupMembership(
             user_uid=user.uid,
             user_group_uid=group.uid,
-            invited_by_uid=invited_by.uid if invited_by else None,
         )
         test_db.add(membership)
         test_db.commit()
