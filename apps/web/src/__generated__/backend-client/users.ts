@@ -24,6 +24,8 @@ import type {
 import type {
   CreateUserRequest,
   HTTPValidationError,
+  ListUsersParams,
+  PaginatedResultUserResponse,
   UserResponse
 } from './backend.schemas'
 import { fetchClient } from '../../lib/fetch-client';
@@ -92,6 +94,97 @@ export const useCreateUser = <TError = ErrorType<HTTPValidationError>,
       return useMutation(mutationOptions);
     }
     /**
+ * List users filtered by group membership.
+
+Caller must be able to see the group (owner OR member); 404 otherwise.
+ * @summary List Users
+ */
+export const listUsers = (
+    params: ListUsersParams,
+ signal?: AbortSignal
+) => {
+      
+      
+      return fetchClient<PaginatedResultUserResponse>(
+      {url: `/api/v1/users`, method: 'GET',
+        params, signal
+    },
+      );
+    }
+  
+
+export const getListUsersQueryKey = (params: ListUsersParams,) => {
+    return [`/api/v1/users`, ...(params ? [params]: [])] as const;
+    }
+
+    
+export const getListUsersQueryOptions = <TData = Awaited<ReturnType<typeof listUsers>>, TError = ErrorType<HTTPValidationError>>(params: ListUsersParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listUsers>>, TError, TData>>, }
+) => {
+
+const {query: queryOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListUsersQueryKey(params);
+
+  
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listUsers>>> = ({ signal }) => listUsers(params, signal);
+
+      
+
+      
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listUsers>>, TError, TData> & { queryKey: DataTag<QueryKey, TData> }
+}
+
+export type ListUsersQueryResult = NonNullable<Awaited<ReturnType<typeof listUsers>>>
+export type ListUsersQueryError = ErrorType<HTTPValidationError>
+
+
+export function useListUsers<TData = Awaited<ReturnType<typeof listUsers>>, TError = ErrorType<HTTPValidationError>>(
+ params: ListUsersParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof listUsers>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof listUsers>>,
+          TError,
+          TData
+        > , 'initialData'
+      >, }
+
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useListUsers<TData = Awaited<ReturnType<typeof listUsers>>, TError = ErrorType<HTTPValidationError>>(
+ params: ListUsersParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listUsers>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof listUsers>>,
+          TError,
+          TData
+        > , 'initialData'
+      >, }
+
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useListUsers<TData = Awaited<ReturnType<typeof listUsers>>, TError = ErrorType<HTTPValidationError>>(
+ params: ListUsersParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listUsers>>, TError, TData>>, }
+
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+/**
+ * @summary List Users
+ */
+
+export function useListUsers<TData = Awaited<ReturnType<typeof listUsers>>, TError = ErrorType<HTTPValidationError>>(
+ params: ListUsersParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listUsers>>, TError, TData>>, }
+
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> } {
+
+  const queryOptions = getListUsersQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
+
+  query.queryKey = queryOptions.queryKey ;
+
+  return query;
+}
+
+
+
+/**
  * Return the currently authenticated user.
  * @summary Get Current User
  */

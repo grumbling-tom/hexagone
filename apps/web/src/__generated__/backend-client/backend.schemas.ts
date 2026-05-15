@@ -4,6 +4,11 @@
  * Backend
  * OpenAPI spec version: 0.1.0
  */
+export type ListUserGroupsParams = {
+page_size?: number;
+cursor?: string | null;
+};
+
 export type ListAggregatedHexClaimsParams = {
 /**
  * Dimension to aggregate by. Required — the URL is meaningless without it.
@@ -25,6 +30,20 @@ cursor?: string | null;
 upload_uid?: string[] | null;
 sort_field?: HexClaimSortField;
 sort_order?: SortOrder;
+};
+
+export type ListUploadsParams = {
+page_size?: number;
+cursor?: string | null;
+statuses?: UploadStatusValue[] | null;
+sort_field?: UploadSortField;
+sort_order?: SortOrder;
+};
+
+export type ListUsersParams = {
+group_uid: string;
+page_size?: number;
+cursor?: string | null;
 };
 
 export type GetHealth200 = {[key: string]: string};
@@ -69,16 +88,6 @@ export interface UserGroupResponse {
 }
 
 /**
- * Response body describing a single member of a group.
- */
-export interface UserGroupMemberResponse {
-  email: string;
-  joined_at: string;
-  uid: string;
-  user_uid: string;
-}
-
-/**
  * Allowed status values for upload processing.
  */
 export type UploadStatusValue = typeof UploadStatusValue[keyof typeof UploadStatusValue];
@@ -103,14 +112,6 @@ export const UploadSortField = {
   created_at: 'created_at',
   original_filename: 'original_filename',
 } as const;
-
-export type ListUploadsParams = {
-page_size?: number;
-cursor?: string | null;
-statuses?: UploadStatusValue[] | null;
-sort_field?: UploadSortField;
-sort_order?: SortOrder;
-};
 
 export type UploadResponseRequiredHeadersAnyOf = {[key: string]: string};
 
@@ -160,6 +161,40 @@ export const SortOrder = {
   asc: 'asc',
   desc: 'desc',
 } as const;
+
+export type PaginatedResultUserResponsePreviousCursor = string | null;
+
+export type PaginatedResultUserResponseNextCursor = string | null;
+
+export interface PaginatedResultUserResponse {
+  has_next: boolean;
+  has_previous: boolean;
+  items: UserResponse[];
+  next_cursor: PaginatedResultUserResponseNextCursor;
+  /** Number of items returned in this page.
+
+Returns:
+    The length of the items list. */
+  readonly page_size: number;
+  previous_cursor: PaginatedResultUserResponsePreviousCursor;
+}
+
+export type PaginatedResultUserGroupResponsePreviousCursor = string | null;
+
+export type PaginatedResultUserGroupResponseNextCursor = string | null;
+
+export interface PaginatedResultUserGroupResponse {
+  has_next: boolean;
+  has_previous: boolean;
+  items: UserGroupResponse[];
+  next_cursor: PaginatedResultUserGroupResponseNextCursor;
+  /** Number of items returned in this page.
+
+Returns:
+    The length of the items list. */
+  readonly page_size: number;
+  previous_cursor: PaginatedResultUserGroupResponsePreviousCursor;
+}
 
 export type PaginatedResultUploadResponsePreviousCursor = string | null;
 

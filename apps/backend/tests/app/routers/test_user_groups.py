@@ -141,40 +141,6 @@ def test_delete_user_group_as_non_owner_returns_404(
     assert response.status_code == 404
 
 
-def test_list_members_as_member(
-    client: TestClient,
-    create_user: Callable[..., User],
-    create_group: Callable[..., UserGroup],
-    create_membership: Callable[..., None],
-    test_user: User,
-):
-    other = create_user(email="other@example.com")
-    group = create_group(name="Two-up")
-    create_membership(group=group, user=other)
-
-    response = client.get(f"/api/v1/user-groups/{group.uid}/members")
-    assert response.status_code == 200
-
-    members = response.json()["items"]
-    assert len(members) == 2
-    by_user_uid = {m["user_uid"]: m for m in members}
-    assert test_user.uid in by_user_uid
-    assert other.uid in by_user_uid
-    assert by_user_uid[other.uid]["email"] == "other@example.com"
-
-
-def test_list_members_as_non_member_returns_404(
-    client: TestClient,
-    create_user: Callable[..., User],
-    create_group: Callable[..., UserGroup],
-):
-    other = create_user()
-    group = create_group(name="Theirs", owner=other)
-
-    response = client.get(f"/api/v1/user-groups/{group.uid}/members")
-    assert response.status_code == 404
-
-
 def test_member_count_reflects_membership_changes(
     client: TestClient,
     create_user: Callable[..., User],

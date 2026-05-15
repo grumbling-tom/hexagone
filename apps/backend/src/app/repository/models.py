@@ -41,6 +41,12 @@ class User(BaseModel):
         email: The user's email address.
         password_hash: Bcrypt hash of the user's password.
         archived: Whether the user account is archived (soft deleted).
+        user_groups: Read-only many-to-many traversal to UserGroup through
+            ``user_group_membership``. Mirror of ``UserGroup.members``,
+            exposed so filters can ask "is this user a member of this
+            group?" via the standard Filter pattern (e.g.
+            ``RelationFilter(field="user_groups",
+            inner=EqualsFilter(field="uid", value=group_uid))``).
     """
 
     __tablename__ = "user"
@@ -48,6 +54,17 @@ class User(BaseModel):
     email: Mapped[str] = mapped_column(String, unique=True, nullable=False, index=True)
     password_hash: Mapped[str] = mapped_column(String, nullable=False)
     archived: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+
+    # viewonly=True so this side never tries to manage writes; membership
+    # rows are managed via UserGroupMembership directly. lazy="raise" so
+    # loaded User instances never silently trigger N+1s — the
+    # relationship is a query-shape primitive, not an instance attribute.
+    user_groups: Mapped[list[UserGroup]] = relationship(
+        "UserGroup",
+        secondary="user_group_membership",
+        viewonly=True,
+        lazy="raise",
+    )
 
 
 class Upload(BaseModel):

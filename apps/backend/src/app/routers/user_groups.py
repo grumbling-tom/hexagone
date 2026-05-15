@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
-from pydantic import AliasPath, Field
+from pydantic import Field
 from sqlalchemy.orm import Session
 
 from src.app.dependencies import authenticated_user, db_session
@@ -35,13 +35,6 @@ class ListUserGroupsParams(BaseSchema):
     cursor: str | None = Field(default=None)
 
 
-class ListUserGroupMembersParams(BaseSchema):
-    """Query parameters for listing a group's members."""
-
-    page_size: int = Field(default=settings.DEFAULT_PAGE_SIZE, gt=0, le=100)
-    cursor: str | None = Field(default=None)
-
-
 class UserGroupResponse(BaseSchema):
     """Response body for user group endpoints."""
 
@@ -50,21 +43,6 @@ class UserGroupResponse(BaseSchema):
     owner_uid: str
     created_at: datetime
     member_count: int
-
-
-class UserGroupMemberResponse(BaseSchema):
-    """Response body describing a single member of a group.
-
-    ``email`` is read off the related User via the ``user`` relationship;
-    ``joined_at`` is the membership row's creation timestamp. The
-    ``validation_alias`` declarations let ``model_validate(membership)``
-    walk to those attributes without a helper function.
-    """
-
-    uid: str  # membership uid
-    user_uid: str
-    email: str = Field(validation_alias=AliasPath("user", "email"))
-    joined_at: datetime = Field(validation_alias="created_at")
 
 
 @router.post("/user-groups", status_code=201, operation_id="createUserGroup")
@@ -145,33 +123,3 @@ def delete_user_group(
         raise HTTPException(status_code=404, detail="Group not found") from None
 
     return Response(status_code=204)
-
-
-@router.get(
-    "/user-groups/{group_uid}/members",
-    operation_id="listUserGroupMembers",
-)
-def list_user_group_members(
-    group_uid: str,
-    user: Annotated[User, Depends(authenticated_user)],
-    db: Annotated[Session, Depends(db_session)],
-    params: Annotated[ListUserGroupMembersParams, Query()],
-) -> PaginatedResult[UserGroupMemberResponse]:
-    """List members of a group the caller belongs to."""
-    try:
-        result = user_group_service.list_members(
-            db,
-            user,
-            group_uid,
-            page_size=params.page_size,
-            cursor=params.cursor,
-        )
-    except user_group_service.UserGroupNotFoundError:
-        raise HTTPException(status_code=404, detail="Group not found") from None
-    return PaginatedResult(
-        items=[UserGroupMemberResponse.model_validate(m) for m in result.items],
-        previous_cursor=result.previous_cursor,
-        next_cursor=result.next_cursor,
-        has_previous=result.has_previous,
-        has_next=result.has_next,
-    )

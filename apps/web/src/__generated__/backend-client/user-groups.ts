@@ -24,8 +24,9 @@ import type {
 import type {
   CreateUserGroupRequest,
   HTTPValidationError,
+  ListUserGroupsParams,
+  PaginatedResultUserGroupResponse,
   UpdateUserGroupRequest,
-  UserGroupMemberResponse,
   UserGroupResponse
 } from './backend.schemas'
 import { fetchClient } from '../../lib/fetch-client';
@@ -98,33 +99,34 @@ export const useCreateUserGroup = <TError = ErrorType<HTTPValidationError>,
  * @summary List User Groups
  */
 export const listUserGroups = (
-    
+    params?: ListUserGroupsParams,
  signal?: AbortSignal
 ) => {
       
       
-      return fetchClient<UserGroupResponse[]>(
-      {url: `/api/v1/user-groups`, method: 'GET', signal
+      return fetchClient<PaginatedResultUserGroupResponse>(
+      {url: `/api/v1/user-groups`, method: 'GET',
+        params, signal
     },
       );
     }
   
 
-export const getListUserGroupsQueryKey = () => {
-    return [`/api/v1/user-groups`] as const;
+export const getListUserGroupsQueryKey = (params?: ListUserGroupsParams,) => {
+    return [`/api/v1/user-groups`, ...(params ? [params]: [])] as const;
     }
 
     
-export const getListUserGroupsQueryOptions = <TData = Awaited<ReturnType<typeof listUserGroups>>, TError = ErrorType<HTTPValidationError>>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listUserGroups>>, TError, TData>>, }
+export const getListUserGroupsQueryOptions = <TData = Awaited<ReturnType<typeof listUserGroups>>, TError = ErrorType<HTTPValidationError>>(params?: ListUserGroupsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listUserGroups>>, TError, TData>>, }
 ) => {
 
 const {query: queryOptions} = options ?? {};
 
-  const queryKey =  queryOptions?.queryKey ?? getListUserGroupsQueryKey();
+  const queryKey =  queryOptions?.queryKey ?? getListUserGroupsQueryKey(params);
 
   
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof listUserGroups>>> = ({ signal }) => listUserGroups(signal);
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listUserGroups>>> = ({ signal }) => listUserGroups(params, signal);
 
       
 
@@ -138,7 +140,7 @@ export type ListUserGroupsQueryError = ErrorType<HTTPValidationError>
 
 
 export function useListUserGroups<TData = Awaited<ReturnType<typeof listUserGroups>>, TError = ErrorType<HTTPValidationError>>(
-  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof listUserGroups>>, TError, TData>> & Pick<
+ params: undefined |  ListUserGroupsParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof listUserGroups>>, TError, TData>> & Pick<
         DefinedInitialDataOptions<
           Awaited<ReturnType<typeof listUserGroups>>,
           TError,
@@ -148,7 +150,7 @@ export function useListUserGroups<TData = Awaited<ReturnType<typeof listUserGrou
 
   ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
 export function useListUserGroups<TData = Awaited<ReturnType<typeof listUserGroups>>, TError = ErrorType<HTTPValidationError>>(
-  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listUserGroups>>, TError, TData>> & Pick<
+ params?: ListUserGroupsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listUserGroups>>, TError, TData>> & Pick<
         UndefinedInitialDataOptions<
           Awaited<ReturnType<typeof listUserGroups>>,
           TError,
@@ -158,7 +160,7 @@ export function useListUserGroups<TData = Awaited<ReturnType<typeof listUserGrou
 
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
 export function useListUserGroups<TData = Awaited<ReturnType<typeof listUserGroups>>, TError = ErrorType<HTTPValidationError>>(
-  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listUserGroups>>, TError, TData>>, }
+ params?: ListUserGroupsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listUserGroups>>, TError, TData>>, }
 
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
 /**
@@ -166,11 +168,11 @@ export function useListUserGroups<TData = Awaited<ReturnType<typeof listUserGrou
  */
 
 export function useListUserGroups<TData = Awaited<ReturnType<typeof listUserGroups>>, TError = ErrorType<HTTPValidationError>>(
-  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listUserGroups>>, TError, TData>>, }
+ params?: ListUserGroupsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listUserGroups>>, TError, TData>>, }
 
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> } {
 
-  const queryOptions = getListUserGroupsQueryOptions(options)
+  const queryOptions = getListUserGroupsQueryOptions(params,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
 
@@ -384,91 +386,4 @@ export const useDeleteUserGroup = <TError = ErrorType<HTTPValidationError>,
 
       return useMutation(mutationOptions);
     }
-    /**
- * List members of a group the caller belongs to.
- * @summary List User Group Members
- */
-export const listUserGroupMembers = (
-    groupUid: string,
- signal?: AbortSignal
-) => {
-      
-      
-      return fetchClient<UserGroupMemberResponse[]>(
-      {url: `/api/v1/user-groups/${groupUid}/members`, method: 'GET', signal
-    },
-      );
-    }
-  
-
-export const getListUserGroupMembersQueryKey = (groupUid: string,) => {
-    return [`/api/v1/user-groups/${groupUid}/members`] as const;
-    }
-
     
-export const getListUserGroupMembersQueryOptions = <TData = Awaited<ReturnType<typeof listUserGroupMembers>>, TError = ErrorType<HTTPValidationError>>(groupUid: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listUserGroupMembers>>, TError, TData>>, }
-) => {
-
-const {query: queryOptions} = options ?? {};
-
-  const queryKey =  queryOptions?.queryKey ?? getListUserGroupMembersQueryKey(groupUid);
-
-  
-
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof listUserGroupMembers>>> = ({ signal }) => listUserGroupMembers(groupUid, signal);
-
-      
-
-      
-
-   return  { queryKey, queryFn, enabled: !!(groupUid), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listUserGroupMembers>>, TError, TData> & { queryKey: DataTag<QueryKey, TData> }
-}
-
-export type ListUserGroupMembersQueryResult = NonNullable<Awaited<ReturnType<typeof listUserGroupMembers>>>
-export type ListUserGroupMembersQueryError = ErrorType<HTTPValidationError>
-
-
-export function useListUserGroupMembers<TData = Awaited<ReturnType<typeof listUserGroupMembers>>, TError = ErrorType<HTTPValidationError>>(
- groupUid: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof listUserGroupMembers>>, TError, TData>> & Pick<
-        DefinedInitialDataOptions<
-          Awaited<ReturnType<typeof listUserGroupMembers>>,
-          TError,
-          TData
-        > , 'initialData'
-      >, }
-
-  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
-export function useListUserGroupMembers<TData = Awaited<ReturnType<typeof listUserGroupMembers>>, TError = ErrorType<HTTPValidationError>>(
- groupUid: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listUserGroupMembers>>, TError, TData>> & Pick<
-        UndefinedInitialDataOptions<
-          Awaited<ReturnType<typeof listUserGroupMembers>>,
-          TError,
-          TData
-        > , 'initialData'
-      >, }
-
-  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
-export function useListUserGroupMembers<TData = Awaited<ReturnType<typeof listUserGroupMembers>>, TError = ErrorType<HTTPValidationError>>(
- groupUid: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listUserGroupMembers>>, TError, TData>>, }
-
-  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
-/**
- * @summary List User Group Members
- */
-
-export function useListUserGroupMembers<TData = Awaited<ReturnType<typeof listUserGroupMembers>>, TError = ErrorType<HTTPValidationError>>(
- groupUid: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listUserGroupMembers>>, TError, TData>>, }
-
-  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> } {
-
-  const queryOptions = getListUserGroupMembersQueryOptions(groupUid,options)
-
-  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
-
-  query.queryKey = queryOptions.queryKey ;
-
-  return query;
-}
-
-
-

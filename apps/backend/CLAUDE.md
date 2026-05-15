@@ -30,6 +30,31 @@ GET    /api/v1/user/session       # singular nouns
 DELETE /api/v1/logout             # verb as path segment
 ```
 
+### Filter related entities with query parameters, not URL nesting
+
+When listing the children of a parent entity, expose the parent's
+identifier as a query parameter on the child collection rather than
+nesting the child under the parent's URL.
+
+#### Good
+
+```
+GET /api/v1/users?group_uid={group_uid}        # users in a group
+GET /api/v1/hex-claims?upload_uid={upload_uid} # claims from an upload
+```
+
+#### Bad
+
+```
+GET /api/v1/user-groups/{group_uid}/members    # nested under parent
+GET /api/v1/uploads/{upload_uid}/hex-claims    # nested under parent
+```
+
+The query-param shape keeps the resource collection's URL stable
+regardless of how the caller is filtering, makes additional filters
+composable (`?group_uid=X&archived=true`), and avoids parallel routes
+that return the same shape from different paths.
+
 ## Operation IDs
 
 Every FastAPI route must set an explicit `operation_id` in camelCase. This

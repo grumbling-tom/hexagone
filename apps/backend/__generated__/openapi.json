@@ -40,14 +40,14 @@
         "description": "Create a new user account and start a session.",
         "operationId": "createUser",
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/CreateUserRequest"
               }
             }
-          },
-          "required": true
+          }
         },
         "responses": {
           "201": {
@@ -56,6 +56,93 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/UserResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "users"
+        ],
+        "summary": "List Users",
+        "description": "List users filtered by group membership.\n\nCaller must be able to see the group (owner OR member); 404 otherwise.",
+        "operationId": "listUsers",
+        "parameters": [
+          {
+            "name": "group_uid",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 36,
+              "maxLength": 36,
+              "title": "Group Uid"
+            }
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "exclusiveMinimum": 0,
+              "default": 20,
+              "title": "Page Size"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          },
+          {
+            "name": "sessionid",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Sessionid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaginatedResult_UserResponse_"
                 }
               }
             }
@@ -656,6 +743,34 @@
         "operationId": "listUserGroups",
         "parameters": [
           {
+            "name": "page_size",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "exclusiveMinimum": 0,
+              "default": 20,
+              "title": "Page Size"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          },
+          {
             "name": "sessionid",
             "in": "cookie",
             "required": false,
@@ -678,11 +793,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/UserGroupResponse"
-                  },
-                  "title": "Response Listusergroups"
+                  "$ref": "#/components/schemas/PaginatedResult_UserGroupResponse_"
                 }
               }
             }
@@ -862,69 +973,6 @@
         "responses": {
           "204": {
             "description": "Successful Response"
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/user-groups/{group_uid}/members": {
-      "get": {
-        "tags": [
-          "user-groups"
-        ],
-        "summary": "List User Group Members",
-        "description": "List members of a group the caller belongs to.",
-        "operationId": "listUserGroupMembers",
-        "parameters": [
-          {
-            "name": "group_uid",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Group Uid"
-            }
-          },
-          {
-            "name": "sessionid",
-            "in": "cookie",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Sessionid"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/UserGroupMemberResponse"
-                  },
-                  "title": "Response Listusergroupmembers"
-                }
-              }
-            }
           },
           "422": {
             "description": "Validation Error",
@@ -1307,6 +1355,120 @@
         ],
         "title": "PaginatedResult[UploadResponse]"
       },
+      "PaginatedResult_UserGroupResponse_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/UserGroupResponse"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "previous_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previous Cursor"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          },
+          "has_previous": {
+            "type": "boolean",
+            "title": "Has Previous"
+          },
+          "has_next": {
+            "type": "boolean",
+            "title": "Has Next"
+          },
+          "page_size": {
+            "type": "integer",
+            "title": "Page Size",
+            "description": "Number of items returned in this page.\n\nReturns:\n    The length of the items list.",
+            "readOnly": true
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "previous_cursor",
+          "next_cursor",
+          "has_previous",
+          "has_next",
+          "page_size"
+        ],
+        "title": "PaginatedResult[UserGroupResponse]"
+      },
+      "PaginatedResult_UserResponse_": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/UserResponse"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "previous_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previous Cursor"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          },
+          "has_previous": {
+            "type": "boolean",
+            "title": "Has Previous"
+          },
+          "has_next": {
+            "type": "boolean",
+            "title": "Has Next"
+          },
+          "page_size": {
+            "type": "integer",
+            "title": "Page Size",
+            "description": "Number of items returned in this page.\n\nReturns:\n    The length of the items list.",
+            "readOnly": true
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "previous_cursor",
+          "next_cursor",
+          "has_previous",
+          "has_next",
+          "page_size"
+        ],
+        "title": "PaginatedResult[UserResponse]"
+      },
       "SortOrder": {
         "type": "string",
         "enum": [
@@ -1411,36 +1573,6 @@
         ],
         "title": "UploadStatusValue",
         "description": "Allowed status values for upload processing."
-      },
-      "UserGroupMemberResponse": {
-        "properties": {
-          "uid": {
-            "type": "string",
-            "title": "Uid"
-          },
-          "user_uid": {
-            "type": "string",
-            "title": "User Uid"
-          },
-          "email": {
-            "type": "string",
-            "title": "Email"
-          },
-          "joined_at": {
-            "type": "string",
-            "format": "date-time",
-            "title": "Joined At"
-          }
-        },
-        "type": "object",
-        "required": [
-          "uid",
-          "user_uid",
-          "email",
-          "joined_at"
-        ],
-        "title": "UserGroupMemberResponse",
-        "description": "Response body describing a single member of a group."
       },
       "UserGroupResponse": {
         "properties": {
