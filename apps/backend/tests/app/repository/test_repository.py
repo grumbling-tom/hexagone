@@ -18,6 +18,7 @@ from src.app.repository import (
     LikeFilter,
     NotEqualsFilter,
     NotInFilter,
+    OrFilter,
     RangeFilter,
     Repository,
     Upload,
@@ -348,6 +349,31 @@ def test_in_filter(test_db: Session, create_upload: Callable[..., Upload]):
     )
     assert len(result.items) == 2
     assert {u.original_filename for u in result.items} == {"alpha.gpx", "gamma.gpx"}
+
+
+def test_or_filter_returns_rows_matching_any_inner_filter(
+    test_db: Session, create_upload: Callable[..., Upload]
+):
+    """`OrFilter` should match rows that satisfy any of its inner filters."""
+    create_upload("alpha.gpx", file_size_bytes=100)
+    create_upload("beta.gpx", file_size_bytes=200)
+    create_upload("gamma.gpx", file_size_bytes=300)
+    create_upload("delta.gpx", file_size_bytes=400)
+
+    repo = Repository(test_db, Upload)
+    result = repo.get_filtered(
+        filters=[
+            OrFilter(
+                filters=[
+                    EqualsFilter(field="original_filename", value="alpha.gpx"),
+                    EqualsFilter(field="file_size_bytes", value=300),
+                ]
+            ),
+        ],
+    )
+
+    names = {u.original_filename for u in result.items}
+    assert names == {"alpha.gpx", "gamma.gpx"}
 
 
 def test_not_in_filter(test_db: Session, create_upload: Callable[..., Upload]):

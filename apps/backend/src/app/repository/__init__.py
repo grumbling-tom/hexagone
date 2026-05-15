@@ -29,6 +29,7 @@ from .filters import (
     LikeFilter,
     NotEqualsFilter,
     NotInFilter,
+    OrFilter,
     RangeFilter,
 )
 from .models import (
@@ -59,6 +60,7 @@ __all__ = [
     "LikeFilter",
     "NotEqualsFilter",
     "NotInFilter",
+    "OrFilter",
     "RangeFilter",
     "Repository",
     "SessionLocal",
