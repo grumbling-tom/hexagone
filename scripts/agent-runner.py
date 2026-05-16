@@ -118,17 +118,6 @@ def fetch_plan_issues(token: str) -> list[dict]:
     ]
 
 
-def fetch_issue_comments(issue_number: int, *, token: str) -> list[dict]:
-    """Fetch all comments on an issue."""
-    raw = gh_api(
-        f"/repos/{REPO}/issues/{issue_number}/comments?per_page=100",
-        token=token,
-    )
-    if not raw:
-        return []
-    return json.loads(raw)
-
-
 def add_label(issue_number: int, label: str, *, token: str) -> None:
     gh_api(
         f"/repos/{REPO}/issues/{issue_number}/labels",
@@ -156,48 +145,53 @@ def comment_on_issue(issue_number: int, body: str, *, token: str) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Thread assembly
-# ---------------------------------------------------------------------------
-
-
-def build_issue_thread(issue: dict, comments: list[dict]) -> str:
-    """Assemble the full issue thread as context for Claude."""
-    parts = [issue.get("body") or "(no description)"]
-    for c in comments:
-        author = c.get("user", {}).get("login", "unknown")
-        parts.append(f"**@{author}** commented:\n\n{c['body']}")
-    return "\n\n---\n\n".join(parts)
-
-
-# ---------------------------------------------------------------------------
 # Claude orchestration
 # ---------------------------------------------------------------------------
 
 PLAN_PROMPT = """\
-You are an autonomous agent working on the repository `{repo}`.
+You are an autonomous planning agent for the repository `{repo}`.
 
-Your task is to produce a **detailed implementation plan** for the following \
-GitHub issue. Do NOT write any code or make any file changes.
+## Your task
+
+Read GitHub issue #{number} and produce a detailed implementation plan. Post \
+the plan as a comment on the issue when done.
 
 ## Issue #{number}: {title}
 
-{thread}
+The issue and its full comment history are on GitHub. Read them with:
 
-## Instructions
+    gh issue view {number} --repo {repo} --comments
 
-1. Thoroughly explore the codebase. Read the files that are relevant to this \
-issue — don't just skim directory listings. Understand the existing patterns, \
-conventions, and architecture before planning.
-2. If prior comments contain human answers to earlier questions, incorporate them.
-3. Produce a **detailed, actionable** plan as markdown with these sections:
+## Workflow
+
+1. Read the issue and all its comments to understand what's being asked.
+2. Thoroughly explore the codebase. Read the files relevant to this issue — \
+don't just skim directory listings. Understand existing patterns, conventions, \
+and architecture before planning.
+3. If prior comments on the issue contain human answers to earlier agent \
+questions, incorporate those answers into your plan.
+4. Write a detailed, actionable implementation plan. A good plan should be \
+detailed enough that another developer (or agent) could implement it without \
+needing to re-explore the codebase.
+5. Post the plan as a comment on issue #{number} using:
+
+    gh issue comment {number} --repo {repo} --body-file <file>
+
+   Write the plan to a temporary file first, then use --body-file to post it. \
+This avoids shell escaping issues with --body.
+
+## Plan format
+
+Use this markdown structure:
 
 ### Goal
-One-sentence summary of what the issue asks for.
+One-sentence summary.
 
 ### Approach
 Step-by-step description of the implementation. Be specific — name the \
-functions, components, routes, or patterns you'd use. Reference existing code \
-that should be followed as a pattern.
+functions, components, routes, or patterns you'd use. Include code snippets \
+where they clarify the approach. Reference existing code that should be \
+followed as a pattern.
 
 ### Files to change
 For EACH file, describe:
@@ -205,65 +199,51 @@ For EACH file, describe:
 - What specifically to add, modify, or remove
 - Key implementation details (function signatures, component props, CSS \
 classes, etc.)
-
-For new files, describe their purpose and rough structure.
+For new files, describe their purpose and structure.
 
 ### Open questions
 Anything unclear that needs human input before implementation can begin. \
 Omit this section entirely if you have no questions.
 
-4. Output ONLY the plan markdown — nothing else. Do not create branches, \
-commits, or PRs.
-5. Be thorough. A good plan should be detailed enough that another developer \
-(or agent) could implement it without needing to re-explore the codebase. \
-Vague summaries like "update the file" or "add the component" are not enough — \
-say exactly what to add and how.
+## Rules
 
-IMPORTANT: If you have open questions that would significantly affect the plan, \
-you MUST include the "Open questions" section. If the plan is clear and \
-actionable without further input, omit it.
+- Do NOT create branches, commits, PRs, or modify any code files.
+- Do NOT write vague summaries like "update the file" — say exactly what to \
+add and how.
+- After posting the plan comment, output a single line: either \
+RESULT:PLAN_POSTED or RESULT:NEEDS_INPUT (if your plan has open questions).
 """
 
-OPEN_QUESTIONS_MARKER = "## Open questions"
 
-
-def run_claude_plan(issue: dict, thread: str) -> str | None:
-    """Run Claude in print mode to generate a plan."""
+def run_claude_plan(issue: dict, *, token: str) -> str | None:
+    """Run Claude as a full agent to explore the codebase and post a plan."""
     prompt = PLAN_PROMPT.format(
         repo=REPO,
         number=issue["number"],
         title=issue["title"],
-        thread=thread,
     )
-    log.info("Running Claude for plan on issue #%d...", issue["number"])
+    log.info("Running Claude agent for plan on issue #%d...", issue["number"])
     result = subprocess.run(
         [
             "claude",
             "--print",
             "--model", "sonnet",
             "--permission-mode", "plan",
-            prompt,
+            "--allowedTools",
+            "Bash(gh issue comment *)",
+            "Bash(gh issue view *)",
+            "Bash(gh api *)",
         ],
         capture_output=True,
         text=True,
-        env={**os.environ, "GH_TOKEN": ""},  # no GH access needed for plans
+        input=prompt,
+        env={**os.environ, "GH_TOKEN": token},
         timeout=1800,  # 30 minutes
     )
     if result.returncode != 0:
         log.error("Claude plan failed (exit %d): %s", result.returncode, result.stderr)
         return None
     return result.stdout.strip()
-
-
-def has_open_questions(plan: str) -> bool:
-    """Check if the plan contains an Open Questions section with content."""
-    lower = plan.lower()
-    idx = lower.find("## open questions")
-    if idx == -1:
-        return False
-    after = plan[idx + len("## open questions"):].strip()
-    # Check there's actual content (not just the heading)
-    return len(after) > 0 and after != "None" and after != "N/A"
 
 
 # ---------------------------------------------------------------------------
@@ -277,7 +257,7 @@ def process_issue(issue: dict, *, token: str, dry_run: bool) -> None:
     log.info("Processing issue #%d: %s", number, title)
 
     if dry_run:
-        log.info("  (dry-run) Would fetch comments, run Claude, and post plan")
+        log.info("  (dry-run) Would launch Claude agent to plan and comment")
         return
 
     # Mark as in-progress
@@ -286,36 +266,22 @@ def process_issue(issue: dict, *, token: str, dry_run: bool) -> None:
     comment_on_issue(number, "Picking up this issue to generate a plan.", token=token)
 
     try:
-        comments = fetch_issue_comments(number, token=token)
-        thread = build_issue_thread(issue, comments)
-        plan = run_claude_plan(issue, thread)
+        output = run_claude_plan(issue, token=token)
 
-        if plan:
-            if has_open_questions(plan):
-                comment_on_issue(
-                    number,
-                    f"## Agent Plan\n\n{plan}\n\n---\n"
-                    f"@{REPO_OWNER} — I have some open questions before this plan "
-                    f"is actionable. Please respond and re-label `{LABEL_PLAN}` "
-                    f"when ready for another pass.",
-                    token=token,
-                )
-                remove_label(number, LABEL_WORKING, token=token)
-                add_label(number, LABEL_NEEDS_INPUT, token=token)
-            else:
-                comment_on_issue(
-                    number,
-                    f"## Agent Plan\n\n{plan}\n\n---\n"
-                    f"@{REPO_OWNER} — plan ready for review.",
-                    token=token,
-                )
-                remove_label(number, LABEL_WORKING, token=token)
-                add_label(number, LABEL_DONE, token=token)
+        if output and "RESULT:NEEDS_INPUT" in output:
+            log.info("Issue #%d: agent has open questions", number)
+            remove_label(number, LABEL_WORKING, token=token)
+            add_label(number, LABEL_NEEDS_INPUT, token=token)
+        elif output and "RESULT:PLAN_POSTED" in output:
+            log.info("Issue #%d: plan posted successfully", number)
+            remove_label(number, LABEL_WORKING, token=token)
+            add_label(number, LABEL_DONE, token=token)
         else:
+            log.warning("Issue #%d: unexpected output from Claude", number)
             comment_on_issue(
                 number,
-                f"@{REPO_OWNER} — failed to generate a plan. "
-                f"Check the agent runner logs for details.",
+                f"@{REPO_OWNER} — agent finished but result was unclear. "
+                f"Check the issue for a plan comment, or check runner logs.",
                 token=token,
             )
             remove_label(number, LABEL_WORKING, token=token)
