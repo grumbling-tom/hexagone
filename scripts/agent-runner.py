@@ -176,8 +176,8 @@ def build_issue_thread(issue: dict, comments: list[dict]) -> str:
 PLAN_PROMPT = """\
 You are an autonomous agent working on the repository `{repo}`.
 
-Your task is to produce a **plan** for the following GitHub issue. Do NOT write \
-any code or make any file changes.
+Your task is to produce a **detailed implementation plan** for the following \
+GitHub issue. Do NOT write any code or make any file changes.
 
 ## Issue #{number}: {title}
 
@@ -185,16 +185,39 @@ any code or make any file changes.
 
 ## Instructions
 
-1. Read the codebase to understand the relevant areas.
+1. Thoroughly explore the codebase. Read the files that are relevant to this \
+issue — don't just skim directory listings. Understand the existing patterns, \
+conventions, and architecture before planning.
 2. If prior comments contain human answers to earlier questions, incorporate them.
-3. Produce a clear, actionable plan as markdown with these sections:
-   - **Goal**: one-sentence summary of what the issue asks for.
-   - **Approach**: step-by-step description of the changes needed.
-   - **Files to change**: list each file and what to change in it.
-   - **Open questions**: anything unclear that needs human input. Omit this \
-section entirely if you have no questions.
+3. Produce a **detailed, actionable** plan as markdown with these sections:
+
+### Goal
+One-sentence summary of what the issue asks for.
+
+### Approach
+Step-by-step description of the implementation. Be specific — name the \
+functions, components, routes, or patterns you'd use. Reference existing code \
+that should be followed as a pattern.
+
+### Files to change
+For EACH file, describe:
+- The file path
+- What specifically to add, modify, or remove
+- Key implementation details (function signatures, component props, CSS \
+classes, etc.)
+
+For new files, describe their purpose and rough structure.
+
+### Open questions
+Anything unclear that needs human input before implementation can begin. \
+Omit this section entirely if you have no questions.
+
 4. Output ONLY the plan markdown — nothing else. Do not create branches, \
 commits, or PRs.
+5. Be thorough. A good plan should be detailed enough that another developer \
+(or agent) could implement it without needing to re-explore the codebase. \
+Vague summaries like "update the file" or "add the component" are not enough — \
+say exactly what to add and how.
 
 IMPORTANT: If you have open questions that would significantly affect the plan, \
 you MUST include the "Open questions" section. If the plan is clear and \
@@ -224,7 +247,7 @@ def run_claude_plan(issue: dict, thread: str) -> str | None:
         capture_output=True,
         text=True,
         env={**os.environ, "GH_TOKEN": ""},  # no GH access needed for plans
-        timeout=600,
+        timeout=1800,  # 30 minutes
     )
     if result.returncode != 0:
         log.error("Claude plan failed (exit %d): %s", result.returncode, result.stderr)
