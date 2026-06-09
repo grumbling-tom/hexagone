@@ -5,20 +5,35 @@ from urllib.parse import unquote_plus
 
 from sqlalchemy.orm import Session
 
+from src.app.handlers.file_upload.gpx_processing import (
+    GpxValidationError,
+    gpx_bytes_to_polygons,
+)
 from src.app.repository import (
     EqualsFilter,
+    HexClaim,
     Repository,
     Upload,
-    UploadStatus,
     UploadStatusValue,
     get_db,
 )
+from src.app.services.storage import S3StorageBackend, StorageBackend
+from src.app.services.upload import set_upload_status
 from src.app.settings import settings
 from src.app.utils import get_logger
 from src.app.utils.lambda_types import LambdaContext, LambdaResponse
 from src.app.utils.s3_events import S3Event
 
 logger = get_logger(__name__)
+
+
+def _default_storage_backend() -> StorageBackend:
+    """Return the storage backend used by the handler.
+
+    Module-level indirection so tests can monkeypatch this to inject a
+    fake; in production this just constructs an :class:`S3StorageBackend`.
+    """
+    return S3StorageBackend()
 
 
 def find_upload_by_s3_key(db: Session, key: str) -> Upload | None:
@@ -28,18 +43,6 @@ def find_upload_by_s3_key(db: Session, key: str) -> Upload | None:
         page_size=1,
     )
     return result.items[0] if result.items else None
-
-
-def set_upload_status(db: Session, upload: Upload, status: UploadStatusValue) -> None:
-    """Given an upload, create a new UploadStatus record with the given status."""
-    db.add(
-        UploadStatus(
-            upload_uid=upload.uid,
-            status=status,
-            git_sha=settings.GIT_SHA,
-        )
-    )
-    db.commit()
 
 
 def handler(
@@ -77,7 +80,46 @@ def handler(
             }
 
         set_upload_status(db, upload, UploadStatusValue.UPLOAD_RECEIVED)
-
         logger.info("upload_status_updated", key=key, status="UPLOAD_RECEIVED")
+
+        storage = _default_storage_backend()
+        data = storage.get_object(key)
+
+        try:
+            polygons = gpx_bytes_to_polygons(data, resolution=settings.H3_RESOLUTION)
+        except GpxValidationError as e:
+            logger.warning("gpx_invalid", key=key, reason=e.reason)
+            set_upload_status(
+                db, upload, UploadStatusValue.UPLOAD_INVALID, detail=e.reason
+            )
+            return {"statusCode": 400, "body": e.reason}
+
+        claims = [
+            HexClaim(
+                upload_uid=upload.uid,
+                user_uid=upload.user_uid,
+                h3_cell=cell,
+                h3_resolution=settings.H3_RESOLUTION,
+                polygon_index=polygon.polygon_index,
+                completed_at=polygon.completed_at,
+                git_sha=settings.GIT_SHA,
+            )
+            for polygon in polygons
+            for cell in polygon.cells
+        ]
+
+        # Bulk insert + UPLOAD_SUCCESS share a single transaction so a
+        # failed insert does not leave a misleading success status.
+        db.add_all(claims)
+        set_upload_status(db, upload, UploadStatusValue.UPLOAD_SUCCESS, commit=False)
+        db.commit()
+
+        # TODO: Consider an UPLOAD_FAILED status for bulk insert failures.
+        logger.info(
+            "upload_processed",
+            key=key,
+            polygon_count=len(polygons),
+            cells_inserted=len(claims),
+        )
 
     return {"statusCode": 200, "body": "OK"}

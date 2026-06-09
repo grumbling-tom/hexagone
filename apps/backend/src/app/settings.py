@@ -36,6 +36,12 @@ class Settings(BaseSettings):
     PRESIGNED_GET_URL_EXPIRY_SECONDS: int = 60 * 60  # 1 hour
     PRESIGNED_PUT_URL_EXPIRY_SECONDS: int = 5 * 60  # 5 minutes
 
+    H3_RESOLUTION: int = 10
+    MAX_GPX_BYTES: int = 10 * 1024 * 1024
+    MAX_GPX_POINTS: int = 200_000
+    MAX_GPX_POLYGONS: int = 1_000
+    MAX_GPX_CELLS: int = 100_000
+
     GIT_SHA: str = "unknown"
 
     @property

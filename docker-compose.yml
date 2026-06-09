@@ -44,7 +44,9 @@ services:
     environment:
       ENV: DEV
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/postgres
-      HEXAGONE_S3_ENDPOINT_URL: http://localhost:4566
+      # Bridge-networked container: address localstack via its compose
+      # service name, not localhost.
+      HEXAGONE_S3_ENDPOINT_URL: http://localstack:4566
       # https://docs.localstack.cloud/aws/capabilities/config/credentials/#structured-access-key-id
       AWS_ACCESS_KEY_ID: "000000000000"
       AWS_SECRET_ACCESS_KEY: test
@@ -68,7 +70,9 @@ services:
     environment:
       ENV: DEV
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/postgres
-      HEXAGONE_S3_ENDPOINT_URL: http://localhost:4566
+      # Bridge-networked container: address localstack via its compose
+      # service name, not localhost.
+      HEXAGONE_S3_ENDPOINT_URL: http://localstack:4566
       # https://docs.localstack.cloud/aws/capabilities/config/credentials/#structured-access-key-id
       AWS_ACCESS_KEY_ID: "000000000000"
       AWS_SECRET_ACCESS_KEY: test
@@ -115,3 +119,14 @@ services:
 volumes:
   postgres_data:
   localstack_data:
+
+networks:
+  # Pin the default network name so localstack can attach spawned lambda
+  # containers to it via LAMBDA_DOCKER_NETWORK=hexagone_default. Without
+  # this, compose derives the network name from the directory (e.g.
+  # `hexagone-process-uploads_default` in a worktree) and the env var
+  # points at a network that doesn't exist — localstack then logs
+  # "Unable to get main container IP address: hexagone_default" and the
+  # S3-triggered lambda silently never fires.
+  default:
+    name: hexagone_default

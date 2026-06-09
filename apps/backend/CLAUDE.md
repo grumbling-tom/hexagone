@@ -181,6 +181,36 @@ schemas. The router layer converts ORM instances into response schemas.
 Enforced by `test_services_do_not_return_pydantic_schemas` in
 `tests/app/test_service_returns.py`.
 
+## Bulk Inserts — Use ORM Instances + `session.add_all`
+
+When inserting multiple rows, build ORM model instances and pass them to
+`session.add_all(...)` rather than dropping to SQLAlchemy Core
+(`session.execute(insert(Model), [dict, dict, ...])`).
+
+```python
+# Good
+claims = [
+    HexClaim(upload_uid=upload.uid, h3_cell=cell, ...)
+    for polygon in polygons
+    for cell in polygon.cells
+]
+db.add_all(claims)
+
+# Bad
+rows = [
+    {"upload_uid": upload.uid, "h3_cell": cell, ...}
+    for polygon in polygons
+    for cell in polygon.cells
+]
+db.execute(insert(HexClaim), rows)
+```
+
+ORM instances + `add_all` keep `BaseModel` defaults (UUID v7 `uid`,
+`created_at`) and any `__init__`/event-listener behaviour intact, and the
+constructed objects are typed against the model rather than untyped dicts.
+Reach for Core inserts only if profiling shows the unit-of-work overhead
+is a real bottleneck.
+
 ## Filtering on Related Models
 
 When you need to filter a model based on values in a related model (e.g.

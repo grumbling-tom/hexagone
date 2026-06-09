@@ -75,6 +75,10 @@ class Upload(BaseModel):
         order_by="UploadStatus.created_at.asc()",
         lazy="selectin",
     )
+    hex_claims: Mapped[list[HexClaim]] = relationship(
+        back_populates="upload",
+        lazy="raise",
+    )
 
     @hybrid_property
     def current_status(self) -> str:
@@ -128,6 +132,45 @@ class UploadStatus(BaseModel):
     detail: Mapped[str | None] = mapped_column(String, nullable=True)
 
     upload: Mapped[Upload] = relationship(back_populates="statuses")
+
+
+class HexClaim(BaseModel):
+    """Represents a single H3 hex cell claimed by a user via an upload.
+
+    One row per `(upload, polygon_index, h3_cell)` triple. Powers the
+    leaderboard query "who has claimed this hex?".
+
+    Attributes:
+        upload_uid: The UID of the upload that produced this claim.
+        upload: The parent upload.
+        user_uid: The UID of the claiming user. Denormalised from
+            `upload.user_uid` so the leaderboard query doesn't need a join.
+        h3_cell: The H3 cell ID covered by the claim.
+        h3_resolution: The H3 resolution of `h3_cell`.
+        polygon_index: 0-based index of the closed polygon (within this
+            upload) that produced this claim.
+        completed_at: Timestamp of the GPX trackpoint that closed the
+            polygon. Nullable — some GPX files have no `<time>` tags.
+        git_sha: Code version that produced this row.
+    """
+
+    __tablename__ = "hex_claim"
+
+    upload_uid: Mapped[str] = mapped_column(
+        String(36), ForeignKey("upload.uid"), nullable=False, index=True
+    )
+    user_uid: Mapped[str] = mapped_column(
+        String(36), ForeignKey("user.uid"), nullable=False, index=True
+    )
+    h3_cell: Mapped[str] = mapped_column(String(15), nullable=False, index=True)
+    h3_resolution: Mapped[int] = mapped_column(Integer, nullable=False)
+    polygon_index: Mapped[int] = mapped_column(Integer, nullable=False)
+    completed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    git_sha: Mapped[str | None] = mapped_column(String(40), nullable=True)
+
+    upload: Mapped[Upload] = relationship(back_populates="hex_claims")
 
 
 class UserSession(BaseModel):
