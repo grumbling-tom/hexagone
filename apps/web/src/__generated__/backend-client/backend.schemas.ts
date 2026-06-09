@@ -4,11 +4,26 @@
  * Backend
  * OpenAPI spec version: 0.1.0
  */
-export type ListUploadsParams = {
+export type ListAggregatedHexClaimsParams = {
+/**
+ * Dimension to aggregate by. Required — the URL is meaningless without it.
+ */
+by: AggregateHexClaimBy;
+/**
+ * Cap raised to 10k so the map can fetch a full user territory in a handful of round-trips.
+ */
 page_size?: number;
 cursor?: string | null;
-statuses?: UploadStatusValue[] | null;
-sort_field?: UploadSortField;
+};
+
+export type ListHexClaimsParams = {
+page_size?: number;
+cursor?: string | null;
+/**
+ * Restrict results to claims belonging to these uploads.
+ */
+upload_uid?: string[] | null;
+sort_field?: HexClaimSortField;
 sort_order?: SortOrder;
 };
 
@@ -68,6 +83,14 @@ export const UploadSortField = {
   original_filename: 'original_filename',
 } as const;
 
+export type ListUploadsParams = {
+page_size?: number;
+cursor?: string | null;
+statuses?: UploadStatusValue[] | null;
+sort_field?: UploadSortField;
+sort_order?: SortOrder;
+};
+
 export type UploadResponseRequiredHeadersAnyOf = {[key: string]: string};
 
 export type UploadResponseRequiredHeaders = UploadResponseRequiredHeadersAnyOf | null;
@@ -123,6 +146,67 @@ Returns:
   previous_cursor: PaginatedResultUploadResponsePreviousCursor;
 }
 
+export type PaginatedResultHexClaimResponsePreviousCursor = string | null;
+
+export type PaginatedResultHexClaimResponseNextCursor = string | null;
+
+export type PaginatedResultAggregatedHexClaimByCellPreviousCursor = string | null;
+
+export type PaginatedResultAggregatedHexClaimByCellNextCursor = string | null;
+
+export interface PaginatedResultAggregatedHexClaimByCell {
+  has_next: boolean;
+  has_previous: boolean;
+  items: AggregatedHexClaimByCell[];
+  next_cursor: PaginatedResultAggregatedHexClaimByCellNextCursor;
+  /** Number of items returned in this page.
+
+Returns:
+    The length of the items list. */
+  readonly page_size: number;
+  previous_cursor: PaginatedResultAggregatedHexClaimByCellPreviousCursor;
+}
+
+/**
+ * Allowed sort fields for raw hex-claim listing.
+ */
+export type HexClaimSortField = typeof HexClaimSortField[keyof typeof HexClaimSortField];
+
+
+// eslint-disable-next-line @typescript-eslint/no-redeclare
+export const HexClaimSortField = {
+  created_at: 'created_at',
+  completed_at: 'completed_at',
+} as const;
+
+export type HexClaimResponseCompletedAt = string | null;
+
+/**
+ * One hex-claim row exactly as stored.
+ */
+export interface HexClaimResponse {
+  completed_at: HexClaimResponseCompletedAt;
+  created_at: string;
+  h3_cell: string;
+  h3_resolution: number;
+  polygon_index: number;
+  uid: string;
+  upload_uid: string;
+}
+
+export interface PaginatedResultHexClaimResponse {
+  has_next: boolean;
+  has_previous: boolean;
+  items: HexClaimResponse[];
+  next_cursor: PaginatedResultHexClaimResponseNextCursor;
+  /** Number of items returned in this page.
+
+Returns:
+    The length of the items list. */
+  readonly page_size: number;
+  previous_cursor: PaginatedResultHexClaimResponsePreviousCursor;
+}
+
 export interface HTTPValidationError {
   detail?: ValidationError[];
 }
@@ -150,4 +234,26 @@ export interface CreateUploadRequest {
   file_size_bytes: number;
   original_filename: string;
 }
+
+/**
+ * One aggregated row when ``by=hex_cell``.
+ */
+export interface AggregatedHexClaimByCell {
+  claim_count: number;
+  first_claimed_at: string;
+  h3_cell: string;
+  last_claimed_at: string;
+  upload_count: number;
+}
+
+/**
+ * Dimensions the aggregated-hex-claims endpoint can roll up over.
+ */
+export type AggregateHexClaimBy = typeof AggregateHexClaimBy[keyof typeof AggregateHexClaimBy];
+
+
+// eslint-disable-next-line @typescript-eslint/no-redeclare
+export const AggregateHexClaimBy = {
+  hex_cell: 'hex_cell',
+} as const;
 
