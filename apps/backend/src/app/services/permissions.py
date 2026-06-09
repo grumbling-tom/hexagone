@@ -1,6 +1,14 @@
 """Permission filters for entity access control."""
 
-from src.app.repository import EqualsFilter, HexClaim, HexClaimByCell, Upload
+from src.app.repository import (
+    EqualsFilter,
+    HexClaim,
+    HexClaimByCell,
+    OrFilter,
+    RelationFilter,
+    Upload,
+    UserGroup,
+)
 from src.app.repository.database import BaseModel
 from src.app.repository.filters import Filter
 from src.app.repository.models import User
@@ -21,6 +29,20 @@ def permission_filters(user: User, entity: type[BaseModel]) -> list[Filter]:
     """
     if entity is Upload or entity is HexClaim or entity is HexClaimByCell:
         return [EqualsFilter(field="user_uid", value=user.uid)]
+
+    if entity is UserGroup:
+        # Visible if the user owns the group or is a member of it.
+        return [
+            OrFilter(
+                filters=[
+                    EqualsFilter(field="owner_uid", value=user.uid),
+                    RelationFilter(
+                        field="members",
+                        inner=EqualsFilter(field="uid", value=user.uid),
+                    ),
+                ]
+            )
+        ]
 
     msg = f"No permission filters defined for {entity.__name__}"
     raise ValueError(msg)

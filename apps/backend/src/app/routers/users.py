@@ -1,20 +1,20 @@
 """User endpoints."""
 
-from typing import TYPE_CHECKING, Annotated
+from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Request, Response
-from pydantic import EmailStr
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
+from pydantic import EmailStr, Field
 from sqlalchemy.orm import Session
 
 from src.app.dependencies import authenticated_user, db_session
+from src.app.repository import User
+from src.app.services import user as user_service
+from src.app.services import user_group as user_group_service
 from src.app.services.user import DuplicateEmailError
 from src.app.services.user import create_user as create_user_service
 from src.app.services.user_session import create_session
 from src.app.settings import settings
-from src.app.utils import BaseSchema, get_client_ip
-
-if TYPE_CHECKING:
-    from src.app.repository import User
+from src.app.utils import BaseSchema, PaginatedResult, get_client_ip
 
 router = APIRouter()
 
@@ -24,6 +24,19 @@ class CreateUserRequest(BaseSchema):
 
     email: EmailStr
     password: str
+
+
+class ListUsersParams(BaseSchema):
+    """Query parameters for listing users.
+
+    ``group_uid`` is required for now — listing all users across the
+    system has no current use case and would leak data. Additional
+    filters (e.g. by email substring) can be added alongside later.
+    """
+
+    group_uid: str = Field(..., min_length=36, max_length=36)
+    page_size: int = Field(default=settings.DEFAULT_PAGE_SIZE, gt=0, le=100)
+    cursor: str | None = Field(default=None)
 
 
 class UserResponse(BaseSchema):
@@ -60,6 +73,36 @@ def create_user(
     )
 
     return UserResponse(uid=user.uid, email=user.email)
+
+
+@router.get("/users", operation_id="listUsers")
+def list_users(
+    user: Annotated[User, Depends(authenticated_user)],
+    db: Annotated[Session, Depends(db_session)],
+    params: Annotated[ListUsersParams, Query()],
+) -> PaginatedResult[UserResponse]:
+    """List users filtered by group membership.
+
+    Caller must be able to see the group (owner OR member); 404 otherwise.
+    """
+    try:
+        result = user_service.list_users(
+            db,
+            user,
+            group_uid=params.group_uid,
+            page_size=params.page_size,
+            cursor=params.cursor,
+        )
+    except user_group_service.UserGroupNotFoundError:
+        raise HTTPException(status_code=404, detail="Group not found") from None
+
+    return PaginatedResult(
+        items=[UserResponse.model_validate(u) for u in result.items],
+        previous_cursor=result.previous_cursor,
+        next_cursor=result.next_cursor,
+        has_previous=result.has_previous,
+        has_next=result.has_next,
+    )
 
 
 @router.get("/users/current", operation_id="getCurrentUser")

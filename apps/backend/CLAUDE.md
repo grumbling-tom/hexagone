@@ -30,6 +30,31 @@ GET    /api/v1/user/session       # singular nouns
 DELETE /api/v1/logout             # verb as path segment
 ```
 
+### Filter related entities with query parameters, not URL nesting
+
+When listing the children of a parent entity, expose the parent's
+identifier as a query parameter on the child collection rather than
+nesting the child under the parent's URL.
+
+#### Good
+
+```
+GET /api/v1/users?group_uid={group_uid}        # users in a group
+GET /api/v1/hex-claims?upload_uid={upload_uid} # claims from an upload
+```
+
+#### Bad
+
+```
+GET /api/v1/user-groups/{group_uid}/members    # nested under parent
+GET /api/v1/uploads/{upload_uid}/hex-claims    # nested under parent
+```
+
+The query-param shape keeps the resource collection's URL stable
+regardless of how the caller is filtering, makes additional filters
+composable (`?group_uid=X&archived=true`), and avoids parallel routes
+that return the same shape from different paths.
+
 ## Operation IDs
 
 Every FastAPI route must set an explicit `operation_id` in camelCase. This
@@ -274,3 +299,180 @@ that hybrid property.
 
 Push the join/subquery complexity into the model, not into custom filter
 classes. This keeps the filter layer simple and composable.
+
+## Service Layer — Use Repository + Filter Classes for Queries
+
+Service queries access the database through `Repository(db, Model)` plus
+the type-safe `Filter` classes in `repository/filters.py`, composing with
+`permission_filters(user, entity)` from `services/permissions.py` where
+authorisation applies. Avoid raw `select(...)` for service queries — it
+bypasses cursor pagination, the composable Filter contract, and the
+single central permissions layer.
+
+### Good
+
+```python
+def list_groups_for_user(db, user) -> list[UserGroup]:
+    return Repository(db, UserGroup).get_filtered(
+        filters=[
+            *permission_filters(user, UserGroup),
+            EqualsFilter(field="archived", value=False),
+        ],
+        sort_field=UserGroup.created_at,
+        sort_order=SortOrder.DESC,
+    ).items
+```
+
+### Bad
+
+```python
+def list_groups_for_user(db, user) -> list[UserGroup]:
+    stmt = (
+        select(UserGroup)
+        .join(UserGroupMembership, ...)
+        .where(...)
+    )
+    return list(db.execute(stmt).scalars().all())
+```
+
+If a filter you need doesn't exist yet, **add a new `Filter` subclass in
+`repository/filters.py`** rather than dropping to raw SQL. Filters are
+reusable, unit-testable, and compose with `Repository.get_filtered`.
+
+**Exceptions — raw `select(...)` is appropriate when:**
+- Aggregates `Repository` doesn't expose — `func.count(...)`,
+  `func.sum(...)`, etc.
+- Inside a `View` subclass's `__view_selectable__`.
+- The query target genuinely requires multiple entities back in one
+  round-trip (rare; prefer two `Repository.find_by_uid()` calls unless
+  profiling shows a real cost).
+
+Note: this section is about *queries*. Writes (`db.add`, `db.delete`,
+attribute mutation followed by `db.commit`) go through the session
+directly — `Repository` is a query helper, not a unit-of-work wrapper.
+
+## Service Layer — Workhorse `list_<things>` + Thin `get_<thing>` Wrapper
+
+When a service exposes both "list" and "fetch one of those things" for
+the same entity, write **one** `list_<things>` function that builds the
+filter list (including `permission_filters`, archived check, scoping
+flags) and returns `PaginatedResult[Thing]`. Then make `get_<thing>` a
+one-line wrapper that delegates to it with a `uid` filter and returns
+the first item — the filter logic, including any auth scoping, lives in
+one place and is exercised by both endpoints.
+
+### Good
+
+```python
+def list_groups(  # noqa: PLR0913
+    db, user, *,
+    page_size=settings.DEFAULT_PAGE_SIZE,
+    group_uid=None,
+    owner_only=False,
+    sort_field="created_at",
+    sort_order=SortOrder.DESC,
+) -> PaginatedResult[UserGroup]:
+    filters = [
+        *permission_filters(user, UserGroup),
+        EqualsFilter(field="archived", value=False),
+    ]
+    if owner_only:
+        filters.append(EqualsFilter(field="owner_uid", value=user.uid))
+    if group_uid is not None:
+        filters.append(EqualsFilter(field="uid", value=group_uid))
+    return Repository(db, UserGroup).get_filtered(filters=filters, ...)
+
+
+def get_group(db, user, group_uid, *, owner_only=False) -> UserGroup | None:
+    try:
+        return list_groups(
+            db, user, group_uid=group_uid, owner_only=owner_only,
+        ).items[0]
+    except IndexError:
+        return None
+```
+
+### Bad — duplicated filter logic
+
+```python
+def list_groups(db, user):
+    return Repository(db, UserGroup).get_filtered(
+        filters=[*permission_filters(user, UserGroup),
+                 EqualsFilter(field="archived", value=False)],
+    )
+
+def get_group(db, user, group_uid):
+    # Same filter list, restated by hand — drifts the moment list_groups grows a clause:
+    return Repository(db, UserGroup).get_filtered(
+        filters=[*permission_filters(user, UserGroup),
+                 EqualsFilter(field="archived", value=False),
+                 EqualsFilter(field="uid", value=group_uid)],
+    ).items[0]
+```
+
+Scoping flags like `owner_only=True` are how access modifiers get
+expressed today — they layer an extra filter onto the read permission
+set. When `permission_filters(user, entity, operation)` lands
+(operation ∈ {READ, UPDATE, DELETE, …}), these flags can move into the
+permissions layer.
+
+## Service Layer — Return `None` for Absence; Routers Raise HTTP
+
+Service "fetch one" functions return the entity or `None` when not
+found/not visible — they **don't** raise a custom `*NotFoundError`. The
+router translates `None` into the right HTTP response (usually 404).
+
+Why: services compose with other services and with tests. Forcing every
+caller through a try/except for "not found" leaks routing concerns into
+the service layer and makes simple cases like "delete if exists" noisy.
+
+### Good
+
+```python
+# service
+def get_group(db, user, group_uid) -> UserGroup | None:
+    try:
+        return list_groups(db, user, group_uid=group_uid).items[0]
+    except IndexError:
+        return None
+
+# router
+group = user_group_service.get_group(db, user, group_uid)
+if group is None:
+    raise HTTPException(status_code=404, detail="Group not found")
+```
+
+### Bad — exception flow for "not found"
+
+```python
+# service
+def get_group(db, user, group_uid) -> UserGroup:
+    group = ...
+    if group is None:
+        raise UserGroupNotFoundError(group_uid)
+    return group
+
+# router has to catch what the service threw
+try:
+    group = user_group_service.get_group(db, user, group_uid)
+except user_group_service.UserGroupNotFoundError:
+    raise HTTPException(status_code=404, ...) from None
+```
+
+Exceptions are still appropriate for **business-rule violations** —
+writes the caller couldn't avoid by branching, like
+`DuplicateMembershipError` (uniqueness conflict during an insert) or
+`UserGroupNotFoundError` raised from a *mutation* service function
+(`update_group`, `archive_group`) where there's no sensible "no-op on
+missing" semantics. The pattern then looks like:
+
+```python
+def update_group(db, user, group_uid, *, name) -> UserGroup:
+    group = get_group(db, user, group_uid, owner_only=True)
+    if group is None:
+        raise UserGroupNotFoundError(group_uid)
+    ...
+```
+
+— the wrapper still returns `None`, the mutation service raises
+explicitly, and the router catches the mutation-specific exceptions.

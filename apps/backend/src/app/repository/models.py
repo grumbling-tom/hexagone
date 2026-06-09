@@ -11,11 +11,13 @@ from sqlalchemy import (
     ForeignKey,
     Integer,
     String,
+    UniqueConstraint,
     desc,
+    func,
     select,
 )
 from sqlalchemy.ext.hybrid import hybrid_property
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, mapped_column, object_session, relationship
 
 from .database import BaseModel
 
@@ -39,6 +41,12 @@ class User(BaseModel):
         email: The user's email address.
         password_hash: Bcrypt hash of the user's password.
         archived: Whether the user account is archived (soft deleted).
+        user_groups: Read-only many-to-many traversal to UserGroup through
+            ``user_group_membership``. Mirror of ``UserGroup.members``,
+            exposed so filters can ask "is this user a member of this
+            group?" via the standard Filter pattern (e.g.
+            ``RelationFilter(field="user_groups",
+            inner=EqualsFilter(field="uid", value=group_uid))``).
     """
 
     __tablename__ = "user"
@@ -46,6 +54,17 @@ class User(BaseModel):
     email: Mapped[str] = mapped_column(String, unique=True, nullable=False, index=True)
     password_hash: Mapped[str] = mapped_column(String, nullable=False)
     archived: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+
+    # viewonly=True so this side never tries to manage writes; membership
+    # rows are managed via UserGroupMembership directly. lazy="raise" so
+    # loaded User instances never silently trigger N+1s — the
+    # relationship is a query-shape primitive, not an instance attribute.
+    user_groups: Mapped[list[UserGroup]] = relationship(
+        "UserGroup",
+        secondary="user_group_membership",
+        viewonly=True,
+        lazy="raise",
+    )
 
 
 class Upload(BaseModel):
@@ -171,6 +190,105 @@ class HexClaim(BaseModel):
     git_sha: Mapped[str | None] = mapped_column(String(40), nullable=True)
 
     upload: Mapped[Upload] = relationship(back_populates="hex_claims")
+
+
+class UserGroup(BaseModel):
+    """A named group that users can be members of.
+
+    Attributes:
+        name: Display name. Not unique — identity is the uid.
+        owner_uid: The single owner; only this user can rename or
+            archive the group, and they cannot leave it while it has
+            other members (they must archive instead).
+        archived: Soft-delete flag.
+        members: Read-only many-to-many traversal to User through
+            ``user_group_membership``. Exposed so that filters can
+            ask "is this user a member of this group?" via the
+            standard Filter pattern (e.g. ``RelationFilter(
+            field="members", inner=EqualsFilter(field="uid", value=X)
+            )``).
+    """
+
+    __tablename__ = "user_group"
+
+    name: Mapped[str] = mapped_column(String(80), nullable=False)
+    owner_uid: Mapped[str] = mapped_column(
+        String(36), ForeignKey("user.uid"), nullable=False, index=True
+    )
+    archived: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+
+    # viewonly=True so this side never tries to manage writes; membership
+    # rows are managed via UserGroupMembership directly. lazy="raise" so
+    # loaded UserGroup instances never silently trigger N+1s — the
+    # relationship is a query-shape primitive, not an instance attribute.
+    members: Mapped[list[User]] = relationship(
+        "User",
+        secondary="user_group_membership",
+        viewonly=True,
+        lazy="raise",
+    )
+
+    @hybrid_property
+    def member_count(self) -> int:
+        """Number of members in this group.
+
+        Python-side: issues a count() query against the attached session.
+        We can't use ``len(self.members)`` because the ``members``
+        relationship is ``lazy="raise"`` — accessing it on a loaded
+        instance throws rather than implicitly fetching. The cost is one
+        extra query per UserGroup instance whose ``member_count`` is read
+        (mirroring the previous ``count_members`` per-row call).
+
+        SQL-side: see the ``@expression`` form below, which lets
+        ``member_count`` be projected into a SELECT or used inside filters.
+        """
+        session = object_session(self)
+        if session is None:
+            msg = "UserGroup must be attached to a session to read member_count"
+            raise RuntimeError(msg)
+        return session.execute(
+            select(func.count(UserGroupMembership.uid)).where(
+                UserGroupMembership.user_group_uid == self.uid
+            )
+        ).scalar_one()
+
+    @member_count.inplace.expression
+    @classmethod
+    def _member_count_expression(cls) -> ScalarSelect[int]:
+        """SQL-side: correlated subquery counting membership rows."""
+        return (
+            select(func.count(UserGroupMembership.uid))
+            .where(UserGroupMembership.user_group_uid == cls.uid)
+            .correlate(cls)
+            .scalar_subquery()
+        )
+
+
+class UserGroupMembership(BaseModel):
+    """Many-to-many link between users and groups.
+
+    Attributes:
+        user_uid: The member.
+        user_group_uid: The group.
+    """
+
+    __tablename__ = "user_group_membership"
+    __table_args__ = (
+        UniqueConstraint(
+            "user_uid",
+            "user_group_uid",
+            name="uq_user_group_membership_user_group",
+        ),
+    )
+
+    user_uid: Mapped[str] = mapped_column(
+        String(36), ForeignKey("user.uid"), nullable=False, index=True
+    )
+    user_group_uid: Mapped[str] = mapped_column(
+        String(36), ForeignKey("user_group.uid"), nullable=False, index=True
+    )
+
+    user: Mapped[User] = relationship("User", lazy="selectin")
 
 
 class UserSession(BaseModel):

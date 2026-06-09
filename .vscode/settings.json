@@ -1,0 +1,10 @@
+{
+  "python.defaultInterpreterPath": "${workspaceFolder}/apps/backend/.venv/bin/python",
+  "python.analysis.typeCheckingMode": "strict",
+  "python.analysis.diagnosticMode": "workspace",
+  "python.analysis.extraPaths": ["${workspaceFolder}/apps/backend"],
+  "python.analysis.include": [
+    "${workspaceFolder}/apps/backend/src",
+    "${workspaceFolder}/apps/backend/tests"
+  ]
+}

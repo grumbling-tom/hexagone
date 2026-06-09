@@ -9,6 +9,8 @@ from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Any
 
 from pydantic import Field
+from sqlalchemy import or_
+from sqlalchemy import select as sa_select
 
 from ..utils import BaseSchema
 
@@ -319,3 +321,97 @@ class IsNullFilter(Filter):
         if self.is_null:
             return stmt.where(column.is_(None))
         return stmt.where(column.is_not(None))
+
+
+class OrFilter(Filter):
+    """OR-compose any number of inner Filters into a single WHERE clause.
+
+    `field` is inherited from ``Filter`` but unused by ``OrFilter``; it
+    defaults to ``""`` so the model can be constructed without one. The
+    real contract is the ``filters`` list of inner Filter instances.
+
+    Empty ``filters`` is a no-op (returns the statement unchanged). With
+    one filter it's equivalent to applying that filter directly. With two
+    or more, the inner WHERE clauses are OR-combined via SQLAlchemy
+    ``or_``. Filters that build multiple conditions internally (e.g.
+    ``RangeFilter`` with both bounds → ``(col >= min) AND (col <= max)``)
+    flow through naturally — their combined boolean expression is what
+    gets OR'd at this level.
+
+    Example:
+        OrFilter(filters=[
+            EqualsFilter(field="status", value="active"),
+            EqualsFilter(field="status", value="pending"),
+        ])
+        # Generates: WHERE (status = 'active') OR (status = 'pending')
+    """
+
+    field: str = ""  # Hack to satisfy base class, not used by OrFilter
+    filters: list[Filter] = Field(
+        ...,
+        description="Inner Filter instances whose WHERE clauses are OR-combined",
+    )
+
+    def apply(
+        self, stmt: Select[tuple[Any, ...]], entity: type[BaseModel]
+    ) -> Select[tuple[Any, ...]]:
+        """Apply the OR of all inner filters to the statement."""
+        if not self.filters:
+            return stmt
+        clauses: list[Any] = []
+        for inner in self.filters:
+            applied = inner.apply(sa_select(entity), entity)
+            if applied.whereclause is not None:
+                clauses.append(applied.whereclause)
+        if not clauses:
+            return stmt
+        return stmt.where(or_(*clauses))
+
+
+class RelationFilter(Filter):
+    """Filter rows whose named SQLAlchemy relationship contains a row
+    satisfying an inner Filter.
+
+    ``field`` is the name of a relationship attribute on the outer entity
+    (to-many or to-one). ``inner`` is any Filter, interpreted against the
+    related entity's class. The composite SQL is
+    ``EXISTS (SELECT 1 FROM <related> WHERE <inner>)``, produced via
+    SQLAlchemy's ``.any()`` for collection relationships or ``.has()``
+    for scalar (to-one) relationships.
+
+    The inner filter is run against a fresh ``select(<related entity>)``
+    and its WHERE clause is extracted via ``Select.whereclause`` — the same
+    trick ``OrFilter`` uses — so any Filter can be the inner, including
+    ``OrFilter``, ``InFilter``, or another ``RelationFilter`` for
+    multi-hop traversal.
+
+    Example:
+        # Uploads with at least one status of UPLOAD_SUCCESS
+        RelationFilter(
+            field="statuses",
+            inner=EqualsFilter(field="status", value="UPLOAD_SUCCESS"),
+        )
+    """
+
+    field: str = Field(
+        ..., description="Name of the relationship attribute on the outer entity"
+    )
+    inner: Filter = Field(..., description="Filter to apply against the related entity")
+
+    def apply(
+        self, stmt: Select[tuple[Any, ...]], entity: type[BaseModel]
+    ) -> Select[tuple[Any, ...]]:
+        """Wrap the inner filter's condition in EXISTS over the relationship."""
+        relationship_attr = getattr(entity, self.field)
+        target_class = relationship_attr.property.mapper.class_
+        applied = self.inner.apply(sa_select(target_class), target_class)
+        condition = applied.whereclause
+        if condition is None:
+            return stmt
+        # `.any()` for to-many (uselist=True), `.has()` for to-one.
+        op = (
+            relationship_attr.any
+            if relationship_attr.property.uselist
+            else relationship_attr.has
+        )
+        return stmt.where(op(condition))

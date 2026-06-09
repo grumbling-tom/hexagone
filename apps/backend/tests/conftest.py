@@ -22,6 +22,8 @@ from src.app.repository import (
     UploadStatus,
     UploadStatusValue,
     User,
+    UserGroup,
+    UserGroupMembership,
 )
 from src.app.services.password import hash_password
 from src.app.services.storage import S3StorageBackend
@@ -160,6 +162,87 @@ def create_hex_claim(test_db: Session) -> Callable[..., HexClaim]:
     return _factory
 
 
+@pytest.fixture
+def create_user(test_db: Session) -> Callable[..., User]:
+    """Return a factory that creates additional users beyond ``test_user``."""
+
+    def _factory(
+        *,
+        email: str | None = None,
+        password: str = "testpassword123",
+    ) -> User:
+        unique_email = email or f"user-{uuid.uuid4()}@example.com"
+        user = User(
+            email=unique_email,
+            password_hash=hash_password(password),
+        )
+        test_db.add(user)
+        test_db.commit()
+        test_db.refresh(user)
+        return user
+
+    return _factory
+
+
+@pytest.fixture
+def create_group(test_db: Session, test_user: User) -> Callable[..., UserGroup]:
+    """Return a factory that creates a UserGroup with the owner's membership.
+
+    Args passed to the returned callable:
+        name: Group name (default "Test Group").
+        owner: User who owns the group (defaults to ``test_user``).
+    """
+
+    def _factory(
+        *,
+        name: str = "Test Group",
+        owner: User | None = None,
+    ) -> UserGroup:
+        actual_owner = owner or test_user
+        group = UserGroup(name=name, owner_uid=actual_owner.uid, archived=False)
+        test_db.add(group)
+        test_db.flush()
+        test_db.add(
+            UserGroupMembership(
+                user_uid=actual_owner.uid,
+                user_group_uid=group.uid,
+            )
+        )
+        test_db.commit()
+        test_db.refresh(group)
+        return group
+
+    return _factory
+
+
+@pytest.fixture
+def create_membership(
+    test_db: Session,
+) -> Callable[..., UserGroupMembership]:
+    """Return a factory that adds an existing user to a group.
+
+    Args:
+        group: The group to join.
+        user: The user being added.
+    """
+
+    def _factory(
+        *,
+        group: UserGroup,
+        user: User,
+    ) -> UserGroupMembership:
+        membership = UserGroupMembership(
+            user_uid=user.uid,
+            user_group_uid=group.uid,
+        )
+        test_db.add(membership)
+        test_db.commit()
+        test_db.refresh(membership)
+        return membership
+
+    return _factory
+
+
 def _make_get_db(db: Session) -> Generator[Session]:
     """Create a get_db override that yields the given session."""
     yield db
@@ -182,6 +265,24 @@ def client(test_db: Session, test_user: User) -> Generator[TestClient]:
         yield c
 
     app.dependency_overrides.clear()
+
+
+@pytest.fixture
+def authenticate_as(
+    test_db: Session, client: TestClient
+) -> Callable[[User], TestClient]:
+    """Return a helper that re-authenticates the existing test client as a user.
+
+    Swaps the ``sessionid`` cookie on the shared client so subsequent
+    requests act as ``user``. Returns the same client for chaining.
+    """
+
+    def _switch(user: User) -> TestClient:
+        session = create_session(test_db, user.uid, "testclient", "testclient")
+        client.cookies.set("sessionid", session.uid)
+        return client
+
+    return _switch
 
 
 @pytest.fixture

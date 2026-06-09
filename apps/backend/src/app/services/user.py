@@ -3,9 +3,11 @@
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session as DBSession
 
-from src.app.repository import EqualsFilter, Repository, User
+from src.app.repository import EqualsFilter, RelationFilter, Repository, User
 from src.app.services.password import hash_password, verify_password
-from src.app.utils import get_logger
+from src.app.services.user_group import UserGroupNotFoundError, get_group
+from src.app.settings import settings
+from src.app.utils import PaginatedResult, SortOrder, get_logger
 
 logger = get_logger(__name__)
 
@@ -80,3 +82,36 @@ def create_user(db: DBSession, email: str, password: str) -> User:
     db.refresh(user)
     logger.info("user_created", user_uid=user.uid, email=email)
     return user
+
+
+def list_users(
+    db: DBSession,
+    caller: User,
+    *,
+    group_uid: str,
+    page_size: int = settings.DEFAULT_PAGE_SIZE,
+    cursor: str | None = None,
+) -> PaginatedResult[User]:
+    """List users who are members of the given group.
+
+    Visibility delegates to ``user_group_service.get_group``, which uses
+    ``permission_filters(caller, UserGroup)`` to permit owner-OR-member
+    access. Raises ``UserGroupNotFoundError`` when the caller can see
+    neither — the router translates to 404 (no existence leak).
+    """
+    group = get_group(db, caller, group_uid)
+    if group is None:
+        raise UserGroupNotFoundError(group_uid)
+
+    return Repository(db, User).get_filtered(
+        filters=[
+            RelationFilter(
+                field="user_groups",
+                inner=EqualsFilter(field="uid", value=group_uid),
+            ),
+        ],
+        sort_field=User.uid,
+        sort_order=SortOrder.ASC,
+        page_size=page_size,
+        cursor=cursor,
+    )

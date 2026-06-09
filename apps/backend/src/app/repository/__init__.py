@@ -29,7 +29,9 @@ from .filters import (
     LikeFilter,
     NotEqualsFilter,
     NotInFilter,
+    OrFilter,
     RangeFilter,
+    RelationFilter,
 )
 from .models import (
     HexClaim,
@@ -37,6 +39,8 @@ from .models import (
     UploadStatus,
     UploadStatusValue,
     User,
+    UserGroup,
+    UserGroupMembership,
     UserSession,
 )
 from .repository import Repository
@@ -57,13 +61,17 @@ __all__ = [
     "LikeFilter",
     "NotEqualsFilter",
     "NotInFilter",
+    "OrFilter",
     "RangeFilter",
+    "RelationFilter",
     "Repository",
     "SessionLocal",
     "Upload",
     "UploadStatus",
     "UploadStatusValue",
     "User",
+    "UserGroup",
+    "UserGroupMembership",
     "UserSession",
     "View",
     "check_database_health",
