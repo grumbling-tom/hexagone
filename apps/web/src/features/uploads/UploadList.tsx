@@ -13,8 +13,8 @@ import {
   getListUploadsQueryKey,
   useListUploads,
 } from "@/__generated__/backend-client/uploads";
-import UploadForm from "@/components/UploadForm";
-import UploadHelp from "@/components/UploadHelp";
+import UploadForm from "@/features/uploads/UploadForm";
+import UploadHelp from "@/features/uploads/UploadHelp";
 
 const STATUS_LABELS: Record<string, { label: string; modifier: string }> = {
   [UploadStatusValue.UPLOAD_PENDING]: {

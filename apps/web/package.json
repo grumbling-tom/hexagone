@@ -10,6 +10,7 @@
     "test": "vitest run",
     "check": "tsc --noEmit",
     "lint:css": "stylelint 'src/**/*.css'",
+    "lint:imports": "node scripts/check-imports.mjs",
     "test:watch": "vitest",
     "api:gen-spec": "UV_WORKING_DIRECTORY=../backend uv run python src/scripts/generate_openapi.py",
     "api:gen-client": "orval --config ./orval.config.ts",

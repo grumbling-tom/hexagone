@@ -21,6 +21,10 @@ pre-commit:
     typecheck:
       root: apps/web/
       run: pnpm exec astro check
+    check-imports:
+      root: apps/web/
+      glob: "*.{ts,tsx,mts,cts}"
+      run: pnpm lint:imports
     ruff-lint:
       root: apps/backend/
       glob: "*.py"

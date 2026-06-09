@@ -17,8 +17,10 @@ export default function Nav() {
 
   return (
     <nav className="nav">
-      <NavLink to="/">Dashboard</NavLink>
-      <NavLink to="/settings">Settings</NavLink>
+      <NavLink to="/" end>
+        Map
+      </NavLink>
+      <NavLink to="/uploads">Uploads</NavLink>
       <button
         className="button nav__logout"
         type="button"

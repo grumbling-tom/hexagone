@@ -4,6 +4,57 @@
 
 Use `pnpm` exclusively. Never use `npm` or `npx`.
 
+## Frontend File Organisation
+
+Code under `apps/web/src/` is grouped by **feature**, not by file type. New components default to a feature folder; only promote to top-level `components/` once something is genuinely reused across features.
+
+```
+apps/web/src/
+  app/                  App shell: routing, providers, page chrome
+    App.tsx             Root <BrowserRouter> + <QueryClientProvider>
+    Nav.tsx             Top nav
+    ProtectedRoute.tsx  Auth guard
+    pages/              Route components — kept thin, compose feature components
+  features/             One folder per domain feature
+    uploads/
+      UploadList.tsx
+      UploadForm.tsx
+      ...
+    map/                (added when MapView lands)
+  components/           Truly shared, generic primitives (e.g. Button) — empty until needed
+  lib/                  Cross-cutting non-React utilities (fetch client, etc.)
+  styles/               theme.css + main.css (see CSS section below)
+  __generated__/        Orval-generated API client — do not edit by hand
+  pages/                Astro entry points (`index.astro`, `app.astro`) — not React routes
+```
+
+**Where to put a new file**:
+- Used by exactly one feature → `features/<feature>/`
+- Part of the app chrome or routing → `app/`
+- Reused across two or more features → `components/`
+- Non-React utility → `lib/`
+
+**Imports**: always use the `@/` alias (mapped to `src/`). Do not use deep relative paths like `../../features/uploads/UploadList`.
+
+### Frontend Import Rules
+
+Adapted from [bulletproof-react](https://github.com/alan2207/bulletproof-react/blob/master/docs/project-structure.md). Enforced by `pnpm lint:imports` (script at `apps/web/scripts/check-imports.mjs`, runs on pre-commit via lefthook).
+
+Two rules:
+
+1. **No cross-feature imports.** A file in `features/uploads/` may not import from `features/map/`. Compose features at the page/app layer instead.
+2. **Unidirectional layers.** Code flows `shared → features → app`, never the other way:
+
+   | From ↓ \ To →             | `app/` | `features/` | shared (`components`, `hooks`, `lib`, `types`, `utils`) |
+   | ------------------------- | ------ | ----------- | ------------------------------------------------------- |
+   | `app/`                    | ✅     | ✅          | ✅                                                       |
+   | `features/<x>/`           | ❌     | only `<x>`  | ✅                                                       |
+   | shared layers             | ❌     | ❌          | ✅                                                       |
+
+   Anything outside these layers (e.g. `__generated__/`, `styles/`, Astro `pages/`) is unrestricted on both sides.
+
+If you need to share something between two features, lift it into one of the shared layers — don't import sideways. If two features genuinely depend on each other, that's a sign they're one feature.
+
 ## CSS Styling — BEM Conventions
 
 All styles use **BEM** (Block Element Modifier) class names. No inline `style` props, no CSS-in-JS, no utility frameworks.

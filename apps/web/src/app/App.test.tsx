@@ -15,6 +15,18 @@ vi.mock("@/__generated__/backend-client/users", async (importOriginal) => {
   };
 });
 
+vi.mock("@/__generated__/backend-client/uploads", () => ({
+  useListUploads: vi.fn(() => ({
+    data: undefined,
+    isLoading: true,
+    isError: false,
+  })),
+  useCreateUpload: vi.fn(() => ({
+    mutateAsync: vi.fn(),
+    isPending: false,
+  })),
+}));
+
 import { useGetCurrentUser } from "@/__generated__/backend-client/users";
 
 function renderWithProviders(route: string) {
@@ -44,7 +56,7 @@ test("redirects unauthenticated users to login", () => {
   expect(screen.getByRole("heading", { name: "Log in" })).toBeInTheDocument();
 });
 
-test("renders dashboard for authenticated users", () => {
+test("renders map page for authenticated users", () => {
   (useGetCurrentUser as Mock).mockReturnValue({
     data: { id: "1", email: "test@example.com" },
     isLoading: false,
@@ -52,16 +64,18 @@ test("renders dashboard for authenticated users", () => {
 
   renderWithProviders("/");
   expect(
-    screen.getByRole("heading", { name: "Dashboard" }),
+    screen.getByRole("heading", { name: "Your map will appear here" }),
   ).toBeInTheDocument();
 });
 
-test("renders settings for authenticated users", () => {
+test("renders uploads page for authenticated users", () => {
   (useGetCurrentUser as Mock).mockReturnValue({
     data: { id: "1", email: "test@example.com" },
     isLoading: false,
   });
 
-  renderWithProviders("/settings");
-  expect(screen.getByRole("heading", { name: "Settings" })).toBeInTheDocument();
+  renderWithProviders("/uploads");
+  expect(
+    screen.getByRole("heading", { name: "Upload a GPX file" }),
+  ).toBeInTheDocument();
 });

@@ -1,6 +1,6 @@
 import { Navigate, Outlet } from "react-router-dom";
 import { useGetCurrentUser } from "@/__generated__/backend-client/users";
-import Nav from "@/components/Nav";
+import Nav from "@/app/Nav";
 
 export default function ProtectedRoute() {
   const { data: user, isLoading } = useGetCurrentUser({
