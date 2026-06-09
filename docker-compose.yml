@@ -108,6 +108,7 @@ services:
       # https://docs.localstack.cloud/aws/capabilities/config/credentials/#structured-access-key-id
       AWS_ACCESS_KEY_ID: "000000000000"
       AWS_SECRET_ACCESS_KEY: test
+      THROTTLE_DELAY_SECONDS: 0.5
     depends_on:
       postgres:
         condition: service_healthy

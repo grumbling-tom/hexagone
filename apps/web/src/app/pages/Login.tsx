@@ -3,7 +3,7 @@ import type { SubmitEvent } from "react";
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useCreateUserSession } from "@/__generated__/backend-client/user-sessions";
-import { getGetCurrentUserQueryKey } from "@/__generated__/backend-client/users";
+import { getGetCurrentUserQueryOptions } from "@/__generated__/backend-client/users";
 import { HttpStatus } from "@/lib/fetch-client";
 
 export default function Login() {
@@ -16,9 +16,9 @@ export default function Login() {
   const login = useCreateUserSession({
     mutation: {
       onSuccess: async () => {
-        await queryClient.invalidateQueries({
-          queryKey: getGetCurrentUserQueryKey(),
-        });
+        // Proactively update the current user data in the cache after logging in,
+        // so that we don't have to wait for the next refetch to update the UI.
+        await queryClient.fetchQuery(getGetCurrentUserQueryOptions());
         navigate("/");
       },
       onError: (err) => {

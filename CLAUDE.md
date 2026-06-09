@@ -40,7 +40,7 @@ apps/web/src/
 
 Adapted from [bulletproof-react](https://github.com/alan2207/bulletproof-react/blob/master/docs/project-structure.md). Enforced by `pnpm lint:imports` (script at `apps/web/scripts/check-imports.mjs`, runs on pre-commit via lefthook).
 
-Two rules:
+Three rules:
 
 1. **No cross-feature imports.** A file in `features/uploads/` may not import from `features/map/`. Compose features at the page/app layer instead.
 2. **Unidirectional layers.** Code flows `shared → features → app`, never the other way:
@@ -52,6 +52,7 @@ Two rules:
    | shared layers             | ❌     | ❌          | ✅                                                       |
 
    Anything outside these layers (e.g. `__generated__/`, `styles/`, Astro `pages/`) is unrestricted on both sides.
+3. **No routing in features.** Files in `features/` must not import from `react-router-dom` (or any other routing library) — including `Link`, `useNavigate`, `useLocation`, `useParams`, `Outlet`, etc. Routing is an app-level concern: the URL structure is a property of the app, not of any individual feature. When a feature component needs a CTA that navigates somewhere, accept the link as a `ReactNode` slot prop (or take an `onClick` callback) and let the parent in `app/pages/` supply the actual `<Link>`. Keeps features testable without `<MemoryRouter>` providers, embeddable in non-routed contexts (modals, Storybook, marketing pages), and free of assumptions about the app's URL shape.
 
 If you need to share something between two features, lift it into one of the shared layers — don't import sideways. If two features genuinely depend on each other, that's a sign they're one feature.
 

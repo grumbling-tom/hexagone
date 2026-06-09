@@ -1,3 +1,5 @@
+@import "maplibre-gl/dist/maplibre-gl.css";
+
 /* Reset */
 *,
 *::before,
@@ -103,6 +105,12 @@ a {
 .map-page {
   padding: 0;
   max-width: none;
+}
+
+/** @define hex-map */
+.hex-map {
+  position: relative;
+  height: 100vh;
 }
 
 /** @define map-skeleton */

@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import type { ReactNode } from "react";
 
 const HEX_RADIUS = 20;
 const VIEW_W = 400;
@@ -52,7 +52,11 @@ function buildGrid() {
   return cells;
 }
 
-export default function HexMap() {
+interface EmptyMapProps {
+  uploadsLink: ReactNode;
+}
+
+export default function EmptyMap({ uploadsLink }: EmptyMapProps) {
   const cells = buildGrid();
 
   return (
@@ -82,9 +86,7 @@ export default function HexMap() {
             Upload a GPX file and Hexagone will colour in the hexagons you've
             covered.
           </p>
-          <Link to="/uploads" className="button button--primary">
-            Add your first upload
-          </Link>
+          {uploadsLink}
         </div>
       </section>
     </main>
