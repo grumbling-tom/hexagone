@@ -1,0 +1,75 @@
+# Postgres — SKELETON (task #2, gated).
+#
+# DECISION still open: run Postgres in-cluster (this file) vs. reach the existing
+# AWS RDS over the Tailscale subnet router. In-cluster keeps data local to the
+# Mac mini (simplest, no AWS dependency) BUT durability/backups become your
+# responsibility — local-path PVC is a single disk on the Mac. If you keep RDS,
+# delete this file and point DATABASE_URL at the RDS host over the tailnet.
+#
+# Uses k3s's built-in local-path provisioner for storage. Confirm it is the
+# default StorageClass:  kubectl get storageclass
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres
+  labels:
+    app: postgres
+spec:
+  serviceName: postgres
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres
+  template:
+    metadata:
+      labels:
+        app: postgres
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:17-alpine # matches docker-compose.yml
+          ports:
+            - name: postgres
+              containerPort: 5432
+          envFrom:
+            - secretRef:
+                name: postgres-secrets # TODO: create (POSTGRES_USER/PASSWORD/DB)
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+              subPath: pgdata
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "postgres"]
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 250m
+              memory: 256Mi
+            limits:
+              memory: 1Gi
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 10Gi
+        # storageClassName omitted => k3s default (local-path)
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+  labels:
+    app: postgres
+spec:
+  clusterIP: None # headless, for the StatefulSet
+  selector:
+    app: postgres
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: postgres

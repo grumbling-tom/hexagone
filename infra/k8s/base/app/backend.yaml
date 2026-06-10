@@ -1,0 +1,71 @@
+# Hexagone FastAPI backend — SKELETON (task #2, gated on open decisions below).
+#
+# TODO before this is production-ready:
+#  - image: build a long-running server image (the repo currently only has
+#    Dockerfile.lambda; its `dev` target already runs uvicorn — see
+#    docker-compose.yml). Push to a registry and set the tag in the
+#    production overlay (infra/k8s/production/kustomization.yaml `images:`).
+#  - config/secrets: create `hexagone-backend-config` (ConfigMap) and
+#    `hexagone-backend-secrets` (Secret) — see infra/k8s/README.md.
+#  - readinessProbe: switch the TCP check to the real health endpoint once confirmed.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hexagone-backend
+  labels:
+    app: hexagone-backend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: hexagone-backend
+  template:
+    metadata:
+      labels:
+        app: hexagone-backend
+    spec:
+      containers:
+        - name: backend
+          image: hexagone-backend:latest # TODO: set real registry/tag in overlay
+          command:
+            - uv
+            - run
+            - uvicorn
+            - src.app.main:app
+            - --host
+            - "0.0.0.0"
+            - --port
+            - "8000"
+          ports:
+            - name: http
+              containerPort: 8000
+          envFrom:
+            - configMapRef:
+                name: hexagone-backend-config # TODO: create (ENV, DATABASE_URL, etc.)
+            - secretRef:
+                name: hexagone-backend-secrets # TODO: create (AWS creds, etc.)
+          readinessProbe:
+            tcpSocket: # TODO: replace with httpGet on the real health path
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              memory: 512Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hexagone-backend
+  labels:
+    app: hexagone-backend
+spec:
+  selector:
+    app: hexagone-backend
+  ports:
+    - name: http
+      port: 8000
+      targetPort: http

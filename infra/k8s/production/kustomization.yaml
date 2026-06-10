@@ -1,0 +1,16 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# Production overlay. Apply with:  kubectl apply -k infra/k8s/production
+# Everything lands in the `default` namespace for now.
+namespace: default
+
+resources:
+  - ../base
+
+# Pin our own app image per-environment here (third-party images are pinned in
+# base). Uncomment and set once the backend image is built and pushed:
+# images:
+#   - name: hexagone-backend
+#     newName: ghcr.io/OWNER/hexagone-backend
+#     newTag: "0.1.0"
