@@ -23,6 +23,17 @@ class Settings(BaseSettings):
 
     ENV: Literal["TEST", "DEV", "STAGING", "PROD"] = "DEV"
     DATABASE_URL: str = ""
+
+    # Connection-pool settings for the persistent (non-Lambda) service. Only
+    # applied to Postgres engines; SQLite (DEV/TEST) ignores them. With a
+    # multi-worker server, total connections = workers * (DB_POOL_SIZE +
+    # DB_MAX_OVERFLOW), which must stay under RDS max_connections (~112 on
+    # db.t4g.micro).
+    DB_POOL_SIZE: int = 10
+    DB_MAX_OVERFLOW: int = 5
+    DB_POOL_RECYCLE_SECONDS: int = 300
+    DB_POOL_TIMEOUT_SECONDS: int = 30
+
     DEFAULT_PAGE_SIZE: int = 20
     SESSION_COOKIE_NAME: str = "sessionid"
     SESSION_EXPIRY_HOURS: int = 24

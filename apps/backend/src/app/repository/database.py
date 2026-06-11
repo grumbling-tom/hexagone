@@ -3,7 +3,7 @@ from collections.abc import Generator
 from contextlib import contextmanager
 from datetime import UTC, datetime
 
-from sqlalchemy import DateTime, String, create_engine, text
+from sqlalchemy import DateTime, String, create_engine, make_url, text
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sessionmaker
 
@@ -12,14 +12,29 @@ from ..utils import get_logger
 
 logger = get_logger(__name__)
 
-engine = create_engine(
-    settings.DATABASE_URL,
-    pool_pre_ping=True,
-    # We run on AWS Lambda, which will create a new instance for each invocation,
-    # so we don't need a connection pool.
-    pool_size=1,
-    max_overflow=0,
-)
+
+def _engine_kwargs() -> dict[str, object]:
+    """Build engine kwargs appropriate for the configured database dialect.
+
+    Running as a persistent service (not Lambda), Postgres connections are
+    pooled and recycled so concurrent requests don't serialise on a single
+    connection and stale connections are replaced after RDS idle timeouts.
+    SQLite (DEV/TEST) keeps its default pool — QueuePool sizing args don't
+    apply to it.
+    """
+    if make_url(settings.DATABASE_URL).get_backend_name() == "sqlite":
+        return {}
+
+    return {
+        "pool_pre_ping": True,
+        "pool_size": settings.DB_POOL_SIZE,
+        "max_overflow": settings.DB_MAX_OVERFLOW,
+        "pool_recycle": settings.DB_POOL_RECYCLE_SECONDS,
+        "pool_timeout": settings.DB_POOL_TIMEOUT_SECONDS,
+    }
+
+
+engine = create_engine(settings.DATABASE_URL, **_engine_kwargs())
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
