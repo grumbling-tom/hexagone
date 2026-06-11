@@ -1,7 +1,3 @@
-const PUBLIC_BACKEND_BASE_URL = (
-  import.meta.env.PUBLIC_BACKEND_BASE_URL ?? ""
-).replace(/\/+$/, "");
-
 export enum HttpStatus {
   UNAUTHORIZED = 401,
   CONFLICT = 409,
@@ -30,10 +26,8 @@ export async function fetchClient<T>(config: {
   >;
   signal?: AbortSignal;
 }): Promise<T> {
-  const url = new URL(
-    `${PUBLIC_BACKEND_BASE_URL}${config.url}`,
-    window.location.origin,
-  );
+  // Same-origin: Next proxies /api to the backend (next.config.mjs rewrites).
+  const url = new URL(config.url, window.location.origin);
 
   if (config.params) {
     for (const [key, value] of Object.entries(config.params)) {

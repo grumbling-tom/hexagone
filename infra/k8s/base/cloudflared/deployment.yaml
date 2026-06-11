@@ -7,9 +7,8 @@
 #
 # Token-based ("remotely-managed") tunnel: the hostname -> service routing is
 # managed by Terraform (infra/terraform/cloudflare.tf), not a local config file.
-# This k3s has no ingress controller, so cloudflared itself path-splits the public
-# hostname — /api -> hexagone-backend, everything else -> hexagone-web — routing
-# straight to the in-cluster Services.
+# cloudflared points at a single origin — the Next.js hexagone-web Service, which
+# serves the UI and proxies /api to the backend itself (no path-split here).
 #
 # The TUNNEL_TOKEN is supplied via a Secret created out-of-band (never in git),
 # piped from the Terraform output:
