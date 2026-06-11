@@ -28,12 +28,20 @@ resource "cloudflare_zero_trust_tunnel_cloudflared_config" "app" {
   account_id = var.cloudflare_account_id
   tunnel_id  = cloudflare_zero_trust_tunnel_cloudflared.app.id
 
+  # cloudflared does the path split itself (this k3s ships no ingress controller),
+  # routing straight to the in-cluster Services. `path` is a regex, first match
+  # wins, so the /api rule must precede the catch-all. The original path is passed
+  # through unmodified (backend serves /api/..., nginx serves the SPA at /).
   config = {
     ingress = [
       {
         hostname = local.app_hostname
-        # In-cluster Traefik applies the Ingress rules in infra/k8s.
-        service = "http://traefik.kube-system.svc.cluster.local:80"
+        path     = "^/api"
+        service  = "http://hexagone-backend.default.svc.cluster.local:8000"
+      },
+      {
+        hostname = local.app_hostname
+        service  = "http://hexagone-web.default.svc.cluster.local:80"
       },
       # Required catch-all.
       { service = "http_status:404" },

@@ -1,13 +1,10 @@
-# Hexagone FastAPI backend — SKELETON (task #2, gated on open decisions below).
+# Hexagone FastAPI backend.
 #
-# TODO before this is production-ready:
-#  - image: build a long-running server image (the repo currently only has
-#    Dockerfile.lambda; its `dev` target already runs uvicorn — see
-#    docker-compose.yml). Push to a registry and set the tag in the
-#    production overlay (infra/k8s/production/kustomization.yaml `images:`).
-#  - config/secrets: create `hexagone-backend-config` (ConfigMap) and
-#    `hexagone-backend-secrets` (Secret) — see infra/k8s/README.md.
-#  - readinessProbe: switch the TCP check to the real health endpoint once confirmed.
+# Image: built from apps/backend/Dockerfile (production ASGI image, no Lambda
+# runtime) — see infra/k8s/README.md.
+# Non-secret config is inline below (in git). The only out-of-band object is the
+# `hexagone-backend-secrets` Secret (Tigris keys) — see the README. DATABASE_URL
+# is neither inline nor in that secret; it comes from the CNPG-managed secret.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -15,7 +12,7 @@ metadata:
   labels:
     app: hexagone-backend
 spec:
-  replicas: 2
+  replicas: 1 # single-node box: extra replicas add no HA (and avoid the migrate race)
   selector:
     matchLabels:
       app: hexagone-backend
@@ -24,28 +21,62 @@ spec:
       labels:
         app: hexagone-backend
     spec:
+      # Run DB migrations before the server starts, from the same image. alembic
+      # reads DATABASE_URL via src/app/settings, exactly as the app does.
+      # NOTE: with replicas > 1, every pod runs this on first rollout, so the
+      # migrations race. Alembic isn't concurrency-safe — losers exit non-zero and
+      # kubelet retries them; by retry, head is already applied so they no-op and
+      # succeed. If that churn ever bites, promote this to a one-shot Job and have
+      # the pods wait on it instead.
+      initContainers:
+        - name: migrate
+          image: hexagone-backend:latest
+          imagePullPolicy: IfNotPresent
+          command: ["alembic", "upgrade", "head"]
+          # Migrations only need the DB; ENV=PROD so settings.py applies the same
+          # URL handling (sslmode=require) as the app.
+          env:
+            - name: ENV
+              value: PROD
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: hexagone-db-app
+                  key: uri
       containers:
         - name: backend
-          image: hexagone-backend:latest # TODO: set real registry/tag in overlay
-          command:
-            - uv
-            - run
-            - uvicorn
-            - src.app.main:app
-            - --host
-            - "0.0.0.0"
-            - --port
-            - "8000"
+          image: hexagone-backend:latest
+          imagePullPolicy: IfNotPresent # use the locally-built image, don't pull
+          command: ["uvicorn", "src.app.main:app", "--host", "0.0.0.0", "--port", "8000"]
           ports:
             - name: http
               containerPort: 8000
+          env:
+            - name: ENV
+              value: PROD
+            # CNPG publishes the connection URI (incl. host, port, credentials) in
+            # the cluster's app secret. settings.py adds sslmode=require on top.
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: hexagone-db-app
+                  key: uri
+            # Object storage for presigned GPX upload/download URLs (Tigris).
+            # Region must be "auto" for Tigris (settings default eu-west-1 is AWS).
+            - name: HEXAGONE_S3_ENDPOINT_URL
+              value: "https://t3.storage.dev"
+            - name: HEXAGONE_AWS_REGION
+              value: "auto"
+            - name: HEXAGONE_S3_BUCKET
+              value: "hexagone-gpx-uploads" # adjust to your Tigris bucket
           envFrom:
-            - configMapRef:
-                name: hexagone-backend-config # TODO: create (ENV, DATABASE_URL, etc.)
+            # Only secrets remain out of band: AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY
+            # (Tigris keys). Non-secret config is inline above.
             - secretRef:
-                name: hexagone-backend-secrets # TODO: create (AWS creds, etc.)
+                name: hexagone-backend-secrets
           readinessProbe:
-            tcpSocket: # TODO: replace with httpGet on the real health path
+            httpGet:
+              path: /api/health # unversioned health endpoint (backend CLAUDE.md)
               port: 8000
             initialDelaySeconds: 5
             periodSeconds: 10

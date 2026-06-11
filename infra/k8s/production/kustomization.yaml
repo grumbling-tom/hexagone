@@ -8,9 +8,14 @@ namespace: default
 resources:
   - ../base
 
-# Pin our own app image per-environment here (third-party images are pinned in
-# base). Uncomment and set once the backend image is built and pushed:
+# Single-node Colima: images are built and imported straight into k3s containerd
+# as hexagone-backend:latest / hexagone-web:latest (imagePullPolicy: IfNotPresent
+# in base), so no registry/override is needed. When a registry enters the picture,
+# pin per-environment here:
 # images:
 #   - name: hexagone-backend
 #     newName: ghcr.io/OWNER/hexagone-backend
+#     newTag: "0.1.0"
+#   - name: hexagone-web
+#     newName: ghcr.io/OWNER/hexagone-web
 #     newTag: "0.1.0"

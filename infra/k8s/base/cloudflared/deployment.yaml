@@ -5,15 +5,16 @@
 # inbound port is ever opened on the Mac mini. Cloudflare terminates TLS, serves
 # the custom domain, and is where you add WAF / rate-limiting / bot rules.
 #
-# Token-based ("remotely-managed") tunnel: the hostname -> service routing lives
-# in the Cloudflare Zero Trust dashboard (Networks -> Tunnels -> your tunnel ->
-# Public Hostnames). Point that public hostname at the in-cluster Traefik:
-#     Service: http://traefik.kube-system.svc.cluster.local:80
-# Traefik then applies the Ingress rules in app/ingress.yaml (routing stays in git).
+# Token-based ("remotely-managed") tunnel: the hostname -> service routing is
+# managed by Terraform (infra/terraform/cloudflare.tf), not a local config file.
+# This k3s has no ingress controller, so cloudflared itself path-splits the public
+# hostname — /api -> hexagone-backend, everything else -> hexagone-web — routing
+# straight to the in-cluster Services.
 #
-# The TUNNEL_TOKEN is supplied via a Secret created out-of-band (never in git):
+# The TUNNEL_TOKEN is supplied via a Secret created out-of-band (never in git),
+# piped from the Terraform output:
 #   kubectl create secret generic cloudflared-token \
-#     --from-literal=token='eyJ...'   # the token from the dashboard
+#     --from-literal=token="$(terraform -chdir=infra/terraform output -raw cloudflared_token)"
 #
 # Pattern adapted from Cloudflare's k8s guide:
 # https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/deployment-guides/kubernetes/
@@ -24,9 +25,10 @@ metadata:
   labels:
     app: cloudflared
 spec:
-  # Two replicas => the tunnel keeps >1 edge connection, so a pod restart never
-  # drops the public endpoint. cloudflared handles this natively.
-  replicas: 2
+  # Single-node box: 1 replica. One cloudflared pod still opens 4 edge connections
+  # (connection-level redundancy), so steady state is fine; the only gap is the few
+  # seconds during a pod restart/rollout. Bump to 2 if you want zero-gap restarts.
+  replicas: 1
   selector:
     matchLabels:
       app: cloudflared
