@@ -4,8 +4,8 @@ This module provides a unified AWS Lambda handler for database operations:
 - migrate: Apply pending database migrations using Alembic
 - reset: Drop all tables and reapply migrations (destructive)
 
-The handler is invoked by GitHub Actions workflows and Terraform provisioners
-with different action payloads to perform the appropriate operation.
+The handler is invoked by deployment workflows with different action
+payloads to perform the appropriate operation.
 """
 
 import subprocess
