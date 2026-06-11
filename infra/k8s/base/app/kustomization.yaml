@@ -1,0 +1,10 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# App workloads. Postgres is a CloudNativePG Cluster CR (the operator is a
+# separate one-time install — see postgres.yaml / README). Requires the backend
+# and web images imported into containerd, plus the out-of-band Secrets/ConfigMap.
+resources:
+  - backend.yaml
+  - frontend.yaml
+  - postgres.yaml

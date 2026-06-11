@@ -1,0 +1,102 @@
+# Hexagone FastAPI backend.
+#
+# Image: built from apps/backend/Dockerfile (production ASGI image, no Lambda
+# runtime) — see infra/k8s/README.md.
+# Non-secret config is inline below (in git). The only out-of-band object is the
+# `hexagone-backend-secrets` Secret (Tigris keys) — see the README. DATABASE_URL
+# is neither inline nor in that secret; it comes from the CNPG-managed secret.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hexagone-backend
+  labels:
+    app: hexagone-backend
+spec:
+  replicas: 1 # single-node box: extra replicas add no HA (and avoid the migrate race)
+  selector:
+    matchLabels:
+      app: hexagone-backend
+  template:
+    metadata:
+      labels:
+        app: hexagone-backend
+    spec:
+      # Run DB migrations before the server starts, from the same image. alembic
+      # reads DATABASE_URL via src/app/settings, exactly as the app does.
+      # NOTE: with replicas > 1, every pod runs this on first rollout, so the
+      # migrations race. Alembic isn't concurrency-safe — losers exit non-zero and
+      # kubelet retries them; by retry, head is already applied so they no-op and
+      # succeed. If that churn ever bites, promote this to a one-shot Job and have
+      # the pods wait on it instead.
+      initContainers:
+        - name: migrate
+          image: hexagone-backend:latest
+          imagePullPolicy: IfNotPresent
+          command: ["alembic", "upgrade", "head"]
+          # Migrations only need the DB; ENV=PROD so settings.py applies the same
+          # URL handling (sslmode=require) as the app.
+          env:
+            - name: ENV
+              value: PROD
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: hexagone-db-app
+                  key: uri
+      containers:
+        - name: backend
+          image: hexagone-backend:latest
+          imagePullPolicy: IfNotPresent # use the locally-built image, don't pull
+          command: ["uvicorn", "src.app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+          ports:
+            - name: http
+              containerPort: 8000
+          env:
+            - name: ENV
+              value: PROD
+            # CNPG publishes the connection URI (incl. host, port, credentials) in
+            # the cluster's app secret. settings.py adds sslmode=require on top.
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: hexagone-db-app
+                  key: uri
+            # Object storage for presigned GPX upload/download URLs (Tigris).
+            # Region must be "auto" for Tigris (settings default eu-west-1 is AWS).
+            - name: HEXAGONE_S3_ENDPOINT_URL
+              value: "https://t3.storage.dev"
+            - name: HEXAGONE_AWS_REGION
+              value: "auto"
+            - name: HEXAGONE_S3_BUCKET
+              value: "hexagone-gpx-uploads" # adjust to your Tigris bucket
+          envFrom:
+            # Only secrets remain out of band: AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY
+            # (Tigris keys). Non-secret config is inline above.
+            - secretRef:
+                name: hexagone-backend-secrets
+          readinessProbe:
+            httpGet:
+              path: /api/health # unversioned health endpoint (backend CLAUDE.md)
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              memory: 512Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hexagone-backend
+  labels:
+    app: hexagone-backend
+spec:
+  selector:
+    app: hexagone-backend
+  ports:
+    - name: http
+      port: 8000
+      targetPort: http

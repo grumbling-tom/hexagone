@@ -1,0 +1,44 @@
+# Postgres via CloudNativePG (https://cloudnative-pg.io/docs/1.29/).
+#
+# The CNPG *operator* is a cluster-wide bootstrap install (CRDs + controller in
+# the cnpg-system namespace) — NOT part of this overlay, because the overlay's
+# `namespace: default` transformer would rewrite the operator's own namespace.
+# Install it once, out of band (see infra/k8s/README.md):
+#   kubectl apply --server-side -f \
+#     https://raw.githubusercontent.com/cloudnative-pg/cloudnative-pg/release-1.29/releases/cnpg-1.29.0.yaml
+# (confirm the exact patch tag at github.com/cloudnative-pg/cloudnative-pg/releases)
+#
+# This file is just the Cluster CR — an app-level resource that lives in default.
+#
+# Single instance: the Mac mini is one node, so HA replicas have nowhere to land.
+# CNPG still earns its place here for lifecycle management (in-place minor
+# upgrades, failover-on-restart, and continuous backup to object storage — it
+# can stream WAL to Tigris later via spec.backup.barmanObjectStore).
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: hexagone-db
+spec:
+  instances: 1
+  imageName: ghcr.io/cloudnative-pg/postgresql:17 # match docker-compose's pg17
+
+  storage:
+    size: 10Gi
+    # storageClass omitted => k3s default (local-path), a single disk on the Mac.
+
+  # CNPG creates database `hexagone` owned by role `hexagone`, generates a random
+  # password, and publishes it as Secret `hexagone-db-app` (keys: username,
+  # password, host, port, dbname, uri, ...). The backend reads DATABASE_URL from
+  # that secret's `uri` — see backend.yaml. CNPG enables TLS by default, so the
+  # backend's enforced `sslmode=require` (settings.py, PROD) is satisfied.
+  bootstrap:
+    initdb:
+      database: hexagone
+      owner: hexagone
+
+  resources:
+    requests:
+      cpu: 250m
+      memory: 256Mi
+    limits:
+      memory: 1Gi

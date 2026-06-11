@@ -1,0 +1,21 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# Production overlay. Apply with:  kubectl apply -k infra/k8s/production
+# Everything lands in the `default` namespace for now.
+namespace: default
+
+resources:
+  - ../base
+
+# Single-node Colima: images are built and imported straight into k3s containerd
+# as hexagone-backend:latest / hexagone-web:latest (imagePullPolicy: IfNotPresent
+# in base), so no registry/override is needed. When a registry enters the picture,
+# pin per-environment here:
+# images:
+#   - name: hexagone-backend
+#     newName: ghcr.io/OWNER/hexagone-backend
+#     newTag: "0.1.0"
+#   - name: hexagone-web
+#     newName: ghcr.io/OWNER/hexagone-web
+#     newTag: "0.1.0"
