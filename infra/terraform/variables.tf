@@ -10,11 +10,6 @@ variable "cloudflare_account_id" {
 }
 
 variable "cloudflare_zone_id" {
-  description = "Cloudflare zone ID for the app's domain."
-  type        = string
-}
-
-variable "app_hostname" {
-  description = "Public hostname for the app, e.g. app.example.com."
+  description = "Cloudflare zone ID for the app's domain. The public hostname is derived from this (see local.app_hostname in cloudflare.tf)."
   type        = string
 }

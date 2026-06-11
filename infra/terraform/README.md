@@ -28,12 +28,57 @@ aws s3 mb s3://hexagone-tfstate --endpoint-url https://t3.storage.dev
 
 ## Inputs
 
+`account_id` and `zone_id` are non-secret identifiers, committed in
+`terraform.tfvars`. Only the token is secret — supply it via the environment:
+
 ```bash
 export TF_VAR_cloudflare_api_token=...     # Account: Cloudflare Tunnel edit + Zone: DNS edit
-export TF_VAR_cloudflare_account_id=...
-export TF_VAR_cloudflare_zone_id=...
-export TF_VAR_app_hostname=app.example.com
 ```
+
+The public hostname isn't an input — it's derived from the zone (served at the
+apex). See `local.app_hostname` in `cloudflare.tf`; to use a subdomain later,
+change that local to `"app.${data.cloudflare_zone.app.name}"`.
+
+## Cloudflare API token
+
+Create a least-privilege custom token at
+<https://dash.cloudflare.com/profile/api-tokens> → **Create Token → Custom token**,
+with exactly the two permissions this config touches:
+
+| Type    | Permission       | Access |
+| ------- | ---------------- | ------ |
+| Account | Cloudflare Tunnel | Edit  |
+| Zone    | DNS               | Edit  |
+
+For **Zone · DNS**, pick the plain `DNS` group (edits DNS records) — *not* DNS
+Settings / DNS Firewall / DNS Views, which are unrelated products. Scope the
+resources to your account and the one zone. The token is shown **once** — copy
+it immediately and never commit it. Sanity-check it:
+
+```bash
+curl -s -H "Authorization: Bearer <token>" \
+  https://api.cloudflare.com/client/v4/user/tokens/verify   # expect "status":"active"
+```
+
+(If you later add the WAF rulesets, extend with Account · Account Rulesets · Edit.)
+
+### Store it in the macOS Keychain, not a dotfile
+
+Keep the token off disk in plaintext. The empty `-w` prompts twice, hidden, so
+it never lands in shell history:
+
+```bash
+security add-generic-password -a "$USER" -s cloudflare-api-token -w
+```
+
+Have Terraform read it at runtime (drop this into a gitignored direnv `.envrc`
+in this dir, or a shell function — not `~/.zshrc` as a literal):
+
+```bash
+export TF_VAR_cloudflare_api_token=$(security find-generic-password -a "$USER" -s cloudflare-api-token -w)
+```
+
+Rotate by deleting and re-adding: `security delete-generic-password -s cloudflare-api-token`.
 
 ## Apply
 

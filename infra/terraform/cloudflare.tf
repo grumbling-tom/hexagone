@@ -7,6 +7,17 @@
 # schema before apply:
 # https://registry.terraform.io/providers/cloudflare/cloudflare/latest/docs
 
+# The zone_id is the single source of truth for the domain — derive the public
+# hostname from it rather than repeating the domain in a variable. No subdomain
+# for now, so the app is served at the apex.
+data "cloudflare_zone" "app" {
+  zone_id = var.cloudflare_zone_id
+}
+
+locals {
+  app_hostname = data.cloudflare_zone.app.name
+}
+
 resource "cloudflare_zero_trust_tunnel_cloudflared" "app" {
   account_id = var.cloudflare_account_id
   name       = "hexagone-mini"
@@ -20,7 +31,7 @@ resource "cloudflare_zero_trust_tunnel_cloudflared_config" "app" {
   config = {
     ingress = [
       {
-        hostname = var.app_hostname
+        hostname = local.app_hostname
         # In-cluster Traefik applies the Ingress rules in infra/k8s.
         service = "http://traefik.kube-system.svc.cluster.local:80"
       },
@@ -33,7 +44,7 @@ resource "cloudflare_zero_trust_tunnel_cloudflared_config" "app" {
 # Proxied CNAME -> the tunnel. Cloudflare manages TLS for this hostname.
 resource "cloudflare_dns_record" "app" {
   zone_id = var.cloudflare_zone_id
-  name    = var.app_hostname
+  name    = local.app_hostname
   type    = "CNAME"
   content = "${cloudflare_zero_trust_tunnel_cloudflared.app.id}.cfargotunnel.com"
   proxied = true
