@@ -9,8 +9,6 @@ Fullstack platform with a FastAPI backend and Astro + React frontend.
 - Python >= 3.14
 - [uv](https://docs.astral.sh/uv/)
 - [Lefthook](https://github.com/evilmartians/lefthook)
-- [Terraform >= 1.6.0](https://developer.hashicorp.com/terraform/install) (for infrastructure)
-- [AWS CLI](https://aws.amazon.com/cli/) (for deployment)
 
 ## Getting Started
 
@@ -22,13 +20,6 @@ brew install lefthook
 pnpm -C apps/web install
 UV_WORKING_DIRECTORY=apps/backend uv sync
 lefthook install
-```
-
-For infrastructure development:
-
-```bash
-eval $(AWS_PROFILE=hexagone-local-dev AWS_ACCOUNT_ID=... scripts/assume-role.sh)
-terraform -chdir=terraform/production init
 ```
 
 ## Frontend (`apps/web/`)
@@ -127,8 +118,6 @@ hexagone/
 │       │   ├── routers/      # Route handlers
 │       │   └── utils/        # Logging, helpers
 │       └── tests/
-├── terraform/
-│   └── production/           # AWS infrastructure (S3, CloudFront, ACM, Route53)
 └── lefthook.yml              # Pre-commit hooks
 ```
 
@@ -146,71 +135,9 @@ Lefthook runs on every commit:
 - **Ruff** — lint + format check on staged Python files
 - **Pyright** — type checking for the API
 - **Validate migrations** — checks migration file numbering and one-per-PR rule
-- **Terraform fmt** — formatting check on `.tf` files
-- **Terraform validate** — config validation (requires `terraform init`)
 
 Install hooks after cloning:
 
 ```bash
 lefthook install
 ```
-
-## Deployment
-
-Infrastructure is managed with Terraform in `terraform/production/`. See [`terraform/README.md`](terraform/README.md) for full details.
-
-| Command                | Description                                       |
-| ---------------------- | ------------------------------------------------- |
-| `make deploy-frontend` | Build frontend, sync to S3, invalidate CloudFront |
-| `make deploy-backend`  | Build Docker image, push to ECR, update Lambda    |
-| `make deploy`          | Deploy both frontend and backend                  |
-
-## Connecting to the Production Database
-
-1. [Install Tailscale](https://tailscale.com/download) and log in to the Hexagone tailnet
-2. Accept the advertised subnet routes:
-
-   ```bash
-   tailscale up --accept-routes
-   ```
-
-3. Install `psql` if you don't have it:
-
-   ```bash
-   brew install libpq
-   ```
-
-4. Authenticate against AWS:
-
-   ```bash
-   eval $(AWS_PROFILE=hexagone-local-dev AWS_ACCOUNT_ID=... scripts/assume-role.sh)
-   ```
-
-5. Fetch the DB password:
-
-   ```bash
-   terraform -chdir=terraform/production output -raw db_password | pbcopy
-   ```
-
-6. Connect using the Terraform output:
-
-   ```bash
-   eval $(terraform -chdir=terraform/production output -raw db_connection_command)
-   ```
-
-### DBT credentials
-
-To set up environment variables for dbt (requires Tailscale and AWS auth from above):
-
-```bash
-eval $(bash scripts/dbt-env.sh)
-```
-
-This exports `DBT_HOST`, `DBT_PORT`, `DBT_USER`, `DBT_PASSWORD`, and `DBT_DBNAME` from Terraform outputs. The variables persist for the rest of your shell session.
-
-### How it works
-
-- The Tailscale EC2 instance (`terraform/production/tailscale.tf`) runs in a public subnet with IP forwarding enabled
-- It advertises the private subnet routes to the tailnet, so your machine can reach the RDS endpoint
-- The RDS security group allows inbound PostgreSQL (5432) from the Tailscale instance's security group
-- The Tailscale auth key expires after 90 days — see the rotation instructions at the top of `terraform/production/tailscale.tf`
