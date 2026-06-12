@@ -6,8 +6,15 @@ import { defineConfig } from "vitest/config";
 export default defineConfig({
   plugins: [react()],
   resolve: {
-    // Mirror the tsconfig "@/*" -> "./src/*" alias for tests.
-    alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) },
+    alias: {
+      // Mirror the tsconfig "@/*" -> "./src/*" alias for tests.
+      "@": fileURLToPath(new URL("./src", import.meta.url)),
+      // Neutralise the `server-only` guard so server modules can be imported
+      // (and mocked) under the happy-dom test environment.
+      "server-only": fileURLToPath(
+        new URL("./src/test/server-only-stub.ts", import.meta.url),
+      ),
+    },
   },
   test: {
     // App Router route files (and their co-located tests) live at apps/web/app/;

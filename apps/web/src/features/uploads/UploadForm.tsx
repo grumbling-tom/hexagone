@@ -1,7 +1,10 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { useCreateUpload } from "@/__generated__/backend-client/uploads";
+import type {
+  CreateUploadRequest,
+  UploadResponse,
+} from "@/__generated__/backend-client/backend.schemas";
 
 type Status =
   | "idle"
@@ -12,11 +15,16 @@ type Status =
   | "error";
 
 interface UploadFormProps {
+  // Server action (supplied by the route) that creates the upload record and
+  // returns a presigned URL. The file bytes are then PUT directly to object
+  // storage from the browser — that leg does not touch the backend API.
+  requestUpload: (data: CreateUploadRequest) => Promise<UploadResponse>;
   onUploadComplete?: () => void;
   className?: string;
 }
 
 export default function UploadForm({
+  requestUpload,
   onUploadComplete,
   className = "",
 }: UploadFormProps) {
@@ -24,7 +32,6 @@ export default function UploadForm({
   const [errorMessage, setErrorMessage] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const { mutateAsync: createUpload } = useCreateUpload();
 
   const isBusy = status === "creating" || status === "uploading";
 
@@ -60,11 +67,9 @@ export default function UploadForm({
       setStatus("creating");
       setErrorMessage("");
 
-      const upload = await createUpload({
-        data: {
-          original_filename: selectedFile.name,
-          file_size_bytes: selectedFile.size,
-        },
+      const upload = await requestUpload({
+        original_filename: selectedFile.name,
+        file_size_bytes: selectedFile.size,
       });
 
       if (!upload.presigned_url) {

@@ -4,96 +4,32 @@
  * Backend
  * OpenAPI spec version: 0.1.0
  */
-import {
-  useMutation,
-  useQuery
-} from '@tanstack/react-query'
-import type {
-  DataTag,
-  DefinedInitialDataOptions,
-  DefinedUseQueryResult,
-  MutationFunction,
-  QueryFunction,
-  QueryKey,
-  UndefinedInitialDataOptions,
-  UseMutationOptions,
-  UseMutationResult,
-  UseQueryOptions,
-  UseQueryResult
-} from '@tanstack/react-query'
 import type {
   CreateUserRequest,
-  HTTPValidationError,
   ListUsersParams,
   PaginatedResultUserResponse,
   UserResponse
 } from './backend.schemas'
 import { fetchClient } from '../../lib/fetch-client';
-import type { ErrorType } from '../../lib/fetch-client';
 
 
 
 
-/**
+  /**
  * Create a new user account and start a session.
  * @summary Create User
  */
 export const createUser = (
     createUserRequest: CreateUserRequest,
- signal?: AbortSignal
-) => {
-      
-      
+ ) => {
       return fetchClient<UserResponse>(
       {url: `/api/v1/users`, method: 'POST',
       headers: {'Content-Type': 'application/json', },
-      data: createUserRequest, signal
+      data: createUserRequest
     },
       );
     }
-  
-
-
-export const getCreateUserMutationOptions = <TError = ErrorType<HTTPValidationError>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createUser>>, TError,{data: CreateUserRequest}, TContext>, }
-): UseMutationOptions<Awaited<ReturnType<typeof createUser>>, TError,{data: CreateUserRequest}, TContext> => {
-const {mutation: mutationOptions} = options ?? {};
-
-      
-
-
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createUser>>, {data: CreateUserRequest}> = (props) => {
-          const {data} = props ?? {};
-
-          return  createUser(data,)
-        }
-
-        
-
-
-  return  { mutationFn, ...mutationOptions }}
-
-    export type CreateUserMutationResult = NonNullable<Awaited<ReturnType<typeof createUser>>>
-    export type CreateUserMutationBody = CreateUserRequest
-    export type CreateUserMutationError = ErrorType<HTTPValidationError>
-
-    /**
- * @summary Create User
- */
-export const useCreateUser = <TError = ErrorType<HTTPValidationError>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createUser>>, TError,{data: CreateUserRequest}, TContext>, }
-): UseMutationResult<
-        Awaited<ReturnType<typeof createUser>>,
-        TError,
-        {data: CreateUserRequest},
-        TContext
-      > => {
-
-      const mutationOptions = getCreateUserMutationOptions(options);
-
-      return useMutation(mutationOptions);
-    }
-    /**
+  /**
  * List users filtered by group membership.
 
 Caller must be able to see the group (owner OR member); 404 otherwise.
@@ -101,174 +37,25 @@ Caller must be able to see the group (owner OR member); 404 otherwise.
  */
 export const listUsers = (
     params: ListUsersParams,
- signal?: AbortSignal
-) => {
-      
-      
+ ) => {
       return fetchClient<PaginatedResultUserResponse>(
       {url: `/api/v1/users`, method: 'GET',
-        params, signal
+        params
     },
       );
     }
-  
-
-export const getListUsersQueryKey = (params: ListUsersParams,) => {
-    return [`/api/v1/users`, ...(params ? [params]: [])] as const;
-    }
-
-    
-export const getListUsersQueryOptions = <TData = Awaited<ReturnType<typeof listUsers>>, TError = ErrorType<HTTPValidationError>>(params: ListUsersParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listUsers>>, TError, TData>>, }
-) => {
-
-const {query: queryOptions} = options ?? {};
-
-  const queryKey =  queryOptions?.queryKey ?? getListUsersQueryKey(params);
-
-  
-
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof listUsers>>> = ({ signal }) => listUsers(params, signal);
-
-      
-
-      
-
-   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listUsers>>, TError, TData> & { queryKey: DataTag<QueryKey, TData> }
-}
-
-export type ListUsersQueryResult = NonNullable<Awaited<ReturnType<typeof listUsers>>>
-export type ListUsersQueryError = ErrorType<HTTPValidationError>
-
-
-export function useListUsers<TData = Awaited<ReturnType<typeof listUsers>>, TError = ErrorType<HTTPValidationError>>(
- params: ListUsersParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof listUsers>>, TError, TData>> & Pick<
-        DefinedInitialDataOptions<
-          Awaited<ReturnType<typeof listUsers>>,
-          TError,
-          TData
-        > , 'initialData'
-      >, }
-
-  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
-export function useListUsers<TData = Awaited<ReturnType<typeof listUsers>>, TError = ErrorType<HTTPValidationError>>(
- params: ListUsersParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listUsers>>, TError, TData>> & Pick<
-        UndefinedInitialDataOptions<
-          Awaited<ReturnType<typeof listUsers>>,
-          TError,
-          TData
-        > , 'initialData'
-      >, }
-
-  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
-export function useListUsers<TData = Awaited<ReturnType<typeof listUsers>>, TError = ErrorType<HTTPValidationError>>(
- params: ListUsersParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listUsers>>, TError, TData>>, }
-
-  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
-/**
- * @summary List Users
- */
-
-export function useListUsers<TData = Awaited<ReturnType<typeof listUsers>>, TError = ErrorType<HTTPValidationError>>(
- params: ListUsersParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listUsers>>, TError, TData>>, }
-
-  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> } {
-
-  const queryOptions = getListUsersQueryOptions(params,options)
-
-  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
-
-  query.queryKey = queryOptions.queryKey ;
-
-  return query;
-}
-
-
-
-/**
+  /**
  * Return the currently authenticated user.
  * @summary Get Current User
  */
 export const getCurrentUser = (
     
- signal?: AbortSignal
-) => {
-      
-      
+ ) => {
       return fetchClient<UserResponse>(
-      {url: `/api/v1/users/current`, method: 'GET', signal
+      {url: `/api/v1/users/current`, method: 'GET'
     },
       );
     }
-  
-
-export const getGetCurrentUserQueryKey = () => {
-    return [`/api/v1/users/current`] as const;
-    }
-
-    
-export const getGetCurrentUserQueryOptions = <TData = Awaited<ReturnType<typeof getCurrentUser>>, TError = ErrorType<HTTPValidationError>>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getCurrentUser>>, TError, TData>>, }
-) => {
-
-const {query: queryOptions} = options ?? {};
-
-  const queryKey =  queryOptions?.queryKey ?? getGetCurrentUserQueryKey();
-
-  
-
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof getCurrentUser>>> = ({ signal }) => getCurrentUser(signal);
-
-      
-
-      
-
-   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getCurrentUser>>, TError, TData> & { queryKey: DataTag<QueryKey, TData> }
-}
-
-export type GetCurrentUserQueryResult = NonNullable<Awaited<ReturnType<typeof getCurrentUser>>>
-export type GetCurrentUserQueryError = ErrorType<HTTPValidationError>
-
-
-export function useGetCurrentUser<TData = Awaited<ReturnType<typeof getCurrentUser>>, TError = ErrorType<HTTPValidationError>>(
-  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getCurrentUser>>, TError, TData>> & Pick<
-        DefinedInitialDataOptions<
-          Awaited<ReturnType<typeof getCurrentUser>>,
-          TError,
-          TData
-        > , 'initialData'
-      >, }
-
-  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
-export function useGetCurrentUser<TData = Awaited<ReturnType<typeof getCurrentUser>>, TError = ErrorType<HTTPValidationError>>(
-  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getCurrentUser>>, TError, TData>> & Pick<
-        UndefinedInitialDataOptions<
-          Awaited<ReturnType<typeof getCurrentUser>>,
-          TError,
-          TData
-        > , 'initialData'
-      >, }
-
-  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
-export function useGetCurrentUser<TData = Awaited<ReturnType<typeof getCurrentUser>>, TError = ErrorType<HTTPValidationError>>(
-  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getCurrentUser>>, TError, TData>>, }
-
-  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
-/**
- * @summary Get Current User
- */
-
-export function useGetCurrentUser<TData = Awaited<ReturnType<typeof getCurrentUser>>, TError = ErrorType<HTTPValidationError>>(
-  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getCurrentUser>>, TError, TData>>, }
-
-  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> } {
-
-  const queryOptions = getGetCurrentUserQueryOptions(options)
-
-  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
-
-  query.queryKey = queryOptions.queryKey ;
-
-  return query;
-}
-
-
-
+  export type CreateUserResult = NonNullable<Awaited<ReturnType<typeof createUser>>>
+export type ListUsersResult = NonNullable<Awaited<ReturnType<typeof listUsers>>>
+export type GetCurrentUserResult = NonNullable<Awaited<ReturnType<typeof getCurrentUser>>>

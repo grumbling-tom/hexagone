@@ -1,9 +1,25 @@
+import {
+  SortOrder,
+  UploadSortField,
+} from "@/__generated__/backend-client/backend.schemas";
+import { listUploads } from "@/__generated__/backend-client/uploads";
 import UploadList from "@/features/uploads/UploadList";
+import { fetchUploads, requestUpload } from "./actions";
 
-export default function UploadsPage() {
+export default async function UploadsPage() {
+  const initialUploads = await listUploads({
+    page_size: 10,
+    sort_field: UploadSortField.created_at,
+    sort_order: SortOrder.desc,
+  });
+
   return (
     <main className="page">
-      <UploadList />
+      <UploadList
+        initialUploads={initialUploads}
+        fetchUploads={fetchUploads}
+        requestUpload={requestUpload}
+      />
     </main>
   );
 }

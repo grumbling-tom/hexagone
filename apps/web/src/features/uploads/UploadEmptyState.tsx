@@ -1,13 +1,19 @@
 "use client";
 
+import type {
+  CreateUploadRequest,
+  UploadResponse,
+} from "@/__generated__/backend-client/backend.schemas";
 import UploadForm from "@/features/uploads/UploadForm";
 import UploadHelp from "@/features/uploads/UploadHelp";
 
 interface UploadEmptyStateProps {
+  requestUpload: (data: CreateUploadRequest) => Promise<UploadResponse>;
   onUploadComplete?: () => void;
 }
 
 export default function UploadEmptyState({
+  requestUpload,
   onUploadComplete,
 }: UploadEmptyStateProps) {
   return (
@@ -18,7 +24,10 @@ export default function UploadEmptyState({
         by uploading one!
       </p>
       <UploadHelp className="upload-empty-state__help" />
-      <UploadForm onUploadComplete={onUploadComplete} />
+      <UploadForm
+        requestUpload={requestUpload}
+        onUploadComplete={onUploadComplete}
+      />
     </div>
   );
 }

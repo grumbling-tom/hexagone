@@ -4,274 +4,58 @@
  * Backend
  * OpenAPI spec version: 0.1.0
  */
-import {
-  useMutation,
-  useQuery
-} from '@tanstack/react-query'
-import type {
-  DataTag,
-  DefinedInitialDataOptions,
-  DefinedUseQueryResult,
-  MutationFunction,
-  QueryFunction,
-  QueryKey,
-  UndefinedInitialDataOptions,
-  UseMutationOptions,
-  UseMutationResult,
-  UseQueryOptions,
-  UseQueryResult
-} from '@tanstack/react-query'
 import type {
   CreateUserGroupRequest,
-  HTTPValidationError,
   ListUserGroupsParams,
   PaginatedResultUserGroupResponse,
   UpdateUserGroupRequest,
   UserGroupResponse
 } from './backend.schemas'
 import { fetchClient } from '../../lib/fetch-client';
-import type { ErrorType } from '../../lib/fetch-client';
 
 
 
 
-/**
+  /**
  * Create a new group with the caller as owner and sole initial member.
  * @summary Create User Group
  */
 export const createUserGroup = (
     createUserGroupRequest: CreateUserGroupRequest,
- signal?: AbortSignal
-) => {
-      
-      
+ ) => {
       return fetchClient<UserGroupResponse>(
       {url: `/api/v1/user-groups`, method: 'POST',
       headers: {'Content-Type': 'application/json', },
-      data: createUserGroupRequest, signal
+      data: createUserGroupRequest
     },
       );
     }
-  
-
-
-export const getCreateUserGroupMutationOptions = <TError = ErrorType<HTTPValidationError>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createUserGroup>>, TError,{data: CreateUserGroupRequest}, TContext>, }
-): UseMutationOptions<Awaited<ReturnType<typeof createUserGroup>>, TError,{data: CreateUserGroupRequest}, TContext> => {
-const {mutation: mutationOptions} = options ?? {};
-
-      
-
-
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createUserGroup>>, {data: CreateUserGroupRequest}> = (props) => {
-          const {data} = props ?? {};
-
-          return  createUserGroup(data,)
-        }
-
-        
-
-
-  return  { mutationFn, ...mutationOptions }}
-
-    export type CreateUserGroupMutationResult = NonNullable<Awaited<ReturnType<typeof createUserGroup>>>
-    export type CreateUserGroupMutationBody = CreateUserGroupRequest
-    export type CreateUserGroupMutationError = ErrorType<HTTPValidationError>
-
-    /**
- * @summary Create User Group
- */
-export const useCreateUserGroup = <TError = ErrorType<HTTPValidationError>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createUserGroup>>, TError,{data: CreateUserGroupRequest}, TContext>, }
-): UseMutationResult<
-        Awaited<ReturnType<typeof createUserGroup>>,
-        TError,
-        {data: CreateUserGroupRequest},
-        TContext
-      > => {
-
-      const mutationOptions = getCreateUserGroupMutationOptions(options);
-
-      return useMutation(mutationOptions);
-    }
-    /**
+  /**
  * List the caller's non-archived groups, newest first.
  * @summary List User Groups
  */
 export const listUserGroups = (
     params?: ListUserGroupsParams,
- signal?: AbortSignal
-) => {
-      
-      
+ ) => {
       return fetchClient<PaginatedResultUserGroupResponse>(
       {url: `/api/v1/user-groups`, method: 'GET',
-        params, signal
+        params
     },
       );
     }
-  
-
-export const getListUserGroupsQueryKey = (params?: ListUserGroupsParams,) => {
-    return [`/api/v1/user-groups`, ...(params ? [params]: [])] as const;
-    }
-
-    
-export const getListUserGroupsQueryOptions = <TData = Awaited<ReturnType<typeof listUserGroups>>, TError = ErrorType<HTTPValidationError>>(params?: ListUserGroupsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listUserGroups>>, TError, TData>>, }
-) => {
-
-const {query: queryOptions} = options ?? {};
-
-  const queryKey =  queryOptions?.queryKey ?? getListUserGroupsQueryKey(params);
-
-  
-
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof listUserGroups>>> = ({ signal }) => listUserGroups(params, signal);
-
-      
-
-      
-
-   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listUserGroups>>, TError, TData> & { queryKey: DataTag<QueryKey, TData> }
-}
-
-export type ListUserGroupsQueryResult = NonNullable<Awaited<ReturnType<typeof listUserGroups>>>
-export type ListUserGroupsQueryError = ErrorType<HTTPValidationError>
-
-
-export function useListUserGroups<TData = Awaited<ReturnType<typeof listUserGroups>>, TError = ErrorType<HTTPValidationError>>(
- params: undefined |  ListUserGroupsParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof listUserGroups>>, TError, TData>> & Pick<
-        DefinedInitialDataOptions<
-          Awaited<ReturnType<typeof listUserGroups>>,
-          TError,
-          TData
-        > , 'initialData'
-      >, }
-
-  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
-export function useListUserGroups<TData = Awaited<ReturnType<typeof listUserGroups>>, TError = ErrorType<HTTPValidationError>>(
- params?: ListUserGroupsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listUserGroups>>, TError, TData>> & Pick<
-        UndefinedInitialDataOptions<
-          Awaited<ReturnType<typeof listUserGroups>>,
-          TError,
-          TData
-        > , 'initialData'
-      >, }
-
-  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
-export function useListUserGroups<TData = Awaited<ReturnType<typeof listUserGroups>>, TError = ErrorType<HTTPValidationError>>(
- params?: ListUserGroupsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listUserGroups>>, TError, TData>>, }
-
-  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
-/**
- * @summary List User Groups
- */
-
-export function useListUserGroups<TData = Awaited<ReturnType<typeof listUserGroups>>, TError = ErrorType<HTTPValidationError>>(
- params?: ListUserGroupsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listUserGroups>>, TError, TData>>, }
-
-  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> } {
-
-  const queryOptions = getListUserGroupsQueryOptions(params,options)
-
-  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
-
-  query.queryKey = queryOptions.queryKey ;
-
-  return query;
-}
-
-
-
-/**
+  /**
  * Return one group the caller belongs to. 404 if not a member.
  * @summary Get User Group
  */
 export const getUserGroup = (
     groupUid: string,
- signal?: AbortSignal
-) => {
-      
-      
+ ) => {
       return fetchClient<UserGroupResponse>(
-      {url: `/api/v1/user-groups/${groupUid}`, method: 'GET', signal
+      {url: `/api/v1/user-groups/${groupUid}`, method: 'GET'
     },
       );
     }
-  
-
-export const getGetUserGroupQueryKey = (groupUid: string,) => {
-    return [`/api/v1/user-groups/${groupUid}`] as const;
-    }
-
-    
-export const getGetUserGroupQueryOptions = <TData = Awaited<ReturnType<typeof getUserGroup>>, TError = ErrorType<HTTPValidationError>>(groupUid: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getUserGroup>>, TError, TData>>, }
-) => {
-
-const {query: queryOptions} = options ?? {};
-
-  const queryKey =  queryOptions?.queryKey ?? getGetUserGroupQueryKey(groupUid);
-
-  
-
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof getUserGroup>>> = ({ signal }) => getUserGroup(groupUid, signal);
-
-      
-
-      
-
-   return  { queryKey, queryFn, enabled: !!(groupUid), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getUserGroup>>, TError, TData> & { queryKey: DataTag<QueryKey, TData> }
-}
-
-export type GetUserGroupQueryResult = NonNullable<Awaited<ReturnType<typeof getUserGroup>>>
-export type GetUserGroupQueryError = ErrorType<HTTPValidationError>
-
-
-export function useGetUserGroup<TData = Awaited<ReturnType<typeof getUserGroup>>, TError = ErrorType<HTTPValidationError>>(
- groupUid: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getUserGroup>>, TError, TData>> & Pick<
-        DefinedInitialDataOptions<
-          Awaited<ReturnType<typeof getUserGroup>>,
-          TError,
-          TData
-        > , 'initialData'
-      >, }
-
-  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
-export function useGetUserGroup<TData = Awaited<ReturnType<typeof getUserGroup>>, TError = ErrorType<HTTPValidationError>>(
- groupUid: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getUserGroup>>, TError, TData>> & Pick<
-        UndefinedInitialDataOptions<
-          Awaited<ReturnType<typeof getUserGroup>>,
-          TError,
-          TData
-        > , 'initialData'
-      >, }
-
-  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
-export function useGetUserGroup<TData = Awaited<ReturnType<typeof getUserGroup>>, TError = ErrorType<HTTPValidationError>>(
- groupUid: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getUserGroup>>, TError, TData>>, }
-
-  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
-/**
- * @summary Get User Group
- */
-
-export function useGetUserGroup<TData = Awaited<ReturnType<typeof getUserGroup>>, TError = ErrorType<HTTPValidationError>>(
- groupUid: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getUserGroup>>, TError, TData>>, }
-
-  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> } {
-
-  const queryOptions = getGetUserGroupQueryOptions(groupUid,options)
-
-  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
-
-  query.queryKey = queryOptions.queryKey ;
-
-  return query;
-}
-
-
-
-/**
+  /**
  * Rename a group. Owner only.
  * @summary Update User Group
  */
@@ -279,8 +63,6 @@ export const updateUserGroup = (
     groupUid: string,
     updateUserGroupRequest: UpdateUserGroupRequest,
  ) => {
-      
-      
       return fetchClient<UserGroupResponse>(
       {url: `/api/v1/user-groups/${groupUid}`, method: 'PATCH',
       headers: {'Content-Type': 'application/json', },
@@ -288,102 +70,20 @@ export const updateUserGroup = (
     },
       );
     }
-  
-
-
-export const getUpdateUserGroupMutationOptions = <TError = ErrorType<HTTPValidationError>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateUserGroup>>, TError,{groupUid: string;data: UpdateUserGroupRequest}, TContext>, }
-): UseMutationOptions<Awaited<ReturnType<typeof updateUserGroup>>, TError,{groupUid: string;data: UpdateUserGroupRequest}, TContext> => {
-const {mutation: mutationOptions} = options ?? {};
-
-      
-
-
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateUserGroup>>, {groupUid: string;data: UpdateUserGroupRequest}> = (props) => {
-          const {groupUid,data} = props ?? {};
-
-          return  updateUserGroup(groupUid,data,)
-        }
-
-        
-
-
-  return  { mutationFn, ...mutationOptions }}
-
-    export type UpdateUserGroupMutationResult = NonNullable<Awaited<ReturnType<typeof updateUserGroup>>>
-    export type UpdateUserGroupMutationBody = UpdateUserGroupRequest
-    export type UpdateUserGroupMutationError = ErrorType<HTTPValidationError>
-
-    /**
- * @summary Update User Group
- */
-export const useUpdateUserGroup = <TError = ErrorType<HTTPValidationError>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateUserGroup>>, TError,{groupUid: string;data: UpdateUserGroupRequest}, TContext>, }
-): UseMutationResult<
-        Awaited<ReturnType<typeof updateUserGroup>>,
-        TError,
-        {groupUid: string;data: UpdateUserGroupRequest},
-        TContext
-      > => {
-
-      const mutationOptions = getUpdateUserGroupMutationOptions(options);
-
-      return useMutation(mutationOptions);
-    }
-    /**
+  /**
  * Soft-delete (archive) a group. Owner only.
  * @summary Delete User Group
  */
 export const deleteUserGroup = (
     groupUid: string,
  ) => {
-      
-      
       return fetchClient<void>(
       {url: `/api/v1/user-groups/${groupUid}`, method: 'DELETE'
     },
       );
     }
-  
-
-
-export const getDeleteUserGroupMutationOptions = <TError = ErrorType<HTTPValidationError>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteUserGroup>>, TError,{groupUid: string}, TContext>, }
-): UseMutationOptions<Awaited<ReturnType<typeof deleteUserGroup>>, TError,{groupUid: string}, TContext> => {
-const {mutation: mutationOptions} = options ?? {};
-
-      
-
-
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteUserGroup>>, {groupUid: string}> = (props) => {
-          const {groupUid} = props ?? {};
-
-          return  deleteUserGroup(groupUid,)
-        }
-
-        
-
-
-  return  { mutationFn, ...mutationOptions }}
-
-    export type DeleteUserGroupMutationResult = NonNullable<Awaited<ReturnType<typeof deleteUserGroup>>>
-    
-    export type DeleteUserGroupMutationError = ErrorType<HTTPValidationError>
-
-    /**
- * @summary Delete User Group
- */
-export const useDeleteUserGroup = <TError = ErrorType<HTTPValidationError>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteUserGroup>>, TError,{groupUid: string}, TContext>, }
-): UseMutationResult<
-        Awaited<ReturnType<typeof deleteUserGroup>>,
-        TError,
-        {groupUid: string},
-        TContext
-      > => {
-
-      const mutationOptions = getDeleteUserGroupMutationOptions(options);
-
-      return useMutation(mutationOptions);
-    }
-    
+  export type CreateUserGroupResult = NonNullable<Awaited<ReturnType<typeof createUserGroup>>>
+export type ListUserGroupsResult = NonNullable<Awaited<ReturnType<typeof listUserGroups>>>
+export type GetUserGroupResult = NonNullable<Awaited<ReturnType<typeof getUserGroup>>>
+export type UpdateUserGroupResult = NonNullable<Awaited<ReturnType<typeof updateUserGroup>>>
+export type DeleteUserGroupResult = NonNullable<Awaited<ReturnType<typeof deleteUserGroup>>>

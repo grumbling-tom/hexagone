@@ -1,35 +1,32 @@
-"use client";
-
-import { useRouter } from "next/navigation";
-import { type ReactNode, useEffect } from "react";
-import { useGetCurrentUser } from "@/__generated__/backend-client/users";
+import { redirect } from "next/navigation";
+import type { ReactNode } from "react";
+import { getCurrentUser } from "@/__generated__/backend-client/users";
+import { ApiError, HttpStatus } from "@/lib/fetch-client";
 import Nav from "../Nav";
+import { logout } from "./actions";
 
-// Layout for the auth-gated routes: hosts <Nav> and acts as the client-side
-// backstop to the middleware gate. middleware.ts is the primary gate — it
-// redirects unauthed (no-cookie) requests before this renders. The session
-// cookie is opaque, so middleware can't catch a present-but-invalid/expired
-// cookie; that case lands here, useGetCurrentUser returns no user, and we
-// redirect to /login.
-export default function AuthedLayout({ children }: { children: ReactNode }) {
-  const router = useRouter();
-  const { data: user, isLoading } = useGetCurrentUser({
-    query: { retry: false },
-  });
-
-  useEffect(() => {
-    if (!isLoading && !user) {
-      router.replace("/login");
+// Layout for the auth-gated routes: validates the session server-side and hosts
+// <Nav>. middleware.ts is the optimistic gate (presence-only cookie check); the
+// cookie is opaque, so a present-but-invalid/expired cookie is only caught here,
+// where getCurrentUser 401s and we redirect to /login — no client backstop, no
+// loading flash.
+export default async function AuthedLayout({
+  children,
+}: {
+  children: ReactNode;
+}) {
+  try {
+    await getCurrentUser();
+  } catch (err) {
+    if (err instanceof ApiError && err.httpStatus === HttpStatus.UNAUTHORIZED) {
+      redirect("/login");
     }
-  }, [isLoading, user, router]);
-
-  if (isLoading || !user) {
-    return <div className="auth-loading">Loading</div>;
+    throw err;
   }
 
   return (
     <>
-      <Nav />
+      <Nav logout={logout} />
       {children}
     </>
   );

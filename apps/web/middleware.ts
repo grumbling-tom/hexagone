@@ -9,6 +9,14 @@ import { type NextRequest, NextResponse } from "next/server";
 // app/(authed)/layout.tsx; the backend stays the real authority (it 401s every
 // /api call). See Next's docs: optimistic checks in middleware, real validation
 // in the data layer.
+//
+// TODO: When we move to a separate auth provider with JWT-based access tokens,
+// add a real Next.js-level auth check here. Unlike the opaque sessionid, a JWT
+// is self-validating (verify signature + expiry + claims with no DB lookup), so
+// middleware can do genuine validation rather than a presence-only gate — and we
+// should also enforce it inside the protected server actions
+// (app/(authed)/.../actions.ts) for defence-in-depth, since the backend 401 is
+// currently the only thing protecting them.
 const SESSION_COOKIE_NAME = "sessionid";
 
 export function middleware(request: NextRequest) {

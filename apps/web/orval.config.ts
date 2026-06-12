@@ -7,7 +7,7 @@ export default defineConfig({
     },
     output: {
       target: "src/__generated__/backend-client",
-      client: "react-query",
+      client: "axios-functions",
       mode: "tags",
       override: {
         mutator: {

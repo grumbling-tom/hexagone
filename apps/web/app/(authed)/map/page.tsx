@@ -1,26 +1,19 @@
-"use client";
-
 import Link from "next/link";
-import { UploadStatusValue } from "@/__generated__/backend-client/backend.schemas";
-import { useListUploads } from "@/__generated__/backend-client/uploads";
+import { listAggregatedHexClaims } from "@/__generated__/backend-client/aggregated-hex-claims";
+import {
+  AggregateHexClaimBy,
+  UploadStatusValue,
+} from "@/__generated__/backend-client/backend.schemas";
+import { listUploads } from "@/__generated__/backend-client/uploads";
 import EmptyMap from "@/features/hexMap/EmptyMap";
 import HexMap from "@/features/hexMap/HexMap";
 
-export default function MapPage() {
-  const { data, isPending, isError } = useListUploads({
+export default async function MapPage() {
+  const uploads = await listUploads({
     statuses: [UploadStatusValue.UPLOAD_SUCCESS],
   });
 
-  if (isPending) {
-    return <div className="auth-loading">Loading</div>;
-  }
-
-  if (isError || !data) {
-    // TODO: Consider adding error boundaries to the app.
-    throw new Error("Failed to load uploads");
-  }
-
-  if (data.items.length === 0) {
+  if (uploads.items.length === 0) {
     return (
       <main className="page">
         <EmptyMap
@@ -34,5 +27,10 @@ export default function MapPage() {
     );
   }
 
-  return <HexMap />;
+  const claims = await listAggregatedHexClaims({
+    page_size: 1000,
+    by: AggregateHexClaimBy.hex_cell,
+  });
+
+  return <HexMap claims={claims.items} />;
 }
