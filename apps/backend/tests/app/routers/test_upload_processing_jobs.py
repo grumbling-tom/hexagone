@@ -1,11 +1,11 @@
-"""Tests for the Tigris object-notification webhook."""
+"""Tests for the upload-processing-job ingress (Tigris notification webhook)."""
 
 from fastapi.testclient import TestClient
 from procrastinate.testing import InMemoryConnector
 
 from tests.conftest import UPLOAD_NOTIFICATION_SECRET
 
-ENDPOINT = "/api/v1/upload-notifications"
+ENDPOINT = "/api/v1/upload-processing-jobs"
 
 
 def _payload(key: str, event_name: str = "OBJECT_CREATED_PUT") -> dict[str, object]:

@@ -2,13 +2,14 @@ import "server-only";
 
 import { env } from "@/config/env";
 
-// Tigris object-notification webhook ingress. Next.js is the system's sole
-// public entrypoint (reached via cloudflared); the backend has no public route.
-// This is a thin passthrough to the backend's internal endpoint, which owns the
-// contract: it validates the Bearer shared secret and enqueues the processing
-// job. Keeping it dumb means auth and payload validation live in one place.
+// Upload-processing-job ingress, driven by the Tigris object-notification
+// webhook. Next.js is the system's sole public entrypoint (reached via
+// cloudflared); the backend has no public route. This is a thin passthrough to
+// the backend's internal endpoint, which owns the contract: it validates the
+// Bearer shared secret and creates the processing job. Keeping it dumb means
+// auth and payload validation live in one place.
 
-const BACKEND_PATH = "/api/v1/upload-notifications";
+const BACKEND_PATH = "/api/v1/upload-processing-jobs";
 
 export async function POST(request: Request): Promise<Response> {
   const body = await request.text();

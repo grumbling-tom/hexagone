@@ -14,16 +14,16 @@ import { fetchClient } from '../../lib/fetch-client';
 
   /**
  * Enqueue a processing job for each newly-created object.
- * @summary Create Upload Notification
+ * @summary Create Upload Processing Job
  */
-export const createUploadNotification = (
+export const createUploadProcessingJob = (
     uploadNotification: UploadNotification,
  ) => {
       return fetchClient<unknown>(
-      {url: `/api/v1/upload-notifications`, method: 'POST',
+      {url: `/api/v1/upload-processing-jobs`, method: 'POST',
       headers: {'Content-Type': 'application/json', },
       data: uploadNotification
     },
       );
     }
-  export type CreateUploadNotificationResult = NonNullable<Awaited<ReturnType<typeof createUploadNotification>>>
+  export type CreateUploadProcessingJobResult = NonNullable<Awaited<ReturnType<typeof createUploadProcessingJob>>>

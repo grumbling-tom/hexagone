@@ -80,7 +80,7 @@ class Settings(BaseSettings):
     THROTTLE_DELAY_SECONDS: float | None = None
 
     # Shared secret the Tigris object-notification webhook must present as a
-    # Bearer token on POST /api/v1/upload-notifications. Required in PROD/STAGING.
+    # Bearer token on POST /api/v1/upload-processing-jobs. Required in PROD/STAGING.
     UPLOAD_NOTIFICATION_SECRET: str = ""
 
     @property

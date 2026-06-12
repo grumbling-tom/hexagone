@@ -34,7 +34,7 @@ from src.app.services.user_session import create_session
 from src.app.settings import settings
 from src.worker.defer import defer_app
 
-#: Bearer secret the upload-notifications webhook expects in tests.
+#: Bearer secret the upload-processing-jobs webhook expects in tests.
 UPLOAD_NOTIFICATION_SECRET = "test-notification-secret"
 
 

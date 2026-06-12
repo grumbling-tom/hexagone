@@ -1,9 +1,12 @@
-"""Tigris object-notification webhook.
+"""Upload-processing-job ingress, driven by the Tigris object-notification webhook.
 
-Tigris POSTs here when an object lands in the GPX bucket; we enqueue a
-``process_upload`` job and return promptly. Delivery is at-least-once and may be
-out of order — ``process_upload`` guards on ``UPLOAD_PENDING``, so duplicate or
-late notifications are safe no-ops.
+Tigris POSTs an object-notification here when an object lands in the GPX bucket;
+in response we create an upload-processing job (defer ``process_upload``) and
+return promptly. The created entity is the *job* — the notification is just the
+trigger, which is why this 202s rather than 201s.
+
+Delivery is at-least-once and may be out of order — ``process_upload`` guards on
+``UPLOAD_PENDING``, so duplicate or late notifications are safe no-ops.
 
 Payload shape and the ``OBJECT_CREATED_PUT`` event name follow the Tigris docs:
 https://www.tigrisdata.com/docs/buckets/object-notifications/
@@ -58,12 +61,12 @@ class UploadNotification(BaseSchema):
 
 
 @router.post(
-    "/upload-notifications",
+    "/upload-processing-jobs",
     status_code=202,
-    operation_id="createUploadNotification",
+    operation_id="createUploadProcessingJob",
     dependencies=[Depends(verify_notification_secret)],
 )
-def create_upload_notification(body: UploadNotification) -> None:
+def create_upload_processing_job(body: UploadNotification) -> None:
     """Enqueue a processing job for each newly-created object."""
     for event in body.events:
         # OBJECT_CREATED_PUT: object created/updated via PUT (see module docstring).

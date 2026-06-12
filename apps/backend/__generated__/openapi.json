@@ -526,14 +526,14 @@
         }
       }
     },
-    "/api/v1/upload-notifications": {
+    "/api/v1/upload-processing-jobs": {
       "post": {
         "tags": [
-          "upload-notifications"
+          "upload-processing-jobs"
         ],
-        "summary": "Create Upload Notification",
+        "summary": "Create Upload Processing Job",
         "description": "Enqueue a processing job for each newly-created object.",
-        "operationId": "createUploadNotification",
+        "operationId": "createUploadProcessingJob",
         "requestBody": {
           "content": {
             "application/json": {

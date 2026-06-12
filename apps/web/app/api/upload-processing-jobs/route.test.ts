@@ -8,7 +8,7 @@ afterEach(() => {
 });
 
 function webhookRequest(init?: RequestInit): Request {
-  return new Request("https://hexagone.example/api/upload-notifications", {
+  return new Request("https://hexagone.example/api/upload-processing-jobs", {
     method: "POST",
     body: JSON.stringify({ events: [] }),
     ...init,
@@ -34,7 +34,7 @@ test("forwards the webhook to the backend, keeping the Bearer header and body", 
   expect(fetchMock).toHaveBeenCalledOnce();
   const [url, requestInit] = fetchMock.mock.calls[0];
   expect((url as URL).toString()).toBe(
-    `${env.BACKEND_ORIGIN}/api/v1/upload-notifications`,
+    `${env.BACKEND_ORIGIN}/api/v1/upload-processing-jobs`,
   );
   expect(requestInit?.method).toBe("POST");
   expect(requestInit?.body).toBe(body);
