@@ -1,3 +1,5 @@
+"use client";
+
 import { useRef, useState } from "react";
 import { useCreateUpload } from "@/__generated__/backend-client/uploads";
 

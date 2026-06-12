@@ -1,33 +1,33 @@
+"use client";
+
 import { useQueryClient } from "@tanstack/react-query";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import type { SubmitEvent } from "react";
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import {
-  getGetCurrentUserQueryOptions,
-  useCreateUser,
-} from "@/__generated__/backend-client/users";
+import { useCreateUserSession } from "@/__generated__/backend-client/user-sessions";
+import { getGetCurrentUserQueryOptions } from "@/__generated__/backend-client/users";
 import { HttpStatus } from "@/lib/fetch-client";
 
-export default function Signup() {
-  const navigate = useNavigate();
+export default function LoginPage() {
+  const router = useRouter();
   const queryClient = useQueryClient();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
 
-  const signup = useCreateUser({
+  const login = useCreateUserSession({
     mutation: {
       onSuccess: async () => {
         // Proactively update the current user data in the cache after logging in,
         // so that we don't have to wait for the next refetch to update the UI.
         await queryClient.fetchQuery(getGetCurrentUserQueryOptions());
-        navigate("/");
+        router.replace("/map");
       },
       onError: (err) => {
         switch (err.httpStatus) {
-          case HttpStatus.CONFLICT:
-            // Consider obscuring this error to avoid leaking information about existing accounts.
-            setError("An account with this email already exists");
+          case HttpStatus.UNAUTHORIZED:
+            setError("Invalid email or password");
             break;
           default:
             setError("Something went wrong. Please try again.");
@@ -39,12 +39,12 @@ export default function Signup() {
   function handleSubmit(e: SubmitEvent) {
     e.preventDefault();
     setError("");
-    signup.mutate({ data: { email, password } });
+    login.mutate({ data: { email, password } });
   }
 
   return (
     <form className="auth-form" onSubmit={handleSubmit}>
-      <h1 className="auth-form__title">Sign up</h1>
+      <h1 className="auth-form__title">Log in</h1>
 
       {error && <p className="auth-form__error">{error}</p>}
 
@@ -73,15 +73,15 @@ export default function Signup() {
       />
 
       <button
-        className={`button button--primary auth-form__submit${signup.isPending ? " button--pending" : ""}`}
+        className={`button button--primary auth-form__submit${login.isPending ? " button--pending" : ""}`}
         type="submit"
-        disabled={signup.isPending}
+        disabled={login.isPending}
       >
-        {signup.isPending ? "Signing up" : "Sign up"}
+        {login.isPending ? "Logging in" : "Log in"}
       </button>
 
       <p className="auth-form__footer">
-        Already have an account? <Link to="/login">Log in</Link>
+        Don&apos;t have an account? <Link href="/signup">Sign up</Link>
       </p>
     </form>
   );

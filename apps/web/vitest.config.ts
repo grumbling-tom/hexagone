@@ -10,13 +10,19 @@ export default defineConfig({
     alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) },
   },
   test: {
-    include: ["src/**/*.test.{ts,tsx}"],
+    // App Router route files (and their co-located tests) live at apps/web/app/;
+    // features/lib live under src/; middleware.ts sits at the project root.
+    include: [
+      "src/**/*.test.{ts,tsx}",
+      "app/**/*.test.{ts,tsx}",
+      "middleware.test.ts",
+    ],
     environment: "happy-dom",
     setupFiles: ["src/test/setup.ts"],
     coverage: {
       provider: "v8",
-      include: ["src/**/*.{ts,tsx}"],
-      exclude: ["src/**/*.test.{ts,tsx}", "src/test/**"],
+      include: ["src/**/*.{ts,tsx}", "app/**/*.{ts,tsx}"],
+      exclude: ["**/*.test.{ts,tsx}", "src/test/**"],
     },
   },
 });

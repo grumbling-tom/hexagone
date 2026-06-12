@@ -1,30 +1,36 @@
+"use client";
+
 import { useQueryClient } from "@tanstack/react-query";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import type { SubmitEvent } from "react";
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import { useCreateUserSession } from "@/__generated__/backend-client/user-sessions";
-import { getGetCurrentUserQueryOptions } from "@/__generated__/backend-client/users";
+import {
+  getGetCurrentUserQueryOptions,
+  useCreateUser,
+} from "@/__generated__/backend-client/users";
 import { HttpStatus } from "@/lib/fetch-client";
 
-export default function Login() {
-  const navigate = useNavigate();
+export default function SignupPage() {
+  const router = useRouter();
   const queryClient = useQueryClient();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
 
-  const login = useCreateUserSession({
+  const signup = useCreateUser({
     mutation: {
       onSuccess: async () => {
         // Proactively update the current user data in the cache after logging in,
         // so that we don't have to wait for the next refetch to update the UI.
         await queryClient.fetchQuery(getGetCurrentUserQueryOptions());
-        navigate("/");
+        router.replace("/map");
       },
       onError: (err) => {
         switch (err.httpStatus) {
-          case HttpStatus.UNAUTHORIZED:
-            setError("Invalid email or password");
+          case HttpStatus.CONFLICT:
+            // Consider obscuring this error to avoid leaking information about existing accounts.
+            setError("An account with this email already exists");
             break;
           default:
             setError("Something went wrong. Please try again.");
@@ -36,12 +42,12 @@ export default function Login() {
   function handleSubmit(e: SubmitEvent) {
     e.preventDefault();
     setError("");
-    login.mutate({ data: { email, password } });
+    signup.mutate({ data: { email, password } });
   }
 
   return (
     <form className="auth-form" onSubmit={handleSubmit}>
-      <h1 className="auth-form__title">Log in</h1>
+      <h1 className="auth-form__title">Sign up</h1>
 
       {error && <p className="auth-form__error">{error}</p>}
 
@@ -70,15 +76,15 @@ export default function Login() {
       />
 
       <button
-        className={`button button--primary auth-form__submit${login.isPending ? " button--pending" : ""}`}
+        className={`button button--primary auth-form__submit${signup.isPending ? " button--pending" : ""}`}
         type="submit"
-        disabled={login.isPending}
+        disabled={signup.isPending}
       >
-        {login.isPending ? "Logging in" : "Log in"}
+        {signup.isPending ? "Signing up" : "Sign up"}
       </button>
 
       <p className="auth-form__footer">
-        Don&apos;t have an account? <Link to="/signup">Sign up</Link>
+        Already have an account? <Link href="/login">Log in</Link>
       </p>
     </form>
   );

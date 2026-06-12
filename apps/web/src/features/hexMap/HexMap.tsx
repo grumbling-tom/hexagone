@@ -1,3 +1,5 @@
+"use client";
+
 import type { MapViewState } from "@deck.gl/core";
 import { H3HexagonLayer } from "@deck.gl/geo-layers";
 import { DeckGL } from "@deck.gl/react";

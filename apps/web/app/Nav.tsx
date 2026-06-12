@@ -1,26 +1,35 @@
+"use client";
+
 import { useQueryClient } from "@tanstack/react-query";
-import { NavLink, useNavigate } from "react-router-dom";
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
 import { useDeleteCurrentSession } from "@/__generated__/backend-client/user-sessions";
 
 export default function Nav() {
-  const navigate = useNavigate();
+  const router = useRouter();
+  const pathname = usePathname();
   const queryClient = useQueryClient();
 
   const logout = useDeleteCurrentSession({
     mutation: {
       onSuccess: () => {
         queryClient.clear();
-        navigate("/login");
+        router.replace("/login");
       },
     },
   });
 
   return (
     <nav className="nav">
-      <NavLink to="/" end>
+      <Link href="/map" aria-current={pathname === "/map" ? "page" : undefined}>
         Map
-      </NavLink>
-      <NavLink to="/uploads">Uploads</NavLink>
+      </Link>
+      <Link
+        href="/uploads"
+        aria-current={pathname === "/uploads" ? "page" : undefined}
+      >
+        Uploads
+      </Link>
       <button
         className="button nav__logout"
         type="button"

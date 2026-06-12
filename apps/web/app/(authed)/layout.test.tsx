@@ -1,34 +1,31 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen } from "@testing-library/react";
-import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { render, screen, waitFor } from "@testing-library/react";
+import type { ReactNode } from "react";
 import { beforeEach, expect, type Mock, test, vi } from "vitest";
-import ProtectedRoute from "./ProtectedRoute";
+import AuthedLayout from "./layout";
+
+const { mockReplace } = vi.hoisted(() => ({ mockReplace: vi.fn() }));
+
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ replace: mockReplace }),
+  usePathname: () => "/map",
+}));
 
 vi.mock("@/__generated__/backend-client/users", async (importOriginal) => {
   const actual =
     await importOriginal<
       typeof import("@/__generated__/backend-client/users")
     >();
-  return {
-    ...actual,
-    useGetCurrentUser: vi.fn(),
-  };
+  return { ...actual, useGetCurrentUser: vi.fn() };
 });
 
 import { useGetCurrentUser } from "@/__generated__/backend-client/users";
 
-function renderWithRouter() {
+function renderLayout(children: ReactNode) {
   const queryClient = new QueryClient();
   return render(
     <QueryClientProvider client={queryClient}>
-      <MemoryRouter initialEntries={["/"]}>
-        <Routes>
-          <Route element={<ProtectedRoute />}>
-            <Route path="/" element={<p>Protected content</p>} />
-          </Route>
-          <Route path="/login" element={<p>Login page</p>} />
-        </Routes>
-      </MemoryRouter>
+      <AuthedLayout>{children}</AuthedLayout>
     </QueryClientProvider>,
   );
 }
@@ -43,18 +40,19 @@ test("shows loading indicator while auth state is pending", () => {
     isLoading: true,
   });
 
-  renderWithRouter();
+  renderLayout(<p>Protected content</p>);
   expect(screen.getByText("Loading")).toBeInTheDocument();
 });
 
-test("redirects to /login when not authenticated", () => {
+test("redirects to /login when not authenticated", async () => {
   (useGetCurrentUser as Mock).mockReturnValue({
     data: undefined,
     isLoading: false,
   });
 
-  renderWithRouter();
-  expect(screen.getByText("Login page")).toBeInTheDocument();
+  renderLayout(<p>Protected content</p>);
+  await waitFor(() => expect(mockReplace).toHaveBeenCalledWith("/login"));
+  expect(screen.queryByText("Protected content")).not.toBeInTheDocument();
 });
 
 test("renders nav and child route when authenticated", () => {
@@ -63,7 +61,7 @@ test("renders nav and child route when authenticated", () => {
     isLoading: false,
   });
 
-  renderWithRouter();
+  renderLayout(<p>Protected content</p>);
   expect(screen.getByText("Protected content")).toBeInTheDocument();
   expect(screen.getByRole("navigation")).toBeInTheDocument();
 });
