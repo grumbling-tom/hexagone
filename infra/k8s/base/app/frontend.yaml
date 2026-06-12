@@ -1,12 +1,9 @@
-# Hexagone web — the Astro static build (apps/web) served by nginx.
+# Hexagone web — the Next.js production server (apps/web).
 #
-# Image: multi-stage build of apps/web (`astro build` -> dist/) copied into
-# nginx, built from apps/web/Dockerfile — see infra/k8s/README.md. The generated
-# API client is committed, so the build is self-contained (no backend at build time).
-#
-# The app calls /api/* same-origin; cloudflared splits the public hostname — /api
-# to the backend, everything else here — so nginx only ever serves static assets.
-# (See the tunnel ingress in infra/terraform/cloudflare.tf.)
+# Image: standalone Next build (`node server.js`), from apps/web/Dockerfile — see
+# infra/k8s/README.md. Next serves the UI AND proxies /api to the backend
+# (next.config.mjs rewrites, target = BACKEND_ORIGIN below), so this is the single
+# entrypoint: cloudflared points only here and no longer path-splits.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -26,30 +23,25 @@ spec:
       containers:
         - name: web
           image: hexagone-web:latest
-          imagePullPolicy: IfNotPresent # imported into containerd, not pulled
+          imagePullPolicy: IfNotPresent # use the locally-built image, don't pull
           ports:
             - name: http
-              containerPort: 80
-          volumeMounts:
-            - name: nginx-conf
-              mountPath: /etc/nginx/conf.d/default.conf
-              subPath: default.conf
+              containerPort: 3000
+          # The /api proxy target (BACKEND_ORIGIN) is baked into the image at build
+          # time — Next evaluates next.config rewrites() during the build, so it's a
+          # Dockerfile ARG (defaults to the backend Service), not a runtime env.
           readinessProbe:
             httpGet:
               path: /
-              port: 80
+              port: 3000
             initialDelaySeconds: 3
             periodSeconds: 10
           resources:
             requests:
-              cpu: 25m
-              memory: 32Mi
-            limits:
+              cpu: 50m
               memory: 128Mi
-      volumes:
-        - name: nginx-conf
-          configMap:
-            name: hexagone-web-nginx
+            limits:
+              memory: 512Mi
 ---
 apiVersion: v1
 kind: Service
@@ -62,29 +54,5 @@ spec:
     app: hexagone-web
   ports:
     - name: http
-      port: 80
+      port: 80 # keep the Service on 80 so the tunnel config is unchanged
       targetPort: http
----
-# SPA fallback: Astro builds `/` (index.astro) and `/app` (app.astro, the React
-# Router SPA under basename "/app"). Client routes like /app/settings have no
-# built file, so serve /app/index.html for anything under /app. The astro.config
-# comment spells out this exact rule (/app/* -> /app/index.html).
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: hexagone-web-nginx
-data:
-  default.conf: |
-    server {
-      listen 80;
-      root /usr/share/nginx/html;
-      index index.html;
-
-      location /app {
-        try_files $uri $uri/ /app/index.html;
-      }
-
-      location / {
-        try_files $uri $uri/ =404;
-      }
-    }

@@ -7,11 +7,11 @@ but on **k3s**, keeping operators to a minimum:
 ```
                     ┌──────────────────────── Mac mini ────────────────────────┐
   Internet          │  Colima VM ── k3s                                         │
-     │              │   ┌──────────────┐                                        │
-     │  (TLS, WAF)  │   │  cloudflared │──── /api ───▶  backend ───▶ postgres    │
-     ▼              │   │ (Deployment) │                            (CNPG)       │
- Cloudflare edge ◀──┼───┤  outbound    │──── /    ───▶  web (nginx)              │
-                    │   └──────────────┘   path split                           │
+     │              │   ┌──────────────┐   ┌────────────┐                       │
+     │  (TLS, WAF)  │   │  cloudflared │──▶│ web (Next) │──/api──▶ backend ──▶ db │
+     ▼              │   │ (Deployment) │   │ UI + proxy │                  (CNPG)│
+ Cloudflare edge ◀──┼───┤  outbound    │   └────────────┘                       │
+                    │   └──────────────┘   one entrypoint                       │
                     │                                                           │
                     │  tailscaled (host daemon) ── tailnet ── admin access      │
                     └───────────────────────────────────────────────────────────┘
@@ -19,8 +19,9 @@ but on **k3s**, keeping operators to a minimum:
 
 - **App (public):** reachable only via **cloudflared**, which dials *outbound* to
   Cloudflare. No inbound port is ever opened. Cloudflare does TLS, DNS, WAF.
-  This k3s has no ingress controller, so **cloudflared itself path-splits** the
-  hostname (`/api` → backend, everything else → web) straight to the Services.
+  cloudflared points at a **single origin** — the **Next.js** web Service, which
+  serves the UI and proxies `/api` to the backend itself (no path-split, no
+  ingress controller).
 - **Admin (private):** **host-level `tailscaled`** puts the Mac mini on your
   tailnet. `kubectl` / dashboards are reached over the tailnet IP — never public.
 - **Minimal operators.** cloudflared is a plain Deployment and Tailscale is a host
@@ -43,13 +44,40 @@ Tooling: **Kustomize only** (bundled in `kubectl`). No Helm.
 
 ## 1. Admin plane — host `tailscaled` (task #3)
 
-Run on the **Mac mini** (the open-source daemon via Homebrew, not the GUI app):
+Run on the **Mac mini** — the open-source daemon via Homebrew, under launchd,
+**not** the GUI Tailscale.app.
+
+> **If `Tailscale.app` is already installed on the mini, quit and remove it
+> first.** The GUI app runs its own embedded `tailscaled`; it and the Homebrew
+> system daemon fight over the same state and tun device. The tell: `tailscale
+> status` works but there's no launchd plist at
+> `/Library/LaunchDaemons/com.tailscale.tailscaled.plist`.
 
 ```bash
 brew install tailscale
-sudo tailscaled install-system-daemon      # runs tailscaled under launchd
-sudo tailscale up                          # authenticate in the browser
-tailscale ip -4                            # the mini's tailnet IP
+sudo tailscaled install-system-daemon   # launchd daemon — survives reboot, no GUI login needed
+```
+
+Authenticate. On a headless mini, prefer a **pre-auth key** (admin console →
+Settings → Keys) over the interactive browser flow, and pin a stable hostname so
+the box is identifiable on the tailnet:
+
+```bash
+sudo tailscale up \
+  --hostname=hexagone-mini \
+  --auth-key=tskey-auth-...   # omit to fall back to the interactive browser login
+
+tailscale ip -4              # the mini's tailnet IP
+```
+
+Then, in the admin console, **disable key expiry** for `hexagone-mini` — a server
+shouldn't silently drop off the tailnet when its node key expires.
+
+**Verify it's a real system daemon (survives reboot), not just a live process:**
+
+```bash
+sudo launchctl print system/com.tailscale.tailscaled | grep -E "state|pid"
+tailscale status            # self shows as hexagone-mini, no "offline"
 ```
 
 > `--ssh` (Tailscale SSH server) is Linux-only. On macOS, enable **System
@@ -66,10 +94,10 @@ Nothing here is public.
 
 ## 2. App edge — cloudflared (task #4)
 
-The tunnel, its DNS record, and the path-split routing are managed by Terraform
-(`infra/terraform/`): cloudflared dials outbound and routes `/api` to the backend
-Service and everything else to the web Service. Cloudflare manages DNS + TLS; add
-WAF / rate-limit rules in `infra/terraform/cloudflare.tf`.
+The tunnel, its DNS record, and routing are managed by Terraform
+(`infra/terraform/`): cloudflared dials outbound to a single origin — the Next.js
+web Service, which serves the UI and proxies `/api` to the backend. Cloudflare
+manages DNS + TLS; add WAF / rate-limit rules in `infra/terraform/cloudflare.tf`.
 
 After `terraform apply`, bridge the run token into the cluster (never in git):
 
@@ -81,8 +109,8 @@ kubectl create secret generic cloudflared-token \
 ## 3. App workloads (task #2)
 
 Decided: Postgres via **CloudNativePG** in-cluster, and the **web app served from
-the cluster** (static Astro build behind nginx) — S3/CloudFront for the SPA is
-retired. Four prerequisites before `apply`:
+the cluster** (Next.js server that also proxies `/api`) — S3/CloudFront for the SPA
+is retired. Four prerequisites before `apply`:
 
 **a. Install the CNPG operator (one-time, cluster-wide).** Not in the overlay —
 the `namespace: default` transformer would rewrite the operator's own namespace.
@@ -99,7 +127,7 @@ to the cluster — no registry, and no `ctr`/`nerdctl` import step. The base's
 `imagePullPolicy: IfNotPresent` then uses the local image in place.
 ```bash
 docker build -t hexagone-backend:latest apps/backend             # apps/backend/Dockerfile (ASGI, no Lambda)
-docker build -t hexagone-web:latest apps/web                     # apps/web/Dockerfile (astro build -> nginx)
+docker build -t hexagone-web:latest apps/web                     # apps/web/Dockerfile (Next standalone server)
 
 colima ssh -- sudo k3s crictl images | grep hexagone             # verify k3s sees them
 ```
@@ -148,9 +176,8 @@ kubectl get pods -n kube-system    # what Colima's k3s actually enabled
 
 ## Roadmap
 
-- **TODO — migrate the frontend to Next.js for a single cluster entrypoint.**
-  Today cloudflared path-splits the public hostname: `/api` to the backend, the
-  rest to the nginx web Service. Moving the web app to **Next.js** would let one
-  server own both the UI and routing (Next.js `rewrites` proxy `/api/*` to the
-  backend Service). cloudflared could then point at a single `hexagone-web`
-  Service with **no path rules** — one front door into the cluster.
+- **DONE — single cluster entrypoint via Next.js.** The web app is a Next.js server
+  that serves the UI and proxies `/api/*` to the backend Service (`next.config.mjs`
+  rewrites), so cloudflared points at one `hexagone-web` origin with no path rules.
+  Follow-up (deferred): the SPA still uses react-router inside `/app` (lift-and-shift);
+  it can be migrated to idiomatic Next file-based routes later.

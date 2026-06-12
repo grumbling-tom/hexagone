@@ -1,9 +1,14 @@
 /// <reference types="vitest" />
-import { getViteConfig } from "astro/config";
+import { fileURLToPath } from "node:url";
+import react from "@vitejs/plugin-react";
+import { defineConfig } from "vitest/config";
 
-export default getViteConfig({
-  // @ts-expect-error - 'test' does not exist in type 'UserConfig'
-  // https://github.com/withastro/astro/issues/12053 🤷
+export default defineConfig({
+  plugins: [react()],
+  resolve: {
+    // Mirror the tsconfig "@/*" -> "./src/*" alias for tests.
+    alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) },
+  },
   test: {
     include: ["src/**/*.test.{ts,tsx}"],
     environment: "happy-dom",
@@ -11,7 +16,7 @@ export default getViteConfig({
     coverage: {
       provider: "v8",
       include: ["src/**/*.{ts,tsx}"],
-      exclude: ["src/**/*.test.{ts,tsx}", "src/test/**", "src/env.d.ts"],
+      exclude: ["src/**/*.test.{ts,tsx}", "src/test/**"],
     },
   },
 });

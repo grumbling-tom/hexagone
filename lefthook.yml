@@ -20,7 +20,7 @@ pre-commit:
       stage_fixed: true
     typecheck:
       root: apps/web/
-      run: pnpm exec astro check
+      run: pnpm check
     check-imports:
       root: apps/web/
       glob: "*.{ts,tsx,mts,cts}"

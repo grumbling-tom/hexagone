@@ -25,8 +25,9 @@ apps/web/src/
   lib/                  Cross-cutting non-React utilities (fetch client, etc.)
   styles/               theme.css + main.css (see CSS section below)
   __generated__/        Orval-generated API client — do not edit by hand
-  pages/                Astro entry points (`index.astro`, `app.astro`) — not React routes
 ```
+
+The **Next.js App Router** lives at `apps/web/app/` (project root, *outside* `src/`): thin route files that own the HTML shell, the landing page, and a client catch-all that mounts the `src/app/` SPA. Everything under `src/` stays organised by feature as above.
 
 **Where to put a new file**:
 - Used by exactly one feature → `features/<feature>/`
@@ -51,7 +52,7 @@ Three rules:
    | `features/<x>/`           | ❌     | only `<x>`  | ✅                                                       |
    | shared layers             | ❌     | ❌          | ✅                                                       |
 
-   Anything outside these layers (e.g. `__generated__/`, `styles/`, Astro `pages/`) is unrestricted on both sides.
+   Anything outside these layers (e.g. `__generated__/`, `styles/`, the Next `app/` router) is unrestricted on both sides.
 3. **No routing in features.** Files in `features/` must not import from `react-router-dom` (or any other routing library) — including `Link`, `useNavigate`, `useLocation`, `useParams`, `Outlet`, etc. Routing is an app-level concern: the URL structure is a property of the app, not of any individual feature. When a feature component needs a CTA that navigates somewhere, accept the link as a `ReactNode` slot prop (or take an `onClick` callback) and let the parent in `app/pages/` supply the actual `<Link>`. Keeps features testable without `<MemoryRouter>` providers, embeddable in non-routed contexts (modals, Storybook, marketing pages), and free of assumptions about the app's URL shape.
 
 If you need to share something between two features, lift it into one of the shared layers — don't import sideways. If two features genuinely depend on each other, that's a sign they're one feature.
@@ -64,7 +65,7 @@ All styles use **BEM** (Block Element Modifier) class names. No inline `style` p
 
 - **Mobile-first**: Write base styles for small screens, then use `@media (min-width: …)` to enhance for larger viewports.
 - **Design tokens** (colors, fonts, spacing, sketchy-border properties) live in `apps/web/src/styles/theme.css` as CSS custom properties on `:root`. Always use `var(--token-name)` instead of hardcoded values.
-- **Component styles** live in `apps/web/src/styles/main.css`. Both files are imported from `Layout.astro` (`theme.css` first).
+- **Component styles** live in `apps/web/src/styles/main.css`. Both files are imported from `app/layout.tsx` (`theme.css` first).
 - **Block**: kebab-case matching the component's semantic role (e.g. `.health-status`).
 - **Element**: double underscore (e.g. `.health-status__dot`).
 - **Modifier**: double dash (e.g. `.health-status__dot--connected`).
