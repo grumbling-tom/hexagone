@@ -11,8 +11,12 @@ export default defineConfig({
   },
   test: {
     // App Router route files (and their co-located tests) live at apps/web/app/;
-    // features/lib live under src/.
-    include: ["src/**/*.test.{ts,tsx}", "app/**/*.test.{ts,tsx}"],
+    // features/lib live under src/; middleware.ts sits at the project root.
+    include: [
+      "src/**/*.test.{ts,tsx}",
+      "app/**/*.test.{ts,tsx}",
+      "middleware.test.ts",
+    ],
     environment: "happy-dom",
     setupFiles: ["src/test/setup.ts"],
     coverage: {

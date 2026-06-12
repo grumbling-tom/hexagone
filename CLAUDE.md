@@ -38,6 +38,8 @@ apps/web/
 
 Route files in `app/` import `src/` code via the `@/` alias and each other via relative paths (the alias only maps to `src/`). Everything under `src/` stays organised by feature.
 
+**Auth gating.** `apps/web/middleware.ts` is the primary gate: it does an optimistic presence check on the opaque, httpOnly `sessionid` cookie and server-side-redirects unauthed requests to the protected routes (`/map`, `/uploads`) to `/login` — no flash, no protected shell shipped. It can't *validate* the cookie (the backend owns that), so the `(authed)/` client layout is the backstop for a present-but-invalid/expired cookie, and the backend is the real authority (it 401s every `/api` call). Don't gate `/login`/`/signup` in middleware — with a presence-only check that can loop against the layout backstop.
+
 **Where to put a new file**:
 - Used by exactly one feature → `features/<feature>/`
 - Part of the app chrome or routing → `app/`
