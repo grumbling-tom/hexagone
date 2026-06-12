@@ -2,7 +2,7 @@
 
 Provides factory fixtures for synthesising GPX payloads inline. These
 were previously private helper functions duplicated across
-``test_gpx_processing.py`` and ``test_upload_processing.py``; per
+``test_gpx_processing.py`` and ``test_upload.py``; per
 ``apps/backend/CLAUDE.md`` ("Fixtures over Helper Functions"), test-data
 construction belongs in a fixture so it can be shared and discovered
 through pytest's dependency injection.
