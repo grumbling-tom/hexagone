@@ -1,7 +1,7 @@
 """Add user_group and user_group_membership tables
 
 Revision ID: d7e3a2b9f4c1
-Revises: c8447fb674f0
+Revises: 1744868a3b50
 Create Date: 2026-05-15 10:00:00.000000
 
 """
@@ -14,7 +14,7 @@ from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = "d7e3a2b9f4c1"
-down_revision: str | Sequence[str] | None = "c8447fb674f0"
+down_revision: str | Sequence[str] | None = "1744868a3b50"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
