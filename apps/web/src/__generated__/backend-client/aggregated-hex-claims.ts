@@ -4,116 +4,26 @@
  * Backend
  * OpenAPI spec version: 0.1.0
  */
-import {
-  useQuery
-} from '@tanstack/react-query'
 import type {
-  DataTag,
-  DefinedInitialDataOptions,
-  DefinedUseQueryResult,
-  QueryFunction,
-  QueryKey,
-  UndefinedInitialDataOptions,
-  UseQueryOptions,
-  UseQueryResult
-} from '@tanstack/react-query'
-import type {
-  HTTPValidationError,
   ListAggregatedHexClaimsParams,
   PaginatedResultAggregatedHexClaimByCell
 } from './backend.schemas'
 import { fetchClient } from '../../lib/fetch-client';
-import type { ErrorType } from '../../lib/fetch-client';
 
 
 
 
-/**
+  /**
  * Aggregate the user's hex claims along the requested dimension.
  * @summary List Aggregated Hex Claims
  */
 export const listAggregatedHexClaims = (
     params: ListAggregatedHexClaimsParams,
- signal?: AbortSignal
-) => {
-      
-      
+ ) => {
       return fetchClient<PaginatedResultAggregatedHexClaimByCell>(
       {url: `/api/v1/aggregated-hex-claims`, method: 'GET',
-        params, signal
+        params
     },
       );
     }
-  
-
-export const getListAggregatedHexClaimsQueryKey = (params: ListAggregatedHexClaimsParams,) => {
-    return [`/api/v1/aggregated-hex-claims`, ...(params ? [params]: [])] as const;
-    }
-
-    
-export const getListAggregatedHexClaimsQueryOptions = <TData = Awaited<ReturnType<typeof listAggregatedHexClaims>>, TError = ErrorType<HTTPValidationError>>(params: ListAggregatedHexClaimsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listAggregatedHexClaims>>, TError, TData>>, }
-) => {
-
-const {query: queryOptions} = options ?? {};
-
-  const queryKey =  queryOptions?.queryKey ?? getListAggregatedHexClaimsQueryKey(params);
-
-  
-
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof listAggregatedHexClaims>>> = ({ signal }) => listAggregatedHexClaims(params, signal);
-
-      
-
-      
-
-   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listAggregatedHexClaims>>, TError, TData> & { queryKey: DataTag<QueryKey, TData> }
-}
-
-export type ListAggregatedHexClaimsQueryResult = NonNullable<Awaited<ReturnType<typeof listAggregatedHexClaims>>>
-export type ListAggregatedHexClaimsQueryError = ErrorType<HTTPValidationError>
-
-
-export function useListAggregatedHexClaims<TData = Awaited<ReturnType<typeof listAggregatedHexClaims>>, TError = ErrorType<HTTPValidationError>>(
- params: ListAggregatedHexClaimsParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof listAggregatedHexClaims>>, TError, TData>> & Pick<
-        DefinedInitialDataOptions<
-          Awaited<ReturnType<typeof listAggregatedHexClaims>>,
-          TError,
-          TData
-        > , 'initialData'
-      >, }
-
-  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
-export function useListAggregatedHexClaims<TData = Awaited<ReturnType<typeof listAggregatedHexClaims>>, TError = ErrorType<HTTPValidationError>>(
- params: ListAggregatedHexClaimsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listAggregatedHexClaims>>, TError, TData>> & Pick<
-        UndefinedInitialDataOptions<
-          Awaited<ReturnType<typeof listAggregatedHexClaims>>,
-          TError,
-          TData
-        > , 'initialData'
-      >, }
-
-  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
-export function useListAggregatedHexClaims<TData = Awaited<ReturnType<typeof listAggregatedHexClaims>>, TError = ErrorType<HTTPValidationError>>(
- params: ListAggregatedHexClaimsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listAggregatedHexClaims>>, TError, TData>>, }
-
-  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
-/**
- * @summary List Aggregated Hex Claims
- */
-
-export function useListAggregatedHexClaims<TData = Awaited<ReturnType<typeof listAggregatedHexClaims>>, TError = ErrorType<HTTPValidationError>>(
- params: ListAggregatedHexClaimsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listAggregatedHexClaims>>, TError, TData>>, }
-
-  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> } {
-
-  const queryOptions = getListAggregatedHexClaimsQueryOptions(params,options)
-
-  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
-
-  query.queryKey = queryOptions.queryKey ;
-
-  return query;
-}
-
-
-
+  export type ListAggregatedHexClaimsResult = NonNullable<Awaited<ReturnType<typeof listAggregatedHexClaims>>>

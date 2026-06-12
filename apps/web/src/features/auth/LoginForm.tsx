@@ -1,57 +1,26 @@
 "use client";
 
-import { useQueryClient } from "@tanstack/react-query";
-import type { ReactNode, SubmitEvent } from "react";
-import { useState } from "react";
-import { useCreateUserSession } from "@/__generated__/backend-client/user-sessions";
-import { getGetCurrentUserQueryOptions } from "@/__generated__/backend-client/users";
-import { HttpStatus } from "@/lib/fetch-client";
+import type { ReactNode } from "react";
+import { useActionState } from "react";
+import type { AuthFormState } from "@/features/auth/types";
 
-// Navigation is an app-level concern (CLAUDE.md rule 3): the route owns the
-// redirect via `onAuthenticated` and supplies the sign-up link via `footer`.
+// The `action` (which authenticates + redirects) and the `footer` cross-link are
+// supplied by the route (app/), keeping routing and data access out of the
+// feature — see CLAUDE.md → Frontend Import Rules.
 export default function LoginForm({
-  onAuthenticated,
+  action,
   footer,
 }: {
-  onAuthenticated: () => void;
+  action: (state: AuthFormState, formData: FormData) => Promise<AuthFormState>;
   footer: ReactNode;
 }) {
-  const queryClient = useQueryClient();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
-
-  const login = useCreateUserSession({
-    mutation: {
-      onSuccess: async () => {
-        // Proactively update the current user data in the cache after logging in,
-        // so that we don't have to wait for the next refetch to update the UI.
-        await queryClient.fetchQuery(getGetCurrentUserQueryOptions());
-        onAuthenticated();
-      },
-      onError: (err) => {
-        switch (err.httpStatus) {
-          case HttpStatus.UNAUTHORIZED:
-            setError("Invalid email or password");
-            break;
-          default:
-            setError("Something went wrong. Please try again.");
-        }
-      },
-    },
-  });
-
-  function handleSubmit(e: SubmitEvent) {
-    e.preventDefault();
-    setError("");
-    login.mutate({ data: { email, password } });
-  }
+  const [state, formAction, pending] = useActionState(action, {});
 
   return (
-    <form className="auth-form" onSubmit={handleSubmit}>
+    <form className="auth-form" action={formAction}>
       <h1 className="auth-form__title">Log in</h1>
 
-      {error && <p className="auth-form__error">{error}</p>}
+      {state.error && <p className="auth-form__error">{state.error}</p>}
 
       <label className="auth-form__label" htmlFor="email">
         Email
@@ -59,10 +28,9 @@ export default function LoginForm({
       <input
         className="auth-form__input"
         id="email"
+        name="email"
         type="email"
         required
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
       />
 
       <label className="auth-form__label" htmlFor="password">
@@ -71,18 +39,17 @@ export default function LoginForm({
       <input
         className="auth-form__input"
         id="password"
+        name="password"
         type="password"
         required
-        value={password}
-        onChange={(e) => setPassword(e.target.value)}
       />
 
       <button
-        className={`button button--primary auth-form__submit${login.isPending ? " button--pending" : ""}`}
+        className={`button button--primary auth-form__submit${pending ? " button--pending" : ""}`}
         type="submit"
-        disabled={login.isPending}
+        disabled={pending}
       >
-        {login.isPending ? "Logging in" : "Log in"}
+        {pending ? "Logging in" : "Log in"}
       </button>
 
       <p className="auth-form__footer">{footer}</p>

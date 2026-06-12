@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
-import Providers from "./providers";
 // Global stylesheets (BEM). theme.css first so its custom properties are defined
 // before main.css consumes them. Replaces the imports in the old Layout.astro.
 import "@/styles/theme.css";
@@ -26,9 +25,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
           rel="stylesheet"
         />
       </head>
-      <body>
-        <Providers>{children}</Providers>
-      </body>
+      <body>{children}</body>
     </html>
   );
 }

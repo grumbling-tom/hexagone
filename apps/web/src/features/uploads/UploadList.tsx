@@ -1,8 +1,9 @@
 "use client";
 
-import { useQueryClient } from "@tanstack/react-query";
-import { useRef, useState } from "react";
+import { useRef, useState, useTransition } from "react";
 import type {
+  CreateUploadRequest,
+  ListUploadsParams,
   PaginatedResultUploadResponse,
   UploadResponse,
 } from "@/__generated__/backend-client/backend.schemas";
@@ -11,12 +12,10 @@ import {
   UploadSortField,
   UploadStatusValue,
 } from "@/__generated__/backend-client/backend.schemas";
-import {
-  getListUploadsQueryKey,
-  useListUploads,
-} from "@/__generated__/backend-client/uploads";
 import UploadForm from "@/features/uploads/UploadForm";
 import UploadHelp from "@/features/uploads/UploadHelp";
+
+const PAGE_SIZE = 10;
 
 const STATUS_LABELS: Record<string, { label: string; modifier: string }> = {
   [UploadStatusValue.UPLOAD_PENDING]: {
@@ -67,13 +66,36 @@ function formatDate(iso: string): string {
   return `${day} ${month} ${year}`;
 }
 
-export default function UploadList() {
-  const [cursor, setCursor] = useState<string | null>(null);
+function dataFingerprint(d: PaginatedResultUploadResponse) {
+  return d.items.map((i) => `${i.uid}:${i.current_status}`).join(",");
+}
+
+interface UploadListProps {
+  // Initial page fetched server-side by the route (RSC), so the table renders
+  // populated on first paint with no client round-trip.
+  initialUploads: PaginatedResultUploadResponse;
+  // Server actions supplied by the route for interactive reads/writes.
+  fetchUploads: (
+    params: ListUploadsParams,
+  ) => Promise<PaginatedResultUploadResponse>;
+  requestUpload: (data: CreateUploadRequest) => Promise<UploadResponse>;
+}
+
+export default function UploadList({
+  initialUploads,
+  fetchUploads,
+  requestUpload,
+}: UploadListProps) {
+  const [data, setData] = useState(initialUploads);
   const [sortField, setSortField] = useState<UploadSortField>(
     UploadSortField.created_at,
   );
   const [sortOrder, setSortOrder] = useState<SortOrder>(SortOrder.desc);
-  const queryClient = useQueryClient();
+  // Cursor that produced the current page (used to reload the same page).
+  const [cursor, setCursor] = useState<string | undefined>(undefined);
+  const [isError, setIsError] = useState(false);
+  const [refreshMessage, setRefreshMessage] = useState<string | null>(null);
+  const [isPending, startTransition] = useTransition();
 
   // TODO: No need for state here.
   // Alternatives are CSS :hover tooltips (but they don't work on mobile)
@@ -98,74 +120,104 @@ export default function UploadList() {
     setTooltipPos(null);
   };
 
-  const [refreshMessage, setRefreshMessage] = useState<string | null>(null);
-
-  const queryParams = {
-    page_size: 10,
-    cursor: cursor ?? undefined,
-    sort_field: sortField,
-    sort_order: sortOrder,
+  // Fetch a page via the server action and swap it into local state. React
+  // Query used to own this; now the route owns the data and we drive reads
+  // imperatively through the passed-in action.
+  const load = (params: ListUploadsParams) => {
+    setRefreshMessage(null);
+    startTransition(async () => {
+      try {
+        const result = await fetchUploads(params);
+        setData(result);
+        setIsError(false);
+        setCursor(params.cursor ?? undefined);
+      } catch {
+        setIsError(true);
+      }
+    });
   };
-  const { data, isLoading, isError, isFetching } = useListUploads(queryParams);
 
   const handleSort = (field: UploadSortField) => {
-    if (field === sortField) {
-      setSortOrder((prev) =>
-        prev === SortOrder.asc ? SortOrder.desc : SortOrder.asc,
-      );
-    } else {
-      setSortField(field);
-      setSortOrder(SortOrder.asc);
-    }
-    setCursor(null);
+    const nextOrder =
+      field === sortField
+        ? sortOrder === SortOrder.asc
+          ? SortOrder.desc
+          : SortOrder.asc
+        : SortOrder.asc;
+    setSortField(field);
+    setSortOrder(nextOrder);
+    // Changing the sort returns to the first page.
+    load({ page_size: PAGE_SIZE, sort_field: field, sort_order: nextOrder });
   };
 
   const sortIndicator = (field: UploadSortField) => {
     if (field !== sortField) return "";
-    return sortOrder === SortOrder.asc ? " \u2191" : " \u2193";
+    return sortOrder === SortOrder.asc ? " ↑" : " ↓";
   };
 
-  const dataFingerprint = (d: PaginatedResultUploadResponse) =>
-    d.items.map((i) => `${i.uid}:${i.current_status}`).join(",");
-
-  const handleRefresh = async () => {
+  const handleRefresh = () => {
     setRefreshMessage(null);
-    const before = data ? dataFingerprint(data) : null;
-    await queryClient.invalidateQueries({
-      queryKey: getListUploadsQueryKey(),
+    const before = dataFingerprint(data);
+    startTransition(async () => {
+      try {
+        const result = await fetchUploads({
+          page_size: PAGE_SIZE,
+          cursor,
+          sort_field: sortField,
+          sort_order: sortOrder,
+        });
+        setData(result);
+        setIsError(false);
+        if (dataFingerprint(result) === before) {
+          setRefreshMessage("Already up to date.");
+        }
+      } catch {
+        setIsError(true);
+      }
     });
-    const after = queryClient.getQueryData<PaginatedResultUploadResponse>(
-      getListUploadsQueryKey(queryParams),
-    );
-    if (before && after && dataFingerprint(after) === before) {
-      setRefreshMessage("Already up to date.");
-    }
   };
 
   const handleUploadComplete = () => {
-    queryClient.invalidateQueries({ queryKey: getListUploadsQueryKey() });
+    load({
+      page_size: PAGE_SIZE,
+      cursor,
+      sort_field: sortField,
+      sort_order: sortOrder,
+    });
   };
 
   const handleNext = () => {
-    if (data?.next_cursor) {
-      setCursor(data.next_cursor);
+    if (data.next_cursor) {
+      load({
+        page_size: PAGE_SIZE,
+        cursor: data.next_cursor,
+        sort_field: sortField,
+        sort_order: sortOrder,
+      });
     }
   };
 
   const handlePrevious = () => {
-    if (data?.previous_cursor) {
-      setCursor(data.previous_cursor);
+    if (data.previous_cursor) {
+      load({
+        page_size: PAGE_SIZE,
+        cursor: data.previous_cursor,
+        sort_field: sortField,
+        sort_order: sortOrder,
+      });
     }
   };
 
-  const isFirstPage = !data?.has_previous;
-  const isEmpty = isFirstPage && !isLoading && data?.items.length === 0;
+  const isEmpty = !data.has_previous && data.items.length === 0;
 
   return (
     <>
       <section className="upload-section">
         <h2>Upload a GPX file</h2>
-        <UploadForm onUploadComplete={handleUploadComplete} />
+        <UploadForm
+          requestUpload={requestUpload}
+          onUploadComplete={handleUploadComplete}
+        />
         <UploadHelp className="upload-section__help" />
       </section>
 
@@ -176,11 +228,11 @@ export default function UploadList() {
             type="button"
             className="upload-list__refresh-icon"
             onClick={handleRefresh}
-            disabled={isFetching}
+            disabled={isPending}
             aria-label="Refresh uploads"
           >
             <svg
-              className={`upload-list__refresh-svg${isFetching ? " upload-list__refresh-svg--spinning" : ""}`}
+              className={`upload-list__refresh-svg${isPending ? " upload-list__refresh-svg--spinning" : ""}`}
               viewBox="0 0 24 24"
             >
               <title>Refresh</title>
@@ -281,16 +333,7 @@ export default function UploadList() {
               </tr>
             </thead>
             <tbody>
-              {isLoading ? (
-                <tr>
-                  <td
-                    className="upload-list__td upload-list__td--empty"
-                    colSpan={4}
-                  >
-                    Loading…
-                  </td>
-                </tr>
-              ) : isError ? (
+              {isError ? (
                 <tr>
                   <td
                     className="upload-list__td upload-list__td--empty"
@@ -309,7 +352,7 @@ export default function UploadList() {
                   </td>
                 </tr>
               ) : (
-                data?.items.map((upload: UploadResponse) => (
+                data.items.map((upload: UploadResponse) => (
                   <tr key={upload.uid}>
                     <td className="upload-list__td">
                       {formatDate(upload.created_at)}
@@ -340,13 +383,13 @@ export default function UploadList() {
           </table>
         </div>
 
-        {(data?.has_previous || data?.has_next) && (
+        {(data.has_previous || data.has_next) && (
           <div className="upload-list__pagination">
             <button
               type="button"
               className="upload-list__refresh"
               onClick={handlePrevious}
-              disabled={!data?.has_previous}
+              disabled={!data.has_previous || isPending}
             >
               Previous
             </button>
@@ -354,7 +397,7 @@ export default function UploadList() {
               type="button"
               className="upload-list__refresh"
               onClick={handleNext}
-              disabled={!data?.has_next}
+              disabled={!data.has_next || isPending}
             >
               Next
             </button>

@@ -1,23 +1,14 @@
 "use client";
 
-import { useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
-import { useDeleteCurrentSession } from "@/__generated__/backend-client/user-sessions";
+import { usePathname } from "next/navigation";
+import { useTransition } from "react";
 
-export default function Nav() {
-  const router = useRouter();
+// `logout` is a server action supplied by the authed layout — it clears the
+// session server-side and redirects, so routing/data access stay out of here.
+export default function Nav({ logout }: { logout: () => Promise<void> }) {
   const pathname = usePathname();
-  const queryClient = useQueryClient();
-
-  const logout = useDeleteCurrentSession({
-    mutation: {
-      onSuccess: () => {
-        queryClient.clear();
-        router.replace("/login");
-      },
-    },
-  });
+  const [pending, startTransition] = useTransition();
 
   return (
     <nav className="nav">
@@ -33,8 +24,8 @@ export default function Nav() {
       <button
         className="button nav__logout"
         type="button"
-        onClick={() => logout.mutate()}
-        disabled={logout.isPending}
+        onClick={() => startTransition(() => logout())}
+        disabled={pending}
       >
         Log out
       </button>

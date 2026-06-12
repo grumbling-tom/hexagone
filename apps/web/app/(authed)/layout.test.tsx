@@ -1,67 +1,52 @@
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor } from "@testing-library/react";
-import type { ReactNode } from "react";
+import { render, screen } from "@testing-library/react";
 import { beforeEach, expect, type Mock, test, vi } from "vitest";
+import { ApiError, HttpStatus } from "@/lib/fetch-client";
 import AuthedLayout from "./layout";
 
-const { mockReplace } = vi.hoisted(() => ({ mockReplace: vi.fn() }));
+const { mockRedirect } = vi.hoisted(() => ({ mockRedirect: vi.fn() }));
 
 vi.mock("next/navigation", () => ({
-  useRouter: () => ({ replace: mockReplace }),
+  // redirect() throws a control-flow signal in Next — mirror that so the layout
+  // stops at the redirect rather than falling through.
+  redirect: (url: string) => {
+    mockRedirect(url);
+    throw new Error("NEXT_REDIRECT");
+  },
   usePathname: () => "/map",
 }));
 
-vi.mock("@/__generated__/backend-client/users", async (importOriginal) => {
-  const actual =
-    await importOriginal<
-      typeof import("@/__generated__/backend-client/users")
-    >();
-  return { ...actual, useGetCurrentUser: vi.fn() };
-});
+vi.mock("@/__generated__/backend-client/users", () => ({
+  getCurrentUser: vi.fn(),
+}));
 
-import { useGetCurrentUser } from "@/__generated__/backend-client/users";
+vi.mock("./actions", () => ({ logout: vi.fn() }));
 
-function renderLayout(children: ReactNode) {
-  const queryClient = new QueryClient();
-  return render(
-    <QueryClientProvider client={queryClient}>
-      <AuthedLayout>{children}</AuthedLayout>
-    </QueryClientProvider>,
-  );
-}
+import { getCurrentUser } from "@/__generated__/backend-client/users";
 
 beforeEach(() => {
   vi.clearAllMocks();
 });
 
-test("shows loading indicator while auth state is pending", () => {
-  (useGetCurrentUser as Mock).mockReturnValue({
-    data: undefined,
-    isLoading: true,
+test("renders nav and child route when authenticated", async () => {
+  (getCurrentUser as Mock).mockResolvedValue({
+    id: "1",
+    email: "test@example.com",
   });
 
-  renderLayout(<p>Protected content</p>);
-  expect(screen.getByText("Loading")).toBeInTheDocument();
-});
+  render(await AuthedLayout({ children: <p>Protected content</p> }));
 
-test("redirects to /login when not authenticated", async () => {
-  (useGetCurrentUser as Mock).mockReturnValue({
-    data: undefined,
-    isLoading: false,
-  });
-
-  renderLayout(<p>Protected content</p>);
-  await waitFor(() => expect(mockReplace).toHaveBeenCalledWith("/login"));
-  expect(screen.queryByText("Protected content")).not.toBeInTheDocument();
-});
-
-test("renders nav and child route when authenticated", () => {
-  (useGetCurrentUser as Mock).mockReturnValue({
-    data: { id: "1", email: "test@example.com" },
-    isLoading: false,
-  });
-
-  renderLayout(<p>Protected content</p>);
   expect(screen.getByText("Protected content")).toBeInTheDocument();
   expect(screen.getByRole("navigation")).toBeInTheDocument();
+});
+
+test("redirects to /login when the session is present but invalid", async () => {
+  (getCurrentUser as Mock).mockRejectedValue(
+    new ApiError(HttpStatus.UNAUTHORIZED, {}),
+  );
+
+  await expect(
+    AuthedLayout({ children: <p>Protected content</p> }),
+  ).rejects.toThrow();
+
+  expect(mockRedirect).toHaveBeenCalledWith("/login");
 });

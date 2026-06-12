@@ -4,116 +4,26 @@
  * Backend
  * OpenAPI spec version: 0.1.0
  */
-import {
-  useQuery
-} from '@tanstack/react-query'
 import type {
-  DataTag,
-  DefinedInitialDataOptions,
-  DefinedUseQueryResult,
-  QueryFunction,
-  QueryKey,
-  UndefinedInitialDataOptions,
-  UseQueryOptions,
-  UseQueryResult
-} from '@tanstack/react-query'
-import type {
-  HTTPValidationError,
   ListHexClaimsParams,
   PaginatedResultHexClaimResponse
 } from './backend.schemas'
 import { fetchClient } from '../../lib/fetch-client';
-import type { ErrorType } from '../../lib/fetch-client';
 
 
 
 
-/**
+  /**
  * List the authenticated user's raw hex claims.
  * @summary List Hex Claims
  */
 export const listHexClaims = (
     params?: ListHexClaimsParams,
- signal?: AbortSignal
-) => {
-      
-      
+ ) => {
       return fetchClient<PaginatedResultHexClaimResponse>(
       {url: `/api/v1/hex-claims`, method: 'GET',
-        params, signal
+        params
     },
       );
     }
-  
-
-export const getListHexClaimsQueryKey = (params?: ListHexClaimsParams,) => {
-    return [`/api/v1/hex-claims`, ...(params ? [params]: [])] as const;
-    }
-
-    
-export const getListHexClaimsQueryOptions = <TData = Awaited<ReturnType<typeof listHexClaims>>, TError = ErrorType<HTTPValidationError>>(params?: ListHexClaimsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listHexClaims>>, TError, TData>>, }
-) => {
-
-const {query: queryOptions} = options ?? {};
-
-  const queryKey =  queryOptions?.queryKey ?? getListHexClaimsQueryKey(params);
-
-  
-
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof listHexClaims>>> = ({ signal }) => listHexClaims(params, signal);
-
-      
-
-      
-
-   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listHexClaims>>, TError, TData> & { queryKey: DataTag<QueryKey, TData> }
-}
-
-export type ListHexClaimsQueryResult = NonNullable<Awaited<ReturnType<typeof listHexClaims>>>
-export type ListHexClaimsQueryError = ErrorType<HTTPValidationError>
-
-
-export function useListHexClaims<TData = Awaited<ReturnType<typeof listHexClaims>>, TError = ErrorType<HTTPValidationError>>(
- params: undefined |  ListHexClaimsParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof listHexClaims>>, TError, TData>> & Pick<
-        DefinedInitialDataOptions<
-          Awaited<ReturnType<typeof listHexClaims>>,
-          TError,
-          TData
-        > , 'initialData'
-      >, }
-
-  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
-export function useListHexClaims<TData = Awaited<ReturnType<typeof listHexClaims>>, TError = ErrorType<HTTPValidationError>>(
- params?: ListHexClaimsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listHexClaims>>, TError, TData>> & Pick<
-        UndefinedInitialDataOptions<
-          Awaited<ReturnType<typeof listHexClaims>>,
-          TError,
-          TData
-        > , 'initialData'
-      >, }
-
-  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
-export function useListHexClaims<TData = Awaited<ReturnType<typeof listHexClaims>>, TError = ErrorType<HTTPValidationError>>(
- params?: ListHexClaimsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listHexClaims>>, TError, TData>>, }
-
-  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
-/**
- * @summary List Hex Claims
- */
-
-export function useListHexClaims<TData = Awaited<ReturnType<typeof listHexClaims>>, TError = ErrorType<HTTPValidationError>>(
- params?: ListHexClaimsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listHexClaims>>, TError, TData>>, }
-
-  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> } {
-
-  const queryOptions = getListHexClaimsQueryOptions(params,options)
-
-  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
-
-  query.queryKey = queryOptions.queryKey ;
-
-  return query;
-}
-
-
-
+  export type ListHexClaimsResult = NonNullable<Awaited<ReturnType<typeof listHexClaims>>>

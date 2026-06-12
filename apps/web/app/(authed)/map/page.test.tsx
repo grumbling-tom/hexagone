@@ -20,15 +20,15 @@ vi.mock("next/link", () => ({
 }));
 
 vi.mock("@/__generated__/backend-client/uploads", () => ({
-  useListUploads: vi.fn(() => ({
-    data: { items: [] },
-    isPending: false,
-    isError: false,
-  })),
+  listUploads: vi.fn(() => Promise.resolve({ items: [] })),
 }));
 
-test("renders skeleton heading and CTA to uploads when there are no uploads", () => {
-  render(<MapPage />);
+vi.mock("@/__generated__/backend-client/aggregated-hex-claims", () => ({
+  listAggregatedHexClaims: vi.fn(),
+}));
+
+test("renders skeleton heading and CTA to uploads when there are no uploads", async () => {
+  render(await MapPage());
   expect(
     screen.getByRole("heading", { name: "Your map will appear here" }),
   ).toBeInTheDocument();
