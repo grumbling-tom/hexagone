@@ -48,10 +48,6 @@ def s3_client() -> S3Client:
     return boto3.client("s3", region_name="eu-west-2")  # pyright: ignore[reportUnknownMemberType]
 
 
-def _put(s3_client: S3Client, key: str, data: bytes) -> None:
-    s3_client.put_object(Bucket=settings.HEXAGONE_S3_BUCKET, Key=key, Body=data)
-
-
 def _latest_status(db: Session, upload: Upload) -> UploadStatus:
     db.refresh(upload)
     return upload.statuses[-1]
@@ -78,7 +74,9 @@ def test_happy_path_inserts_hex_claims_and_marks_success(
     data = make_gpx_doc([pts])
 
     upload = create_upload("happy.gpx", file_size_bytes=len(data))
-    _put(s3_client, upload.s3_key, data)
+    s3_client.put_object(
+        Bucket=settings.HEXAGONE_S3_BUCKET, Key=upload.s3_key, Body=data
+    )
 
     process_upload(test_db, upload.s3_key, S3StorageBackend())
 
@@ -130,7 +128,9 @@ def test_two_overlapping_loops_produce_distinct_polygon_indices(
     data = make_gpx_doc([loop_a, loop_b])
 
     upload = create_upload("overlap.gpx", file_size_bytes=len(data))
-    _put(s3_client, upload.s3_key, data)
+    s3_client.put_object(
+        Bucket=settings.HEXAGONE_S3_BUCKET, Key=upload.s3_key, Body=data
+    )
 
     process_upload(test_db, upload.s3_key, S3StorageBackend())
 
@@ -167,7 +167,9 @@ def test_no_timestamps_yields_completed_at_null(
     data = make_gpx_doc([pts])
 
     upload = create_upload("no-time.gpx", file_size_bytes=len(data))
-    _put(s3_client, upload.s3_key, data)
+    s3_client.put_object(
+        Bucket=settings.HEXAGONE_S3_BUCKET, Key=upload.s3_key, Body=data
+    )
 
     process_upload(test_db, upload.s3_key, S3StorageBackend())
 
@@ -190,7 +192,9 @@ def test_oversized_payload_marks_invalid(
     data = b"x" * 32
 
     upload = create_upload("oversize.gpx", file_size_bytes=len(data))
-    _put(s3_client, upload.s3_key, data)
+    s3_client.put_object(
+        Bucket=settings.HEXAGONE_S3_BUCKET, Key=upload.s3_key, Body=data
+    )
 
     process_upload(test_db, upload.s3_key, S3StorageBackend())
 
@@ -207,7 +211,9 @@ def test_malformed_xml_marks_invalid(
 ):
     data = b"not xml at all"
     upload = create_upload("bad.gpx", file_size_bytes=len(data))
-    _put(s3_client, upload.s3_key, data)
+    s3_client.put_object(
+        Bucket=settings.HEXAGONE_S3_BUCKET, Key=upload.s3_key, Body=data
+    )
 
     process_upload(test_db, upload.s3_key, S3StorageBackend())
 
@@ -232,7 +238,9 @@ def test_xxe_attempt_marks_invalid(
         b"</trkseg></trk></gpx>\n"
     )
     upload = create_upload("xxe.gpx", file_size_bytes=len(data))
-    _put(s3_client, upload.s3_key, data)
+    s3_client.put_object(
+        Bucket=settings.HEXAGONE_S3_BUCKET, Key=upload.s3_key, Body=data
+    )
 
     process_upload(test_db, upload.s3_key, S3StorageBackend())
 
@@ -260,7 +268,9 @@ def test_billion_laughs_marks_invalid(
         b'<gpx version="1.1"><trk><name>&lol4;</name></trk></gpx>\n'
     )
     upload = create_upload("lol.gpx", file_size_bytes=len(data))
-    _put(s3_client, upload.s3_key, data)
+    s3_client.put_object(
+        Bucket=settings.HEXAGONE_S3_BUCKET, Key=upload.s3_key, Body=data
+    )
 
     process_upload(test_db, upload.s3_key, S3StorageBackend())
 
@@ -280,7 +290,9 @@ def test_no_closed_loops_succeeds_with_zero_rows(
     data = make_gpx_doc([pts])
 
     upload = create_upload("open.gpx", file_size_bytes=len(data))
-    _put(s3_client, upload.s3_key, data)
+    s3_client.put_object(
+        Bucket=settings.HEXAGONE_S3_BUCKET, Key=upload.s3_key, Body=data
+    )
 
     process_upload(test_db, upload.s3_key, S3StorageBackend())
 
@@ -310,7 +322,9 @@ def test_replay_of_already_received_upload_is_a_noop(
             UploadStatusValue.UPLOAD_RECEIVED,
         ],
     )
-    _put(s3_client, upload.s3_key, data)
+    s3_client.put_object(
+        Bucket=settings.HEXAGONE_S3_BUCKET, Key=upload.s3_key, Body=data
+    )
 
     process_upload(test_db, upload.s3_key, S3StorageBackend())
 
