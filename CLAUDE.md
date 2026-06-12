@@ -8,26 +8,35 @@ Use `pnpm` exclusively. Never use `npm` or `npx`.
 
 Code under `apps/web/src/` is grouped by **feature**, not by file type. New components default to a feature folder; only promote to top-level `components/` once something is genuinely reused across features.
 
+The **Next.js App Router** lives at `apps/web/app/` (project root, *outside* `src/`) and is reserved for **routing**: Next's file conventions (`layout.tsx`, `page.tsx`, route segments, route groups like `(authed)/`) plus app chrome (`Nav.tsx`, `providers.tsx`). Route files stay thin and compose feature components. Static routes are prerendered at build; the image runs the standalone Node server (`output: "standalone"`, which also proxies `/api` to the backend).
+
 ```
-apps/web/src/
-  app/                  App shell: routing, providers, page chrome
-    App.tsx             Root <BrowserRouter> + <QueryClientProvider>
-    Nav.tsx             Top nav
-    ProtectedRoute.tsx  Auth guard
-    pages/              Route components — kept thin, compose feature components
-  features/             One folder per domain feature
-    uploads/
-      UploadList.tsx
-      UploadForm.tsx
-      ...
-    map/                (added when MapView lands)
-  components/           Truly shared, generic primitives (e.g. Button) — empty until needed
-  lib/                  Cross-cutting non-React utilities (fetch client, etc.)
-  styles/               theme.css + main.css (see CSS section below)
-  __generated__/        Orval-generated API client — do not edit by hand
+apps/web/
+  app/                  Routing + app shell (Next App Router; project root)
+    layout.tsx          Root layout: <html>, fonts, global CSS, <Providers>
+    providers.tsx       'use client' — QueryClientProvider
+    page.tsx            '/' landing — static, prerendered
+    Nav.tsx             Top nav (app chrome)
+    login/page.tsx      '/login'
+    signup/page.tsx     '/signup'
+    (authed)/           Route group (no URL segment) — auth-gated area
+      layout.tsx        'use client' — auth guard + <Nav>
+      map/page.tsx      '/map'
+      uploads/page.tsx  '/uploads'
+  src/                  Feature-grouped, non-routing code (imported via @/)
+    features/             One folder per domain feature
+      uploads/
+        UploadList.tsx
+        UploadForm.tsx
+        ...
+      hexMap/             Map view (HexMap, EmptyMap)
+    components/           Truly shared, generic primitives (e.g. Button) — empty until needed
+    lib/                  Cross-cutting non-React utilities (fetch client, etc.)
+    styles/               theme.css + main.css (see CSS section below)
+    __generated__/        Orval-generated API client — do not edit by hand
 ```
 
-The **Next.js App Router** lives at `apps/web/app/` (project root, *outside* `src/`): thin route files that own the HTML shell, the landing page, and a client catch-all that mounts the `src/app/` SPA. Everything under `src/` stays organised by feature as above.
+Route files in `app/` import `src/` code via the `@/` alias and each other via relative paths (the alias only maps to `src/`). Everything under `src/` stays organised by feature.
 
 **Where to put a new file**:
 - Used by exactly one feature → `features/<feature>/`
@@ -53,7 +62,7 @@ Three rules:
    | shared layers             | ❌     | ❌          | ✅                                                       |
 
    Anything outside these layers (e.g. `__generated__/`, `styles/`, the Next `app/` router) is unrestricted on both sides.
-3. **No routing in features.** Files in `features/` must not import from `react-router-dom` (or any other routing library) — including `Link`, `useNavigate`, `useLocation`, `useParams`, `Outlet`, etc. Routing is an app-level concern: the URL structure is a property of the app, not of any individual feature. When a feature component needs a CTA that navigates somewhere, accept the link as a `ReactNode` slot prop (or take an `onClick` callback) and let the parent in `app/pages/` supply the actual `<Link>`. Keeps features testable without `<MemoryRouter>` providers, embeddable in non-routed contexts (modals, Storybook, marketing pages), and free of assumptions about the app's URL shape.
+3. **No routing in features.** Files in `features/` must not import Next's routing modules (`next/navigation`, `next/link`, `next/router`) or any other routing library — including `Link`, `useRouter`, `usePathname`, `useParams`, `redirect`, etc. Routing is an app-level concern: the URL structure is a property of the app, not of any individual feature. When a feature component needs a CTA that navigates somewhere, accept the link as a `ReactNode` slot prop (or take an `onClick` callback) and let the route file in `app/` supply the actual `<Link>`. Keeps features testable without router providers, embeddable in non-routed contexts (modals, Storybook, marketing pages), and free of assumptions about the app's URL shape.
 
 If you need to share something between two features, lift it into one of the shared layers — don't import sideways. If two features genuinely depend on each other, that's a sign they're one feature.
 

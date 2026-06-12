@@ -1,11 +1,13 @@
-// Landing page (server component) — replaces src/pages/index.astro. The app
-// itself lives at /app, mounted client-side (app/app/[[...slug]]/page.tsx).
+import Link from "next/link";
+
+// Landing page (server component) — statically prerendered. The authed app lives
+// at /map and /uploads (App Router segments under (authed)).
 export default function LandingPage() {
   return (
     <main className="landing">
       <h1>Hexagone</h1>
       <p>Welcome to Hexagone.</p>
-      <a href="/app">Open App</a>
+      <Link href="/map">Open App</Link>
     </main>
   );
 }

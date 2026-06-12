@@ -1,3 +1,5 @@
+"use client";
+
 import UploadForm from "@/features/uploads/UploadForm";
 import UploadHelp from "@/features/uploads/UploadHelp";
 

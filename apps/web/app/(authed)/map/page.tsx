@@ -1,10 +1,12 @@
-import { Link } from "react-router-dom";
+"use client";
+
+import Link from "next/link";
 import { UploadStatusValue } from "@/__generated__/backend-client/backend.schemas";
 import { useListUploads } from "@/__generated__/backend-client/uploads";
 import EmptyMap from "@/features/hexMap/EmptyMap";
 import HexMap from "@/features/hexMap/HexMap";
 
-export default function Home() {
+export default function MapPage() {
   const { data, isPending, isError } = useListUploads({
     statuses: [UploadStatusValue.UPLOAD_SUCCESS],
   });
@@ -23,7 +25,7 @@ export default function Home() {
       <main className="page">
         <EmptyMap
           uploadsLink={
-            <Link to="/uploads" className="button button--primary">
+            <Link href="/uploads" className="button button--primary">
               Add your first upload
             </Link>
           }

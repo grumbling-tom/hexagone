@@ -5,8 +5,9 @@
 //   1. No cross-feature imports — features/X cannot import from features/Y.
 //   2. Unidirectional layers — shared (components/hooks/lib/types/utils) cannot
 //      import from features or app; features cannot import from app.
-//   3. No routing in features — features may not import from react-router-dom
-//      or any other routing library; routing is an app-level concern.
+//   3. No routing in features — features may not import Next's routing modules
+//      (next/navigation, next/link, next/router) or any other routing library;
+//      routing is an app-level concern (the App Router lives at apps/web/app/).
 
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
@@ -15,7 +16,7 @@ const SRC = resolve(import.meta.dirname, "..", "src");
 const ALIAS_PREFIX = "@/";
 const SHARED_LAYERS = ["components", "hooks", "lib", "types", "utils"];
 const SKIP_DIRS = new Set(["__generated__", "node_modules"]);
-const ROUTING_PACKAGES = ["react-router-dom", "react-router"];
+const ROUTING_PACKAGES = ["next/navigation", "next/link", "next/router"];
 
 function isRoutingImport(spec) {
   return ROUTING_PACKAGES.some((p) => spec === p || spec.startsWith(`${p}/`));
