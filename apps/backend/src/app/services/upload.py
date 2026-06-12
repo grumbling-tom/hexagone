@@ -7,6 +7,8 @@ from pathlib import Path
 from sqlalchemy.orm import Session as DBSession
 
 from src.app.repository import (
+    EqualsFilter,
+    HexClaim,
     InFilter,
     Repository,
     Upload,
@@ -14,6 +16,7 @@ from src.app.repository import (
     UploadStatusValue,
 )
 from src.app.repository.models import User
+from src.app.services.gpx import GpxValidationError, gpx_bytes_to_polygons
 from src.app.services.permissions import permission_filters
 from src.app.services.storage import StorageBackend
 from src.app.settings import settings
@@ -180,4 +183,81 @@ def list_uploads(  # noqa: PLR0913
         cursor=cursor,
         sort_field=getattr(Upload, sort_field),
         sort_order=sort_order,
+    )
+
+
+def find_upload_by_s3_key(db: DBSession, key: str) -> Upload | None:
+    """Find an Upload record by its associated object key."""
+    result = Repository(db, Upload).get_filtered(
+        filters=[EqualsFilter(field="s3_key", value=key)],
+        page_size=1,
+    )
+    return result.items[0] if result.items else None
+
+
+def process_upload(db: DBSession, key: str, storage: StorageBackend) -> None:
+    """Process an uploaded GPX object: parse it and record hex claims.
+
+    Extracted from the former AWS Lambda S3-event handler — called with an
+    object key once the file has landed in storage (today from the Tigris
+    object-notification webhook via a background worker), and knows nothing
+    about how it was triggered.
+
+    Idempotent on upload status: only an upload still in ``UPLOAD_PENDING`` is
+    processed, so at-least-once delivery (a duplicate notification, a retried
+    job) is a safe no-op. Invalid GPX is a *terminal* outcome
+    (``UPLOAD_INVALID``), not an error — only unexpected infrastructure
+    failures propagate, so the caller's queue can retry those.
+
+    The caller owns the session lifecycle (e.g. the worker opens one via
+    ``get_db()``); this function manages its own commits within it.
+    """
+    upload = find_upload_by_s3_key(db, key)
+
+    if not upload:
+        logger.warning("upload_not_found", key=key)
+        return
+
+    if upload.current_status != UploadStatusValue.UPLOAD_PENDING:
+        logger.info("upload_not_pending", key=key, status=upload.current_status)
+        return
+
+    set_upload_status(db, upload, UploadStatusValue.UPLOAD_RECEIVED)
+    logger.info("upload_status_updated", key=key, status="UPLOAD_RECEIVED")
+
+    data = storage.get_object(key)
+
+    try:
+        polygons = gpx_bytes_to_polygons(data, resolution=settings.H3_RESOLUTION)
+    except GpxValidationError as e:
+        logger.warning("gpx_invalid", key=key, reason=e.reason)
+        set_upload_status(db, upload, UploadStatusValue.UPLOAD_INVALID, detail=e.reason)
+        return
+
+    claims = [
+        HexClaim(
+            upload_uid=upload.uid,
+            user_uid=upload.user_uid,
+            h3_cell=cell,
+            h3_resolution=settings.H3_RESOLUTION,
+            polygon_index=polygon.polygon_index,
+            completed_at=polygon.completed_at,
+            git_sha=settings.GIT_SHA,
+        )
+        for polygon in polygons
+        for cell in polygon.cells
+    ]
+
+    # Bulk insert + UPLOAD_SUCCESS share a single transaction so a failed
+    # insert does not leave a misleading success status.
+    db.add_all(claims)
+    set_upload_status(db, upload, UploadStatusValue.UPLOAD_SUCCESS, commit=False)
+    db.commit()
+
+    # TODO: Consider an UPLOAD_FAILED status for bulk insert failures.
+    logger.info(
+        "upload_processed",
+        key=key,
+        polygon_count=len(polygons),
+        cells_inserted=len(claims),
     )
