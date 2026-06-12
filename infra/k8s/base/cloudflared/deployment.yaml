@@ -8,7 +8,7 @@
 # Token-based ("remotely-managed") tunnel: the hostname -> service routing is
 # managed by Terraform (infra/terraform/cloudflare.tf), not a local config file.
 # cloudflared points at a single origin — the Next.js hexagone-web Service, which
-# serves the UI and proxies /api to the backend itself (no path-split here).
+# serves the UI and reaches the backend server-side (no /api path to split here).
 #
 # The TUNNEL_TOKEN is supplied via a Secret created out-of-band (never in git),
 # piped from the Terraform output:

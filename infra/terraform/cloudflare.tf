@@ -29,8 +29,8 @@ resource "cloudflare_zero_trust_tunnel_cloudflared_config" "app" {
   tunnel_id  = cloudflare_zero_trust_tunnel_cloudflared.app.id
 
   # Single entrypoint: cloudflared points at the Next.js web Service, which serves
-  # the UI and proxies /api to the backend itself (next.config.mjs rewrites). No
-  # path-split here anymore — Next owns the routing.
+  # the UI and reaches the backend server-side (RSC + Server Actions). The browser
+  # makes no backend calls, so there's no /api path to split here.
   config = {
     ingress = [
       {

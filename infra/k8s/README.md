@@ -20,8 +20,9 @@ but on **k3s**, keeping operators to a minimum:
 - **App (public):** reachable only via **cloudflared**, which dials *outbound* to
   Cloudflare. No inbound port is ever opened. Cloudflare does TLS, DNS, WAF.
   cloudflared points at a **single origin** — the **Next.js** web Service, which
-  serves the UI and proxies `/api` to the backend itself (no path-split, no
-  ingress controller).
+  serves the UI and reaches the backend server-side (RSC + Server Actions; the
+  browser makes no backend calls), so there's no path-split and no ingress
+  controller.
 - **Admin (private):** **host-level `tailscaled`** puts the Mac mini on your
   tailnet. `kubectl` / dashboards are reached over the tailnet IP — never public.
 - **Minimal operators.** cloudflared is a plain Deployment and Tailscale is a host
@@ -177,7 +178,6 @@ kubectl get pods -n kube-system    # what Colima's k3s actually enabled
 ## Roadmap
 
 - **DONE — single cluster entrypoint via Next.js.** The web app is a Next.js server
-  that serves the UI and proxies `/api/*` to the backend Service (`next.config.mjs`
-  rewrites), so cloudflared points at one `hexagone-web` origin with no path rules.
-  Follow-up (deferred): the SPA still uses react-router inside `/app` (lift-and-shift);
-  it can be migrated to idiomatic Next file-based routes later.
+  that serves the UI and reaches the backend Service server-side (RSC + Server
+  Actions, via `BACKEND_ORIGIN`), so cloudflared points at one `hexagone-web` origin
+  with no path rules and the browser makes no backend calls.

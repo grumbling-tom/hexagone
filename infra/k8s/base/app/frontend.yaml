@@ -1,9 +1,9 @@
 # Hexagone web — the Next.js production server (apps/web).
 #
 # Image: standalone Next build (`node server.js`), from apps/web/Dockerfile — see
-# infra/k8s/README.md. Next serves the UI AND proxies /api to the backend
-# (next.config.mjs rewrites, target = BACKEND_ORIGIN below), so this is the single
-# entrypoint: cloudflared points only here and no longer path-splits.
+# infra/k8s/README.md. Next is the single entrypoint: cloudflared points only here.
+# The browser makes no backend calls; Next reaches the backend server-side (React
+# Server Components + Server Actions, via the BACKEND_ORIGIN env below).
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -27,9 +27,12 @@ spec:
           ports:
             - name: http
               containerPort: 3000
-          # The /api proxy target (BACKEND_ORIGIN) is baked into the image at build
-          # time — Next evaluates next.config rewrites() during the build, so it's a
-          # Dockerfile ARG (defaults to the backend Service), not a runtime env.
+          # The fetch client (apps/web/src/lib/fetch-client.ts) reads BACKEND_ORIGIN
+          # at request time in RSC / Server Actions, so it's a runtime env — the
+          # in-cluster backend Service, reachable from this pod in `default`.
+          env:
+            - name: BACKEND_ORIGIN
+              value: http://hexagone-backend.default.svc.cluster.local:8000
           readinessProbe:
             httpGet:
               path: /
