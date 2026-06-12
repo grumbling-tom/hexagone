@@ -15,7 +15,7 @@ Security
 The module hardens the stdlib XML parsers against XXE / billion-laughs
 attacks at import time via :func:`defusedxml.defuse_stdlib`. Resource
 exhaustion is bounded by the ``MAX_GPX_*`` settings; each cap raises a
-typed :class:`GpxValidationError` so the lambda handler can mark the
+typed :class:`GpxValidationError` so :func:`process_upload` can mark the
 upload ``UPLOAD_INVALID`` with a useful reason.
 """
 

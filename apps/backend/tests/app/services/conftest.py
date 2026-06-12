@@ -2,7 +2,7 @@
 
 Provides factory fixtures for synthesising GPX payloads inline. These
 were previously private helper functions duplicated across
-``test_gpx_processing.py`` and ``test_upload.py``; per
+``test_gpx.py`` and ``test_upload.py``; per
 ``apps/backend/CLAUDE.md`` ("Fixtures over Helper Functions"), test-data
 construction belongs in a fixture so it can be shared and discovered
 through pytest's dependency injection.
@@ -15,7 +15,7 @@ from datetime import datetime, timedelta
 
 import pytest
 
-from src.app.services.gpx_processing import Point
+from src.app.services.gpx import Point
 
 # Roughly 11 metres in latitude / longitude near London. Baked into the
 # loop / track factories so individual tests don't have to reason about

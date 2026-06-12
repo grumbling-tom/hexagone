@@ -18,7 +18,7 @@ from src.app.repository import (
     UploadStatusValue,
     User,
 )
-from src.app.services.gpx_processing import Point
+from src.app.services.gpx import Point
 from src.app.services.password import hash_password
 from src.app.services.storage import S3StorageBackend
 from src.app.services.upload import (
@@ -341,7 +341,7 @@ def test_maybe_presigned_url_recent_pending(test_db: Session, test_user: User):
 # process_upload
 #
 # GPX-payload factories (make_square_loop / make_open_track / make_gpx_doc)
-# live in the sibling conftest.py so they're shared with test_gpx_processing.py.
+# live in the sibling conftest.py so they're shared with test_gpx.py.
 # ---------------------------------------------------------------------------
 
 

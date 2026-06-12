@@ -16,7 +16,7 @@ from src.app.repository import (
     UploadStatusValue,
 )
 from src.app.repository.models import User
-from src.app.services.gpx_processing import GpxValidationError, gpx_bytes_to_polygons
+from src.app.services.gpx import GpxValidationError, gpx_bytes_to_polygons
 from src.app.services.permissions import permission_filters
 from src.app.services.storage import StorageBackend
 from src.app.settings import settings

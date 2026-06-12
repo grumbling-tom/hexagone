@@ -99,6 +99,33 @@ relative to its entity name; the version prefix is applied in `main.py`.
 - `routers/users.py`          → routes: `/users`, `/users/current`, `/users/{uid}`
 - `routers/user_sessions.py`  → routes: `/user-sessions`, `/user-sessions/current`
 
+## Service File Naming
+
+Files in `src/app/services/` are named for the **noun** the service is built
+around — the entity or domain it operates on — never the action it performs.
+The file names the thing; the functions inside carry the verbs.
+
+### Good
+
+```
+services/gpx.py        # GpxValidationError, gpx_bytes_to_polygons
+services/upload.py     # create_upload, process_upload, list_uploads
+services/storage.py    # StorageBackend, S3StorageBackend
+```
+
+### Bad
+
+```
+services/gpx_processing.py   # action in the filename
+services/upload_service.py   # redundant "_service" suffix
+services/process_upload.py   # a verb as the filename
+```
+
+When two files would name the same noun (e.g. CRUD and a processing pipeline
+for uploads), keep them in the **one** noun-named file rather than splitting by
+action — see `services/upload.py`, which holds both `create_upload` and
+`process_upload`.
+
 ## Database Migrations
 
 Migration files live in `src/alembic/versions/` and use 4-digit zero-padded
