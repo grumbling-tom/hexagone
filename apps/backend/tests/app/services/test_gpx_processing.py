@@ -11,7 +11,7 @@ from datetime import UTC, datetime
 
 import pytest
 
-from src.app.handlers.file_upload.gpx_processing import (
+from src.app.services.gpx_processing import (
     DetectedPolygon,
     GpxValidationError,
     Point,
