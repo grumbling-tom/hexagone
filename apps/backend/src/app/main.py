@@ -1,7 +1,6 @@
 """FastAPI application entry point."""
 
 from fastapi import APIRouter, FastAPI
-from fastapi.middleware.cors import CORSMiddleware
 
 from src.app.middleware import RequestThrottlerMiddleware
 from src.app.routers.health import router as health_router
@@ -23,14 +22,8 @@ def create_app(settings: Settings = settings) -> FastAPI:
     """Create a configured FastAPI application instance."""
     app = FastAPI(title="Backend")
 
-    if settings.ENV == "DEV":
-        app.add_middleware(
-            CORSMiddleware,
-            allow_origins=["http://localhost:4321"],
-            allow_methods=["GET", "POST", "PUT", "DELETE"],
-            allow_headers=["*"],
-            allow_credentials=True,
-        )
+    # No CORS: the browser never calls the backend directly (Next.js reaches it
+    # server-side via RSC / Server Actions), so cross-origin requests don't occur.
 
     if settings.THROTTLE_DELAY_SECONDS is not None:
         app.add_middleware(

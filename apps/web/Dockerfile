@@ -1,6 +1,8 @@
-# Web image: Next.js production server (standalone output). Serves the UI AND
-# proxies /api to the backend (next.config.mjs rewrites), so cloudflared no longer
-# path-splits — one entrypoint into the cluster. Build context is apps/web:
+# Web image: Next.js production server (standalone output). Serves the UI and
+# reaches the backend server-side (RSC + Server Actions) at runtime via the
+# BACKEND_ORIGIN env, set on the Deployment — the browser makes no backend calls,
+# so there's no /api proxy and cloudflared has one entrypoint. Build context is
+# apps/web:
 #   docker build -t hexagone-web:latest apps/web
 
 FROM node:22-alpine AS build
@@ -14,13 +16,10 @@ COPY package.json pnpm-lock.yaml ./
 RUN --mount=type=cache,target=/pnpm/store \
     pnpm install --frozen-lockfile --store-dir=/pnpm/store
 
-# The /api proxy target is baked at build time — Next evaluates next.config
-# rewrites() during `next build`, not at runtime. Defaults to the in-cluster
-# backend Service; override for other environments with --build-arg.
-ARG BACKEND_ORIGIN=http://hexagone-backend.default.svc.cluster.local:8000
-ENV BACKEND_ORIGIN=$BACKEND_ORIGIN
-
-# Build the Next app -> .next (output: 'standalone').
+# Build the Next app -> .next (output: 'standalone'). BACKEND_ORIGIN is NOT needed
+# here — it's read at runtime by the fetch client, not at build time (the static
+# pages don't fetch; /map and /uploads are request-time dynamic). It's supplied as
+# a runtime env on the Deployment.
 COPY . .
 RUN pnpm build
 
