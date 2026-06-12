@@ -2,11 +2,12 @@ import "server-only";
 
 import { cookies } from "next/headers";
 import setCookieParser from "set-cookie-parser";
+import { env } from "@/config/env";
 
 // Next.js is the sole entrypoint: this client runs server-side only (RSC + Server
 // Actions) and talks to the backend over the cluster network. BACKEND_ORIGIN is
-// set in the Deployment and defaults to the local uvicorn server in dev.
-const BACKEND_ORIGIN = process.env.BACKEND_ORIGIN ?? "http://localhost:8000";
+// set in the Deployment and defaults to the local uvicorn server in dev — it's
+// declared and validated in src/config/env.ts.
 
 export enum HttpStatus {
   UNAUTHORIZED = 401,
@@ -37,7 +38,7 @@ export async function fetchClient<T>(config: {
   signal?: AbortSignal;
 }): Promise<T> {
   const cookieStore = await cookies();
-  const url = new URL(config.url, BACKEND_ORIGIN);
+  const url = new URL(config.url, env.BACKEND_ORIGIN);
 
   if (config.params) {
     for (const [key, value] of Object.entries(config.params)) {
