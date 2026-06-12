@@ -526,6 +526,51 @@
         }
       }
     },
+    "/api/v1/upload-notifications": {
+      "post": {
+        "tags": [
+          "upload-notifications"
+        ],
+        "summary": "Create Upload Notification",
+        "description": "Enqueue a processing job for each newly-created object.",
+        "operationId": "createUploadNotification",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UploadNotification"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
     "/api/v1/hex-claims": {
       "get": {
         "tags": [
@@ -1278,6 +1323,38 @@
         "title": "HexClaimSortField",
         "description": "Allowed sort fields for raw hex-claim listing."
       },
+      "NotificationEvent": {
+        "properties": {
+          "eventName": {
+            "type": "string",
+            "title": "Eventname"
+          },
+          "object": {
+            "$ref": "#/components/schemas/NotificationObject"
+          }
+        },
+        "type": "object",
+        "required": [
+          "eventName",
+          "object"
+        ],
+        "title": "NotificationEvent",
+        "description": "A single Tigris object-notification event."
+      },
+      "NotificationObject": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key"
+        ],
+        "title": "NotificationObject",
+        "description": "The ``object`` block of a Tigris notification event."
+      },
       "PaginatedResult_AggregatedHexClaimByCell_": {
         "properties": {
           "items": {
@@ -1588,6 +1665,23 @@
         "title": "UpdateUserGroupRequest",
         "description": "Request body for renaming a user group."
       },
+      "UploadNotification": {
+        "properties": {
+          "events": {
+            "items": {
+              "$ref": "#/components/schemas/NotificationEvent"
+            },
+            "type": "array",
+            "title": "Events"
+          }
+        },
+        "type": "object",
+        "required": [
+          "events"
+        ],
+        "title": "UploadNotification",
+        "description": "Request body for the Tigris object-notification webhook."
+      },
       "UploadResponse": {
         "properties": {
           "uid": {
@@ -1780,6 +1874,12 @@
           "type"
         ],
         "title": "ValidationError"
+      }
+    },
+    "securitySchemes": {
+      "HTTPBearer": {
+        "type": "http",
+        "scheme": "bearer"
       }
     }
   }

@@ -1,5 +1,8 @@
 """FastAPI application entry point."""
 
+from collections.abc import AsyncGenerator
+from contextlib import asynccontextmanager
+
 from fastapi import APIRouter, FastAPI, Request
 from fastapi.responses import JSONResponse
 
@@ -11,6 +14,7 @@ from src.app.routers.hex_claims import (
     hex_claims_router,
 )
 from src.app.routers.login_tokens import router as login_tokens_router
+from src.app.routers.upload_notifications import router as upload_notifications_router
 from src.app.routers.uploads import router as uploads_router
 from src.app.routers.user_groups import router as user_groups_router
 from src.app.routers.user_sessions import router as user_sessions_router
@@ -18,6 +22,7 @@ from src.app.routers.users import router as users_router
 from src.app.settings import Settings, settings
 from src.app.telemetry import setup_tracing
 from src.app.utils import configure_logging
+from src.worker.defer import close_defer_app, open_defer_app
 
 configure_logging()
 
@@ -31,9 +36,19 @@ def _handle_not_authorised(request: Request, exc: Exception) -> JSONResponse:  #
     return JSONResponse(status_code=403, content={"detail": "Not authorised"})
 
 
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncGenerator[None]:  # noqa: ARG001
+    """Open the defer-only Procrastinate app for the lifetime of the server."""
+    open_defer_app()
+    try:
+        yield
+    finally:
+        close_defer_app()
+
+
 def create_app(settings: Settings = settings) -> FastAPI:
     """Create a configured FastAPI application instance."""
-    app = FastAPI(title="Backend")
+    app = FastAPI(title="Backend", lifespan=lifespan)
 
     # No CORS: the browser never calls the backend directly (Next.js reaches it
     # server-side via RSC / Server Actions), so cross-origin requests don't occur.
@@ -48,6 +63,9 @@ def create_app(settings: Settings = settings) -> FastAPI:
     api_v1_router.include_router(user_sessions_router, tags=["user-sessions"])
     api_v1_router.include_router(login_tokens_router, tags=["login-tokens"])
     api_v1_router.include_router(uploads_router, tags=["uploads"])
+    api_v1_router.include_router(
+        upload_notifications_router, tags=["upload-notifications"]
+    )
     api_v1_router.include_router(hex_claims_router, tags=["hex-claims"])
     api_v1_router.include_router(
         aggregated_hex_claims_router, tags=["aggregated-hex-claims"]

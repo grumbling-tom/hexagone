@@ -14,6 +14,26 @@ if config.config_file_name is not None:
 target_metadata = BaseModel.metadata
 
 
+def include_object(
+    obj: object,  # noqa: ARG001
+    name: str | None,
+    type_: str,
+    reflected: bool,  # noqa: ARG001
+    compare_to: object,  # noqa: ARG001
+) -> bool:
+    """Keep Procrastinate's tables out of autogenerate.
+
+    Procrastinate owns its ``procrastinate_*`` tables (created by the
+    ``0007_add_procrastinate_schema`` migration), so they aren't in
+    ``BaseModel.metadata``. Without this guard, ``--autogenerate`` would see
+    them as stray DB objects and emit ``DROP TABLE`` for each. (Autogenerate
+    doesn't track stored functions/triggers, so filtering tables is enough.)
+    """
+    return not (
+        type_ == "table" and name is not None and name.startswith("procrastinate_")
+    )
+
+
 def run_migrations_offline() -> None:
     """Run migrations in 'offline' mode.
 
@@ -33,6 +53,7 @@ def run_migrations_offline() -> None:
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
         render_as_batch=True,
+        include_object=include_object,
     )
 
     with context.begin_transaction():
@@ -57,6 +78,7 @@ def run_migrations_online() -> None:
             connection=connection,
             target_metadata=target_metadata,
             render_as_batch=True,
+            include_object=include_object,
         )
 
         with context.begin_transaction():

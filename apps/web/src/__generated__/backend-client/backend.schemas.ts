@@ -133,6 +133,13 @@ export interface UploadResponse {
 }
 
 /**
+ * Request body for the Tigris object-notification webhook.
+ */
+export interface UploadNotification {
+  events: NotificationEvent[];
+}
+
+/**
  * Request body for renaming a user group.
  */
 export interface UpdateUserGroupRequest {
@@ -245,6 +252,21 @@ Returns:
     The length of the items list. */
   readonly page_size: number;
   previous_cursor: PaginatedResultAggregatedHexClaimByCellPreviousCursor;
+}
+
+/**
+ * The ``object`` block of a Tigris notification event.
+ */
+export interface NotificationObject {
+  key: string;
+}
+
+/**
+ * A single Tigris object-notification event.
+ */
+export interface NotificationEvent {
+  eventName: string;
+  object: NotificationObject;
 }
 
 /**

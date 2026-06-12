@@ -114,6 +114,35 @@ services:
       AWS_SECRET_ACCESS_KEY: test
       THROTTLE_DELAY_SECONDS: 0.5
       ALLOWED_EMAILS: '["foo@bar.com"]'
+      # Shared secret the upload-notifications webhook expects (Bearer token).
+      UPLOAD_NOTIFICATION_SECRET: dev-notification-secret
+    depends_on:
+      postgres:
+        condition: service_healthy
+      seaweedfs-init:
+        condition: service_completed_successfully
+      migrate:
+        condition: service_completed_successfully
+    volumes:
+      - ./apps/backend/src:/app/src
+
+  # Procrastinate worker — drains the queue and runs process_upload. Same image
+  # as the backend; mirrors the hexagone-worker k8s Deployment. The backend
+  # (web) only defers jobs; this process executes them. Host networking so it
+  # reaches postgres/seaweedfs on localhost, exactly like the backend.
+  hexagone-worker:
+    build:
+      context: apps/backend
+      dockerfile: Dockerfile
+    container_name: hexagone-worker
+    network_mode: host
+    command: ["procrastinate", "--app=src.worker.app.app", "worker"]
+    environment:
+      ENV: DEV
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
+      HEXAGONE_S3_ENDPOINT_URL: http://localhost:4566
+      AWS_ACCESS_KEY_ID: "000000000000"
+      AWS_SECRET_ACCESS_KEY: test
     depends_on:
       postgres:
         condition: service_healthy
