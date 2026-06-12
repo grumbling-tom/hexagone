@@ -22,9 +22,6 @@ from src.worker.defer import defer_process_upload
 
 router = APIRouter()
 
-#: Tigris event emitted when an object is created/updated via PUT.
-OBJECT_CREATED_PUT = "OBJECT_CREATED_PUT"
-
 _bearer = HTTPBearer(auto_error=False)
 
 
@@ -69,5 +66,6 @@ class UploadNotification(BaseSchema):
 def create_upload_notification(body: UploadNotification) -> None:
     """Enqueue a processing job for each newly-created object."""
     for event in body.events:
-        if event.event_name == OBJECT_CREATED_PUT:
+        # OBJECT_CREATED_PUT: object created/updated via PUT (see module docstring).
+        if event.event_name == "OBJECT_CREATED_PUT":
             defer_process_upload(event.obj.key)
