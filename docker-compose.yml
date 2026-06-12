@@ -78,6 +78,8 @@ services:
     environment:
       ENV: DEV
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/postgres
+      # Settings validation requires these in DEV (LocalStack guard), even
+      # though migrations don't touch S3. https://docs.localstack.cloud/aws/capabilities/config/credentials/
       AWS_ACCESS_KEY_ID: "000000000000"
       AWS_SECRET_ACCESS_KEY: test
     depends_on:
