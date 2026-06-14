@@ -6,15 +6,18 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from pydantic import EmailStr, Field
 from sqlalchemy.orm import Session
 
-from src.app.dependencies import authenticated_user, db_session
+from src.app.dependencies import authenticated_user, db_session, email_client
 from src.app.repository import User
 from src.app.services import user as user_service
 from src.app.services import user_group as user_group_service
+from src.app.services.email import EmailClient, send_welcome_email
 from src.app.services.user import DuplicateEmailError
 from src.app.services.user import create_user as create_user_service
 from src.app.services.user_session import create_session
 from src.app.settings import settings
-from src.app.utils import BaseSchema, PaginatedResult, get_client_ip
+from src.app.utils import BaseSchema, PaginatedResult, get_client_ip, get_logger
+
+logger = get_logger(__name__)
 
 router = APIRouter()
 
@@ -52,6 +55,7 @@ def create_user(
     request: Request,
     response: Response,
     db: Annotated[Session, Depends(db_session)],
+    email: Annotated[EmailClient, Depends(email_client)],
 ) -> UserResponse:
     """Create a new user account and start a session."""
     try:
@@ -71,6 +75,12 @@ def create_user(
         secure=True,
         samesite="strict",
     )
+
+    # Best-effort: a welcome-email failure must not fail signup.
+    try:
+        send_welcome_email(email, user=user)
+    except Exception:
+        logger.exception("welcome_email_failed", user_uid=user.uid)
 
     return UserResponse(uid=user.uid, email=user.email)
 

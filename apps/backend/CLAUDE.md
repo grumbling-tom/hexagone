@@ -78,6 +78,22 @@ Prefer extracting shared logic into a common module higher in the directory
 tree (e.g. `src/app/utils/`) rather than duplicating helper functions across
 files. When you see the same function in two or more places, consolidate it.
 
+## Logging Around External Service Calls
+
+Every call to an external service (HTTP API, email provider, S3, etc.) must be
+bracketed by `structlog` log statements: an `info` line **before** the call
+describing the intent and an `info` line **after** a successful call (including
+any returned id). Failures should surface via `logger.exception(...)` at the
+call site that handles them. This gives every outbound dependency call a
+traceable request/response pair in the logs. See `ResendEmailClient.send` in
+`services/email.py` for the canonical example.
+
+**Never log raw PII.** Don't put plaintext emails (or message bodies that embed
+them), tokens, or secrets in logs. Prefer the non-PII `user_uid` as the
+identifier; when an email must appear, mask it with `mask_email()` from
+`src.app.utils` (`t***@gmail.com`). This follows the existing `hash_user_agent`
+precedent in `services/user_session.py`.
+
 ## Router Tags
 
 Every router must be registered with a `tags` parameter in `main.py`. Orval
