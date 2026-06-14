@@ -1,0 +1,71 @@
+name: pr-checks
+
+# Runs the same Lefthook pre-commit hooks that gate local commits, so code
+# standards are enforced on every PR even if a contributor skipped the hooks
+# locally (e.g. `git commit --no-verify`). Driving the hooks through Lefthook
+# itself keeps CI in lockstep with lefthook.yml — no duplicated check list.
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+# Cancel superseded runs when new commits land on the same PR/branch.
+concurrency:
+  group: pr-checks-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pre-commit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # Full history + a local `main` ref so the validate-migrations hook
+          # can diff added migrations against the base branch.
+          fetch-depth: 0
+
+      - name: Provide local main ref for migration validation
+        if: github.ref_name != 'main'
+        run: git fetch --no-tags origin main:main || true
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: apps/web/pnpm-lock.yaml
+
+      - name: Install frontend dependencies
+        run: pnpm -C apps/web install --frozen-lockfile
+
+      - name: Set up uv (Python 3.14)
+        uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.14"
+          enable-cache: true
+          working-directory: apps/backend
+
+      - name: Install backend dependencies
+        working-directory: apps/backend
+        run: uv sync --locked
+
+      - name: Run pre-commit hooks
+        env:
+          # The gen-api-client hook boots the backend, which instantiates
+          # Settings — ENV=TEST keeps it from requiring production config.
+          ENV: TEST
+        run: pnpm dlx lefthook@2.1.9 run pre-commit --all-files
+
+      - name: Fail if hooks modified files
+        run: |
+          if ! git diff --quiet HEAD; then
+            echo "::error::Pre-commit hooks modified files. Run 'lefthook run pre-commit --all-files' locally and commit the result."
+            git diff --stat HEAD
+            exit 1
+          fi
