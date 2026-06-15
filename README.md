@@ -58,21 +58,20 @@ The dev server starts at `http://localhost:4321/`:
 
 In dev mode (`ENV` unset or `DEV`), the backend uses a local SQLite database (`sqlite.db`) automatically — no external database setup required.
 
-### Local S3 with LocalStack
+### Local S3 with SeaweedFS
 
-File uploads and S3 event processing use [LocalStack](https://docs.localstack.cloud/) for local development. Start it with docker compose:
+File uploads use [SeaweedFS](https://github.com/seaweedfs/seaweedfs) (an S3-compatible server) for local development; production uses Tigris. Start it with docker compose:
 
 ```bash
-docker compose up localstack
+docker compose up seaweedfs seaweedfs-init
 ```
 
-The init script (`localstack/init-aws.sh`) runs automatically and:
+SeaweedFS derives a full-admin identity from the `AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY` env vars set on its container, so presigned URLs the backend signs with the same credentials validate. The one-shot `seaweedfs-init` service then runs `scripts/seaweedfs-init.sh`, which:
 
 - Creates the `hexagone-gpx-uploads` S3 bucket
-- Deploys the GPX processing Lambda (`src/app/handlers/gpx.py`) with hot-reload
-- Wires the `s3:ObjectCreated` notification to trigger the Lambda
+- Applies a CORS policy allowing the browser to PUT directly (origins `http://localhost:3000` and `https://hexagone.localhost`)
 
-The backend reads `HEXAGONE_S3_ENDPOINT_URL=http://localhost:4566` from `.env`, so pre-signed URLs point at LocalStack. Upload files with curl:
+The backend reads `HEXAGONE_S3_ENDPOINT_URL=http://localhost:4566` from `.env`, so pre-signed URLs point at SeaweedFS. Upload files with curl:
 
 ```bash
 curl -X PUT "<presigned-url>" \
