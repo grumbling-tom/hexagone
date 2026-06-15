@@ -162,11 +162,11 @@ export default function UploadModal({
   const resolvedPercent =
     total === 0 ? 0 : Math.round(((doneCount + errorCount) / total) * 100);
 
-  // Stepper position: pressing Upload/Retry puts a run in flight and advances to
-  // Done (so Confirm goes solid); a failure drops back to Confirm; having files
-  // selected sits on Confirm; nothing selected is Select.
+  // Stepper position: completing every upload marks all three steps done (Done
+  // goes solid blue); a run in flight sits on Done; a failure drops back to
+  // Confirm; having files selected sits on Confirm; nothing selected is Select.
   const isDone = total > 0 && doneCount === total;
-  const currentStep = isUploading || isDone ? 2 : total > 0 ? 1 : 0;
+  const currentStep = isDone ? 3 : isUploading ? 2 : total > 0 ? 1 : 0;
 
   return (
     <div className="upload-modal">
@@ -347,7 +347,7 @@ export default function UploadModal({
             </p>
             <button
               type="button"
-              className="button button--primary"
+              className="button button--primary upload-modal__done-action"
               onClick={() => onComplete()}
             >
               View your map

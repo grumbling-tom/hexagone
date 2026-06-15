@@ -399,6 +399,11 @@ a {
   margin: 0;
   line-height: 1.5;
 }
+/* Right-align the CTA so it sits where the footer's primary button was, rather
+   than jumping to the left edge of the done block. */
+.upload-modal__done-action {
+  align-self: flex-end;
+}
 .upload-modal__dropzone {
   display: flex;
   flex-direction: column;
