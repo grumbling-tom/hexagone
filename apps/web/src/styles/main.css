@@ -327,6 +327,78 @@ a {
   opacity: 0.5;
   cursor: default;
 }
+.upload-modal__steps {
+  display: flex;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.upload-modal__step {
+  position: relative;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-xs);
+  font-size: 0.8rem;
+  color: var(--color-neutral-400);
+  text-align: center;
+}
+/* Connector line from the previous step's circle to this one, behind the
+   circles. Turns primary once the step it arrives at is reached (its source
+   step is then complete). */
+.upload-modal__step:not(:first-child)::before {
+  content: "";
+  position: absolute;
+  top: calc(0.75rem - 1px);
+  right: 50%;
+  width: 100%;
+  height: 2px;
+  background: var(--color-border-subtle);
+}
+.upload-modal__step--active:not(:first-child)::before,
+.upload-modal__step--complete:not(:first-child)::before {
+  background: var(--color-primary-600);
+}
+.upload-modal__step-num {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border: 2px solid var(--color-border-subtle);
+  border-radius: 50%;
+  background: var(--color-surface);
+  font-size: 0.8rem;
+}
+.upload-modal__step--active {
+  color: var(--color-text);
+}
+.upload-modal__step--complete {
+  color: var(--color-text-muted);
+}
+.upload-modal__step--active .upload-modal__step-num {
+  border-color: var(--color-primary-600);
+  color: var(--color-primary-700);
+}
+.upload-modal__step--complete .upload-modal__step-num {
+  border-color: var(--color-primary-600);
+  background: var(--color-primary-600);
+  color: var(--color-text-inverse);
+}
+.upload-modal__done {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-md);
+}
+.upload-modal__done-text {
+  margin: 0;
+  line-height: 1.5;
+}
 .upload-modal__dropzone {
   display: flex;
   flex-direction: column;
