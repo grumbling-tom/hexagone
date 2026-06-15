@@ -17,7 +17,7 @@ def test_create_upload_success(client: TestClient):
     assert data["file_size_bytes"] == 1024
     assert data["current_status"] == "UPLOAD_PENDING"
     assert data["presigned_url"] is not None
-    assert data["required_headers"]["Content-Length"] == 1024
+    assert data["required_headers"]["Content-Length"] == "1024"
     assert data["required_headers"]["Content-Type"] == "application/gpx+xml"
     assert "uid" in data
 

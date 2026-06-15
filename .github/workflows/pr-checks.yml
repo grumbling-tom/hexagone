@@ -69,3 +69,54 @@ jobs:
             git diff --stat HEAD
             exit 1
           fi
+
+  # Unit tests for each app run in their own job so the two suites execute in
+  # parallel (and independently of the pre-commit job above).
+  web-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: apps/web/pnpm-lock.yaml
+
+      - name: Install frontend dependencies
+        run: pnpm -C apps/web install --frozen-lockfile
+
+      - name: Run web unit tests
+        run: pnpm -C apps/web test
+
+  backend-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up uv (Python 3.14)
+        uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.14"
+          enable-cache: true
+          working-directory: apps/backend
+
+      - name: Install backend dependencies
+        working-directory: apps/backend
+        run: uv sync --locked
+
+      - name: Run backend unit tests
+        working-directory: apps/backend
+        env:
+          # ENV=TEST keeps Settings from requiring production config (the
+          # suite runs against an in-memory SQLite DB and mocked S3).
+          ENV: TEST
+        run: uv run pytest
