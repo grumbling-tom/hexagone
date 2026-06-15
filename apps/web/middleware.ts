@@ -30,5 +30,5 @@ export const config = {
   // Only the auth-gated routes. Intentionally not /login or /signup: with a
   // presence-only check, redirecting an authed user away from /login could loop
   // against the layout's backstop when the cookie is present but expired.
-  matcher: ["/map/:path*", "/uploads/:path*"],
+  matcher: ["/map/:path*", "/uploads/:path*", "/welcome/:path*"],
 };
