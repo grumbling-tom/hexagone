@@ -417,6 +417,11 @@ a {
     opacity 0.25s ease,
     margin-bottom 0.25s ease;
 }
+/* FIXME: a little whitespace still lingers above the first file-list item once
+   the dropzone has collapsed. The negative margin-bottom is meant to cancel the
+   dialog's flex gap below the collapsed wrapper, but some residual space
+   remains — needs a proper look (grid row not fully zeroing? gap not fully
+   cancelled?). */
 .upload-modal__dropzone-wrap--collapsed {
   grid-template-rows: 0fr;
   margin-bottom: calc(-1 * var(--space-md));
