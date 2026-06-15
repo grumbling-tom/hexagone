@@ -78,6 +78,8 @@ services:
     environment:
       ENV: DEV
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/postgres
+      AWS_ACCESS_KEY_ID: "000000000000"
+      AWS_SECRET_ACCESS_KEY: test
     depends_on:
       postgres:
         condition: service_healthy
@@ -120,6 +122,37 @@ services:
         condition: service_completed_successfully
     volumes:
       - ./apps/backend/src:/app/src
+
+  hexagone-web:
+    build:
+      context: apps/web
+      dockerfile: Dockerfile
+      # Dev stage (next dev + hot reload), not the production standalone image.
+      target: dev
+    container_name: hexagone-web
+    # Bridge networking + published port. A browser-facing dev server must be
+    # reachable on the *host's* localhost:3000, and `network_mode: host` does
+    # NOT achieve that on Docker Desktop (macOS/Windows): containers run in a
+    # Linux VM, so host mode binds the VM's network, not the Mac's loopback.
+    # The backend keeps host networking (for presigned-URL localhost reasons),
+    # so we reach it from this bridge container via host.docker.internal rather
+    # than localhost. localhost:3000 stays the origin portless proxies (#45).
+    ports:
+      - "3000:3000"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      BACKEND_ORIGIN: http://host.docker.internal:8000
+      # next dev uses webpack here; over a bind mount on macOS/Windows its
+      # file watcher misses host edits unless it polls. This restores HMR.
+      WATCHPACK_POLLING: "true"
+    volumes:
+      # Bind-mount the source for live edits; keep node_modules and .next as
+      # container-owned volumes so the host's macOS node_modules and any local
+      # .next build don't leak in over the Linux ones.
+      - ./apps/web:/app
+      - /app/node_modules
+      - /app/.next
 
 volumes:
   postgres_data:
