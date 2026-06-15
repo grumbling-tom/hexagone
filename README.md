@@ -29,6 +29,7 @@ Commands run from the repo root using `pnpm -C apps/web`:
 | Command                                       | Description                                |
 | --------------------------------------------- | ------------------------------------------ |
 | `pnpm -C apps/web dev`                        | Start dev server                           |
+| `pnpm -C apps/web dev:https`                  | Start dev server behind portless (HTTPS)   |
 | `pnpm -C apps/web build`                      | Build for production                       |
 | `pnpm -C apps/web test`                       | Run tests (Vitest)                         |
 | `pnpm -C apps/web test:watch`                 | Run tests in watch mode                    |
@@ -38,10 +39,28 @@ Commands run from the repo root using `pnpm -C apps/web`:
 | `pnpm -C apps/web api:gen-client`             | Generate typed API client from spec        |
 | `pnpm -C apps/web api:gen`                    | Generate OpenAPI spec and typed API client |
 
-The dev server starts at `http://localhost:4321/`:
+The dev server starts at `http://localhost:3000/`.
 
-- `/` — Static landing page
-- `/app` — React SPA (client-side routing)
+### Named HTTPS URLs with portless
+
+Prefer a stable, HTTPS local URL over a bare port? Run the dev server through
+[portless](https://portless.sh/):
+
+```bash
+pnpm -C apps/web dev:https
+```
+
+This serves the app at **https://hexagone.localhost** instead of
+`http://localhost:3000`. portless runs a local proxy and DNS, so the name is
+stable across restarts regardless of the underlying port. On first run it
+generates a local CA and adds it to your system trust store (`portless trust`
+if your browser still warns), so there are no certificate warnings.
+
+The name comes from the `"portless": "hexagone"` key in
+`apps/web/package.json`; `dev:https` just runs `portless`, which proxies the
+existing `dev` script. The portless origin is already allow-listed for direct
+S3 uploads in `docker-compose.yml`
+(`EXTRA_CORS_ALLOWED_ORIGINS`).
 
 ## API (`apps/backend/`)
 
