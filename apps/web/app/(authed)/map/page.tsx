@@ -5,8 +5,8 @@ import {
   UploadStatusValue,
 } from "@/__generated__/backend-client/backend.schemas";
 import { listUploads } from "@/__generated__/backend-client/uploads";
-import EmptyMap from "@/features/hexMap/EmptyMap";
-import HexMap from "@/features/hexMap/HexMap";
+import EmptyMap from "@/features/hexMap/components/EmptyMap";
+import HexMap from "@/features/hexMap/components/HexMap";
 
 export default async function MapPage() {
   const uploads = await listUploads({

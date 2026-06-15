@@ -4,8 +4,8 @@ import type {
   CreateUploadRequest,
   UploadResponse,
 } from "@/__generated__/backend-client/backend.schemas";
-import UploadForm from "@/features/uploads/UploadForm";
-import UploadHelp from "@/features/uploads/UploadHelp";
+import UploadForm from "@/features/uploads/components/UploadForm";
+import UploadHelp from "@/features/uploads/components/UploadHelp";
 
 interface UploadEmptyStateProps {
   requestUpload: (data: CreateUploadRequest) => Promise<UploadResponse>;

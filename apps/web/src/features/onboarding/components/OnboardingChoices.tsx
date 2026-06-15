@@ -22,8 +22,9 @@ export default function OnboardingChoices({
       </header>
 
       <ul className="onboarding__cards">
-        <li className="onboarding__card onboarding__card--upload">
-          <span className="onboarding__icon" aria-hidden="true">
+        <OnboardingCard
+          variant="upload"
+          icon={
             <svg
               viewBox="0 0 24 24"
               fill="none"
@@ -43,17 +44,16 @@ export default function OnboardingChoices({
                 strokeLinejoin="round"
               />
             </svg>
-          </span>
-          <h2 className="onboarding__card-title">Upload files</h2>
-          <p className="onboarding__card-desc">
-            Import your hexes from a GPX file.
-          </p>
-          <div className="onboarding__card-action">{uploadSlot}</div>
-        </li>
+          }
+          title="Upload files"
+          description="Import your hexes from a GPX file."
+          action={uploadSlot}
+        />
 
-        <li className="onboarding__card onboarding__card--strava onboarding__card--soon">
-          <span className="onboarding__badge">Coming soon</span>
-          <span className="onboarding__icon" aria-hidden="true">
+        <OnboardingCard
+          variant="strava"
+          comingSoon
+          icon={
             <svg
               viewBox="0 0 24 24"
               fill="none"
@@ -67,21 +67,20 @@ export default function OnboardingChoices({
                 strokeLinejoin="round"
               />
             </svg>
-          </span>
-          <h2 className="onboarding__card-title">Strava sync</h2>
-          <p className="onboarding__card-desc">
-            Pull activities straight from your Strava.
-          </p>
-          <div className="onboarding__card-action">
+          }
+          title="Strava sync"
+          description="Pull activities straight from your Strava."
+          action={
             <button type="button" className="button" disabled>
               Connect Strava
             </button>
-          </div>
-        </li>
+          }
+        />
 
-        <li className="onboarding__card onboarding__card--demo onboarding__card--soon">
-          <span className="onboarding__badge">Coming soon</span>
-          <span className="onboarding__icon" aria-hidden="true">
+        <OnboardingCard
+          variant="demo"
+          comingSoon
+          icon={
             <svg
               viewBox="0 0 24 24"
               fill="none"
@@ -96,18 +95,58 @@ export default function OnboardingChoices({
                 strokeLinejoin="round"
               />
             </svg>
-          </span>
-          <h2 className="onboarding__card-title">Explore a demo</h2>
-          <p className="onboarding__card-desc">
-            Look around with ready-made sample data.
-          </p>
-          <div className="onboarding__card-action">
+          }
+          title="Explore a demo"
+          description="Look around with ready-made sample data."
+          action={
             <button type="button" className="button" disabled>
               Explore demo
             </button>
-          </div>
-        </li>
+          }
+        />
       </ul>
     </div>
+  );
+}
+
+interface OnboardingCardProps {
+  // Drives the accent colour (onboarding__card--<variant>) via CSS.
+  variant: "upload" | "strava" | "demo";
+  icon: ReactNode;
+  title: string;
+  description: string;
+  // The CTA — a slot so the upload card can take an interactive trigger while
+  // the coming-soon cards pass a disabled button.
+  action: ReactNode;
+  // Shows the "Coming soon" badge and dims the card.
+  comingSoon?: boolean;
+}
+
+function OnboardingCard({
+  variant,
+  icon,
+  title,
+  description,
+  action,
+  comingSoon = false,
+}: OnboardingCardProps) {
+  const className = [
+    "onboarding__card",
+    `onboarding__card--${variant}`,
+    comingSoon && "onboarding__card--soon",
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+  return (
+    <li className={className}>
+      {comingSoon && <span className="onboarding__badge">Coming soon</span>}
+      <span className="onboarding__icon" aria-hidden="true">
+        {icon}
+      </span>
+      <h2 className="onboarding__card-title">{title}</h2>
+      <p className="onboarding__card-desc">{description}</p>
+      <div className="onboarding__card-action">{action}</div>
+    </li>
   );
 }

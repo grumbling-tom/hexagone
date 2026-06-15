@@ -19,7 +19,7 @@ vi.mock("@/__generated__/backend-client/users", () => ({
   getCurrentUser: vi.fn(),
 }));
 
-vi.mock("./actions", () => ({ logout: vi.fn() }));
+vi.mock("@/features/auth/server/logout", () => ({ logout: vi.fn() }));
 
 import { getCurrentUser } from "@/__generated__/backend-client/users";
 

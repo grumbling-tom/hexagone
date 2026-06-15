@@ -1,9 +1,10 @@
 import { redirect } from "next/navigation";
 import { UploadStatusValue } from "@/__generated__/backend-client/backend.schemas";
 import { listUploads } from "@/__generated__/backend-client/uploads";
-import OnboardingChoices from "@/features/onboarding/OnboardingChoices";
-import UploadModalButton from "@/features/uploads/UploadModalButton";
-import { finishOnboarding, requestUpload } from "./actions";
+import OnboardingChoices from "@/features/onboarding/components/OnboardingChoices";
+import { finishOnboarding } from "@/features/onboarding/server/finishOnboarding";
+import UploadModalButton from "@/features/uploads/components/UploadModalButton";
+import { requestUpload } from "@/features/uploads/server/uploads";
 
 export default async function WelcomePage() {
   // "New user" = zero uploads in ANY state. The list endpoint excludes
