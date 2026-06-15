@@ -219,8 +219,18 @@ export default function UploadModal({
         swapping the whole body out for a bare confirmation is jarring. We only
         hide the dropzone (no more files to add) and replace the footer's
         actions with the completion message + CTA. */}
+        {/* Once an upload has started the dropzone collapses away (grid-rows
+        0fr + fading opacity) rather than vanishing abruptly. Kept mounted so
+        the transition can play; the input stays reachable for the ref. */}
         {!isDone && (
-          <>
+          <div
+            className={
+              hasStarted
+                ? "upload-modal__dropzone-wrap upload-modal__dropzone-wrap--collapsed"
+                : "upload-modal__dropzone-wrap"
+            }
+            aria-hidden={hasStarted}
+          >
             <button
               type="button"
               className="upload-modal__dropzone"
@@ -230,7 +240,7 @@ export default function UploadModal({
                 event.preventDefault();
                 addFiles(event.dataTransfer.files);
               }}
-              disabled={isUploading}
+              disabled={hasStarted}
             >
               <span className="upload-modal__dropzone-title">
                 Drag GPX files here!
@@ -250,7 +260,7 @@ export default function UploadModal({
                 event.target.value = "";
               }}
             />
-          </>
+          </div>
         )}
 
         {files.length > 0 && (

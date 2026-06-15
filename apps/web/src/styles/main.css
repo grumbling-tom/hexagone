@@ -404,6 +404,28 @@ a {
 .upload-modal__done-action {
   align-self: flex-end;
 }
+/* Collapsing wrapper for the dropzone. grid-template-rows 1fr→0fr animates the
+   button from its natural height down to nothing; opacity fades it; the
+   negative margin-bottom cancels the dialog's flex gap so no empty row is left
+   once collapsed. (The input is position:absolute, so it sits outside the grid
+   track and isn't affected.) */
+.upload-modal__dropzone-wrap {
+  display: grid;
+  grid-template-rows: 1fr;
+  transition:
+    grid-template-rows 0.25s ease,
+    opacity 0.25s ease,
+    margin-bottom 0.25s ease;
+}
+.upload-modal__dropzone-wrap--collapsed {
+  grid-template-rows: 0fr;
+  margin-bottom: calc(-1 * var(--space-md));
+  opacity: 0;
+}
+.upload-modal__dropzone-wrap > .upload-modal__dropzone {
+  min-height: 0;
+  overflow: hidden;
+}
 .upload-modal__dropzone {
   display: flex;
   flex-direction: column;
