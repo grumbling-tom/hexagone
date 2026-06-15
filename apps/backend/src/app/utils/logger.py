@@ -3,8 +3,28 @@
 import logging
 
 import structlog
+from opentelemetry import trace
+from structlog.typing import EventDict, WrappedLogger
 
 from src.app.settings import settings
+
+
+def add_otel_trace_context(
+    _logger: WrappedLogger, _method_name: str, event_dict: EventDict
+) -> EventDict:
+    """Stamp the active span's trace/span ids onto each log line.
+
+    The ``trace_id`` is rendered exactly as the W3C ``traceparent`` trace-id
+    field (32 lowercase hex), so the same id can be grepped across the frontend
+    span output, the backend span output, and these logs — proving a single
+    request is one correlated trace. When no span is active (or tracing is off)
+    the span context is invalid and the fields are simply omitted.
+    """
+    span_context = trace.get_current_span().get_span_context()
+    if span_context.is_valid:
+        event_dict["trace_id"] = format(span_context.trace_id, "032x")
+        event_dict["span_id"] = format(span_context.span_id, "016x")
+    return event_dict
 
 
 def configure_logging() -> None:
@@ -15,6 +35,7 @@ def configure_logging() -> None:
     """
     shared_processors = [
         structlog.contextvars.merge_contextvars,
+        add_otel_trace_context,
         structlog.stdlib.add_log_level,
         structlog.processors.TimeStamper(fmt="iso"),
         structlog.processors.StackInfoRenderer(),
