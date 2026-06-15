@@ -23,6 +23,22 @@ RUN --mount=type=cache,target=/pnpm/store \
 COPY . .
 RUN pnpm build
 
+# Dev stage for docker-compose: full toolchain + installed deps, runs `next dev`
+# for hot reloading. The source is deliberately NOT COPYed in — compose
+# bind-mounts ./apps/web over /app so host edits reload live, with
+# /app/node_modules kept as a volume so the container's Linux-built deps
+# (esbuild/sharp) win over the host's macOS ones. Not part of the production
+# image; that's the `runtime` stage below (kept last so it stays the default
+# build target).
+FROM node:22-alpine AS dev
+RUN npm install -g pnpm@10
+WORKDIR /app
+COPY package.json pnpm-lock.yaml ./
+RUN --mount=type=cache,target=/pnpm/store \
+    pnpm install --frozen-lockfile --store-dir=/pnpm/store
+EXPOSE 3000
+CMD ["pnpm", "dev"]
+
 FROM node:22-alpine AS runtime
 WORKDIR /app
 ENV NODE_ENV=production \
