@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Literal
 
 import boto3
+from botocore.config import Config
 
 from src.app.settings import settings
 from src.app.utils import get_logger
@@ -77,6 +78,11 @@ class S3StorageBackend(StorageBackend):
 
         self._client: S3Client = boto3.client(  # pyright: ignore[reportUnknownMemberType]
             "s3",
+            # Pin to SigV4 so presigned GET URLs are signed consistently with
+            # PUTs. With a region-specific endpoint, botocore can otherwise fall
+            # back to the deprecated SigV2 scheme for plain get_object URLs,
+            # which newer S3 regions reject.
+            config=Config(signature_version="s3v4"),
             **{k: v for k, v in kwargs.items() if v},  # type: ignore
         )
 
@@ -110,12 +116,13 @@ class S3StorageBackend(StorageBackend):
             msg = "content_length is required for put_object presigned URLs"
             raise ValueError(msg)
 
+        content_disposition = f"attachment; filename={filename}"
         params: dict[str, str | int | dict[str, str]] = {
             "Bucket": settings.HEXAGONE_S3_BUCKET,
             "Key": str(key),
             "ContentType": content_type,
             "ContentLength": content_length,
-            "ContentDisposition": f"attachment; filename={filename}",
+            "ContentDisposition": content_disposition,
             "Metadata": file_metadata,
         }
         url: str = self._client.generate_presigned_url(
@@ -124,12 +131,11 @@ class S3StorageBackend(StorageBackend):
             ExpiresIn=expires_in,
         )
         headers: dict[str, str] = {
-            "Content-Length": params["ContentLength"],
-            "Content-Type": params["ContentType"],
-            "Content-Disposition": params["ContentDisposition"],
-            # Ensure metadata keys are  are lowercase and prefixed with 'x-amz-meta-'
-            # TODO: Fix '"dict[str, str]" is not assignable to "str'
-            **{f"x-amz-meta-{k.lower()}": v for k, v in (file_metadata or {}).items()},  #  type: ignore
+            "Content-Length": str(content_length),
+            "Content-Type": content_type,
+            "Content-Disposition": content_disposition,
+            # Ensure metadata keys are lowercase and prefixed with 'x-amz-meta-'.
+            **{f"x-amz-meta-{k.lower()}": v for k, v in (file_metadata or {}).items()},
         }
         return url, headers
 
