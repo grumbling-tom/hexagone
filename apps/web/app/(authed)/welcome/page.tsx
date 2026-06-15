@@ -7,13 +7,16 @@ import UploadModalButton from "@/features/uploads/components/UploadModalButton";
 import { requestUpload } from "@/features/uploads/server/uploads";
 
 export default async function WelcomePage() {
-  // "New user" = zero uploads in ANY state. The list endpoint excludes
-  // UPLOAD_PENDING by default, so every status is passed explicitly (derived
-  // from the enum, not re-listed) — otherwise a user who has only just uploaded
-  // (still pending) would read as new and bounce straight back here. The moment
-  // a user has any upload, this page hands off to the map.
+  // "New user" = no uploads that have reached the backend (RECEIVED / SUCCESS /
+  // INVALID). UPLOAD_PENDING deliberately does NOT count: a failed browser→S3
+  // PUT leaves a stuck PENDING record, and counting it would lock the user out
+  // of onboarding with no way back to retry. Statuses are derived from the enum
+  // (minus PENDING) rather than re-listed.
+  const countedStatuses = Object.values(UploadStatusValue).filter(
+    (status) => status !== UploadStatusValue.UPLOAD_PENDING,
+  );
   const uploads = await listUploads({
-    statuses: Object.values(UploadStatusValue),
+    statuses: countedStatuses,
     page_size: 1,
   });
   if (uploads.items.length > 0) {
