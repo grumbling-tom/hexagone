@@ -3,8 +3,10 @@
   "type": "module",
   "version": "0.0.1",
   "private": true,
+  "portless": "hexagone",
   "scripts": {
     "dev": "next dev",
+    "dev:https": "portless",
     "build": "next build",
     "start": "next start",
     "test": "vitest run",
@@ -43,6 +45,7 @@
     "@vitest/coverage-v8": "^4.0.18",
     "happy-dom": "^20.7.0",
     "orval": "7.3.0",
+    "portless": "^0.14.0",
     "prettier": "^3.8.1",
     "stylelint": "^17.4.0",
     "stylelint-declaration-strict-value": "^1.11.1",
