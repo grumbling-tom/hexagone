@@ -23,5 +23,7 @@ export async function signup(
   }
 
   // redirect() throws a control-flow signal — keep it outside the try/catch.
-  redirect("/map");
+  // New accounts land on the onboarding screen; /welcome itself bounces to
+  // /map the moment the user has any upload.
+  redirect("/welcome");
 }

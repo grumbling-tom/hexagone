@@ -1,9 +1,9 @@
 import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
 import { getCurrentUser } from "@/__generated__/backend-client/users";
+import { logout } from "@/features/auth/server/logout";
 import { ApiError, HttpStatus } from "@/lib/fetch-client";
 import Nav from "../Nav";
-import { logout } from "./actions";
 
 // Layout for the auth-gated routes: validates the session server-side and hosts
 // <Nav>. middleware.ts is the optimistic gate (presence-only cookie check); the

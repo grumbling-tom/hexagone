@@ -5,9 +5,11 @@
 //   1. No cross-feature imports — features/X cannot import from features/Y.
 //   2. Unidirectional layers — shared (components/hooks/lib/types/utils) cannot
 //      import from features or app; features cannot import from app.
-//   3. No routing in features — features may not import Next's routing modules
-//      (next/navigation, next/link, next/router) or any other routing library;
+//   3. No routing in feature components — files under features/<x>/ may not
+//      import Next's routing modules (next/navigation, next/link, next/router);
 //      routing is an app-level concern (the App Router lives at apps/web/app/).
+//      Exception: features/<x>/server/ (Server Actions) MAY redirect — that's a
+//      legitimate server-side concern. The rule keeps *UI* embeddable/testable.
 
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
@@ -20,6 +22,12 @@ const ROUTING_PACKAGES = ["next/navigation", "next/link", "next/router"];
 
 function isRoutingImport(spec) {
   return ROUTING_PACKAGES.some((p) => spec === p || spec.startsWith(`${p}/`));
+}
+
+// features/<feature>/server/** holds Server Actions, which may redirect.
+function isFeatureServerFile(absPath) {
+  const parts = relative(SRC, absPath).split("/");
+  return parts[0] === "features" && parts[2] === "server";
 }
 
 function* walk(dir) {
@@ -87,10 +95,12 @@ for (const file of walk(SRC)) {
   if (!fromCls) continue;
   const source = readFileSync(file, "utf8");
   for (const spec of extractImports(source)) {
-    if (fromCls.layer === "features" && isRoutingImport(spec)) {
-      errors.push(
-        `${relative(SRC, file)}\n    import "${spec}" — features may not import routing libraries (rule 3)`,
-      );
+    if (isRoutingImport(spec)) {
+      if (fromCls.layer === "features" && !isFeatureServerFile(file)) {
+        errors.push(
+          `${relative(SRC, file)}\n    import "${spec}" — feature components may not import routing libraries (rule 3); only features/<x>/server/ may`,
+        );
+      }
       continue;
     }
     const resolved = resolveSpec(spec, file);

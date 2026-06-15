@@ -12,8 +12,8 @@ import {
   UploadSortField,
   UploadStatusValue,
 } from "@/__generated__/backend-client/backend.schemas";
-import UploadForm from "@/features/uploads/UploadForm";
-import UploadHelp from "@/features/uploads/UploadHelp";
+import UploadForm from "@/features/uploads/components/UploadForm";
+import UploadHelp from "@/features/uploads/components/UploadHelp";
 
 const PAGE_SIZE = 10;
 
