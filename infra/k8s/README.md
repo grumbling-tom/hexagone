@@ -137,12 +137,14 @@ colima ssh -- sudo k3s crictl images | grep hexagone             # verify k3s se
 > `docker save hexagone-backend:latest | colima ssh -- sudo nerdctl -n k8s.io load`
 
 **c. Create the app Secret (out of git).** Non-secret config (`ENV`, the Tigris
-S3 endpoint/region/bucket) is inline in `backend.yaml`; `DATABASE_URL` comes from
-CNPG's `hexagone-db-app`. The only out-of-band object is the Tigris key Secret:
+S3 endpoint/region/bucket, `RESEND_FROM_EMAIL`) is inline in `backend.yaml`;
+`DATABASE_URL` comes from CNPG's `hexagone-db-app`. The out-of-band object is the
+app Secret, holding the Tigris keys and the Resend API key:
 ```bash
 kubectl create secret generic hexagone-backend-secrets \
   --from-literal=AWS_ACCESS_KEY_ID='tid_...' \
-  --from-literal=AWS_SECRET_ACCESS_KEY='tsec_...'                  # Tigris keys for presigned URLs
+  --from-literal=AWS_SECRET_ACCESS_KEY='tsec_...' \               # Tigris keys for presigned URLs
+  --from-literal=RESEND_API_KEY='re_...'                          # Resend key for transactional email
 ```
 
 **d. Apply.** Migrations run automatically — the backend Deployment has a
