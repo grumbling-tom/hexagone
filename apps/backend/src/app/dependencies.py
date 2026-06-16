@@ -4,6 +4,11 @@ from fastapi import Cookie, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 
 from src.app.repository.database import db_session
+from src.app.services.email import (
+    ConsoleEmailClient,
+    EmailClient,
+    ResendEmailClient,
+)
 from src.app.services.storage import S3StorageBackend, StorageBackend
 from src.app.services.user_session import validate_session
 from src.app.settings import settings
@@ -12,11 +17,17 @@ from src.app.utils import get_client_ip
 if TYPE_CHECKING:
     from src.app.repository.models import User
 
-__all__ = ["authenticated_user", "db_session", "file_storage"]
+__all__ = ["authenticated_user", "db_session", "email_client", "file_storage"]
 
 
 def file_storage() -> StorageBackend:
     return S3StorageBackend()
+
+
+def email_client() -> EmailClient:
+    if settings.ENV in ("DEV", "TEST"):
+        return ConsoleEmailClient()
+    return ResendEmailClient()
 
 
 def authenticated_user(

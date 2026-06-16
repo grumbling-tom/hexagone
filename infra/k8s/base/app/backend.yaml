@@ -3,8 +3,9 @@
 # Image: built from apps/backend/Dockerfile (production ASGI image, no Lambda
 # runtime) — see infra/k8s/README.md.
 # Non-secret config is inline below (in git). The only out-of-band object is the
-# `hexagone-backend-secrets` Secret (Tigris keys) — see the README. DATABASE_URL
-# is neither inline nor in that secret; it comes from the CNPG-managed secret.
+# `hexagone-backend-secrets` Secret (Tigris keys + Resend API key) — see the
+# README. DATABASE_URL is neither inline nor in that secret; it comes from the
+# CNPG-managed secret.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -69,9 +70,19 @@ spec:
               value: "auto"
             - name: HEXAGONE_S3_BUCKET
               value: "hexagone-gpx-uploads" # adjust to your Tigris bucket
+            # Transactional email (Resend). The sender is non-secret; the API key
+            # is in hexagone-backend-secrets (envFrom below). Must be a verified
+            # sender/domain in Resend.
+            - name: RESEND_FROM_EMAIL
+              value: "noreply@hexagone.app"
+            # Public base URL for links in email bodies (default localhost is
+            # DEV-only). Set to the apex served via cloudflared.
+            - name: APP_BASE_URL
+              value: "https://hexagone.app" # adjust to your public apex
           envFrom:
-            # Only secrets remain out of band: AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY
-            # (Tigris keys). Non-secret config is inline above.
+            # Secrets out of band: AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY
+            # (Tigris keys) and RESEND_API_KEY (Resend). Non-secret config is
+            # inline above.
             - secretRef:
                 name: hexagone-backend-secrets
           readinessProbe:

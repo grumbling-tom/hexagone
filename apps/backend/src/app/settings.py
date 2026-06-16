@@ -47,6 +47,10 @@ class Settings(BaseSettings):
     PRESIGNED_GET_URL_EXPIRY_SECONDS: int = 60 * 60  # 1 hour
     PRESIGNED_PUT_URL_EXPIRY_SECONDS: int = 5 * 60  # 5 minutes
 
+    RESEND_API_KEY: str = ""
+    RESEND_FROM_EMAIL: str = "noreply@hexagone.app"  # verified sender/domain in Resend
+    APP_BASE_URL: str = "http://localhost:3000"  # for links in email bodies
+
     H3_RESOLUTION: int = 10
     MAX_GPX_BYTES: int = 10 * 1024 * 1024
     MAX_GPX_POINTS: int = 200_000
@@ -144,6 +148,14 @@ class Settings(BaseSettings):
                 "AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY must be set "
                 "in DEV (for LocalStack)."
             )
+            raise ValueError(msg)
+
+        return self
+
+    @model_validator(mode="after")
+    def check_resend_credentials(self: Settings) -> Settings:
+        if self.ENV in ("PROD", "STAGING") and not self.RESEND_API_KEY:
+            msg = "RESEND_API_KEY must be set in PROD/STAGING."
             raise ValueError(msg)
 
         return self

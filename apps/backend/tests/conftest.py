@@ -3,6 +3,7 @@
 import uuid
 from collections.abc import Callable, Generator
 from datetime import datetime
+from typing import Any
 
 import boto3
 import pytest
@@ -12,7 +13,7 @@ from mypy_boto3_s3 import S3Client
 from sqlalchemy import StaticPool, create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
-from src.app.dependencies import db_session, file_storage
+from src.app.dependencies import db_session, email_client, file_storage
 from src.app.main import app
 from src.app.repository import (
     BaseModel,
@@ -25,6 +26,7 @@ from src.app.repository import (
     UserGroup,
     UserGroupMembership,
 )
+from src.app.services.email import EmailClient
 from src.app.services.password import hash_password
 from src.app.services.storage import S3StorageBackend
 from src.app.services.user_session import create_session
@@ -248,8 +250,41 @@ def _make_get_db(db: Session) -> Generator[Session]:
     yield db
 
 
+class FakeEmailClient(EmailClient):
+    """Test email client that records sends instead of dispatching them."""
+
+    def __init__(self, recorder: list[dict[str, Any]]) -> None:
+        self._recorder = recorder
+
+    def send(
+        self,
+        *,
+        to: str,
+        subject: str,
+        html: str,
+        log_context: dict[str, Any] | None = None,
+    ) -> str:
+        self._recorder.append(
+            {
+                "to": to,
+                "subject": subject,
+                "html": html,
+                "log_context": log_context,
+            }
+        )
+        return "fake"
+
+
 @pytest.fixture
-def client(test_db: Session, test_user: User) -> Generator[TestClient]:
+def sent_emails() -> list[dict[str, Any]]:
+    """Record emails sent through the overridden email client in tests."""
+    return []
+
+
+@pytest.fixture
+def client(
+    test_db: Session, test_user: User, sent_emails: list[dict[str, Any]]
+) -> Generator[TestClient]:
     """Yield an authenticated FastAPI test client."""
 
     def override_get_db() -> Generator[Session]:
@@ -257,6 +292,7 @@ def client(test_db: Session, test_user: User) -> Generator[TestClient]:
 
     app.dependency_overrides[db_session] = override_get_db
     app.dependency_overrides[file_storage] = S3StorageBackend
+    app.dependency_overrides[email_client] = lambda: FakeEmailClient(sent_emails)
 
     session = create_session(test_db, test_user.uid, "testclient", "testclient")
 
@@ -286,7 +322,9 @@ def authenticate_as(
 
 
 @pytest.fixture
-def unauthenticated_client(test_db: Session) -> Generator[TestClient]:
+def unauthenticated_client(
+    test_db: Session, sent_emails: list[dict[str, Any]]
+) -> Generator[TestClient]:
     """Yield an unauthenticated FastAPI test client."""
 
     def override_get_db() -> Generator[Session]:
@@ -294,6 +332,7 @@ def unauthenticated_client(test_db: Session) -> Generator[TestClient]:
 
     app.dependency_overrides[db_session] = override_get_db
     app.dependency_overrides[file_storage] = S3StorageBackend
+    app.dependency_overrides[email_client] = lambda: FakeEmailClient(sent_emails)
 
     with TestClient(app) as c:
         yield c

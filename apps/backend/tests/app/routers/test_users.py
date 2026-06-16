@@ -1,13 +1,17 @@
 """Tests for the users router."""
 
 from collections.abc import Callable
+from typing import Any
 
+import pytest
 from fastapi.testclient import TestClient
 
 from src.app.repository import User, UserGroup
 
 
-def test_signup_success(unauthenticated_client: TestClient):
+def test_signup_success(
+    unauthenticated_client: TestClient, sent_emails: list[dict[str, Any]]
+):
     response = unauthenticated_client.post(
         "/api/v1/users",
         json={"email": "signup@example.com", "password": "newpassword123"},
@@ -17,6 +21,27 @@ def test_signup_success(unauthenticated_client: TestClient):
     assert data["email"] == "signup@example.com"
     assert "uid" in data
     assert "sessionid" in response.cookies
+
+    # A welcome email was sent to the new account.
+    assert [e["to"] for e in sent_emails] == ["signup@example.com"]
+
+
+def test_signup_succeeds_when_email_send_fails(
+    unauthenticated_client: TestClient, monkeypatch: pytest.MonkeyPatch
+):
+    def _boom(*_args: Any, **_kwargs: Any) -> str:
+        msg = "email provider down"
+        raise RuntimeError(msg)
+
+    # Patch the send helper used by the router so the best-effort guard fires.
+    monkeypatch.setattr("src.app.routers.users.send_welcome_email", _boom)
+
+    response = unauthenticated_client.post(
+        "/api/v1/users",
+        json={"email": "resilient@example.com", "password": "newpassword123"},
+    )
+    assert response.status_code == 201
+    assert response.json()["email"] == "resilient@example.com"
 
 
 def test_signup_duplicate_email(unauthenticated_client: TestClient):
