@@ -29,6 +29,16 @@ export const env = createEnv({
     // Points at the in-cluster backend Service in production (set on the
     // Deployment) and defaults to the local uvicorn server in dev.
     BACKEND_ORIGIN: z.url().default("http://localhost:8000"),
+
+    // Mirrors the backend's `settings.DEBUG`. Gates the OpenTelemetry console
+    // span exporter in instrumentation.ts — tracing always runs, but spans are
+    // only printed to the console when this is on. Enum-then-transform rather
+    // than `z.coerce.boolean` so only the literal "true" is truthy ("false"
+    // coerces to `true` under `coerce`).
+    DEBUG: z
+      .enum(["true", "false"])
+      .default("false")
+      .transform((v) => v === "true"),
   },
 
   // No browser-exposed config yet. A future client var goes here as

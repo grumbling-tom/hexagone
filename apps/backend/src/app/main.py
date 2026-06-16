@@ -13,6 +13,7 @@ from src.app.routers.user_groups import router as user_groups_router
 from src.app.routers.user_sessions import router as user_sessions_router
 from src.app.routers.users import router as users_router
 from src.app.settings import Settings, settings
+from src.app.telemetry import setup_tracing
 from src.app.utils import configure_logging
 
 configure_logging()
@@ -42,6 +43,9 @@ def create_app(settings: Settings = settings) -> FastAPI:
 
     app.include_router(health_router, prefix="/api", tags=["health"])
     app.include_router(api_v1_router)
+
+    # Instrument last, once every route and middleware is in place.
+    setup_tracing(app, settings)
     return app
 
 
