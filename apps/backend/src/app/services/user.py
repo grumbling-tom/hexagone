@@ -7,7 +7,7 @@ from src.app.repository import EqualsFilter, RelationFilter, Repository, User
 from src.app.services.password import hash_password, verify_password
 from src.app.services.user_group import UserGroupNotFoundError, get_group
 from src.app.settings import settings
-from src.app.utils import PaginatedResult, SortOrder, get_logger
+from src.app.utils import PaginatedResult, SortOrder, get_logger, mask_email
 
 logger = get_logger(__name__)
 
@@ -80,7 +80,7 @@ def create_user(db: DBSession, email: str, password: str) -> User:
         raise DuplicateEmailError from None
 
     db.refresh(user)
-    logger.info("user_created", user_uid=user.uid, email=email)
+    logger.info("user_created", user_uid=user.uid, email=mask_email(email))
     return user
 
 

@@ -63,11 +63,11 @@ class ResendEmailClient(EmailClient):
         # Log around the external Resend call (see "Logging Around External
         # Service Calls" in apps/backend/CLAUDE.md). Recipient is masked; never
         # log the raw email or the html body (it embeds the address).
-        logger.info("resend_email_sending", to=mask_email(to), subject=subject, **ctx)
+        logger.info("send_email_pending", to=mask_email(to), subject=subject, **ctx)
         email = resend.Emails.send(params)
         message_id = email["id"]
         logger.info(
-            "resend_email_sent",
+            "send_email_success",
             to=mask_email(to),
             subject=subject,
             message_id=message_id,
@@ -91,7 +91,7 @@ class ConsoleEmailClient(EmailClient):
         ctx = log_context or {}
         # Dev/test sink: masks the recipient and omits the html body (which
         # embeds the address) to keep the same no-plaintext-PII guarantee.
-        logger.info("email_console", to=mask_email(to), subject=subject, **ctx)
+        logger.info("send_email_console", to=mask_email(to), subject=subject, **ctx)
         return "console"
 
 
