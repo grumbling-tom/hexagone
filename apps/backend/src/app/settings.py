@@ -22,6 +22,7 @@ class Settings(BaseSettings):
     )
 
     ENV: Literal["TEST", "DEV", "STAGING", "PROD"] = "DEV"
+    DEBUG: bool = False
     DATABASE_URL: str = ""
 
     # Connection-pool settings for the persistent (non-Lambda) service. Only

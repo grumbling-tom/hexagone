@@ -41,6 +41,7 @@ apps/web/
         components/       OnboardingChoices
         server/           finishOnboarding.ts
     components/           Truly shared, generic primitives (e.g. Button) — empty until needed
+    config/               env.ts — typed, validated environment config (see below)
     lib/                  Cross-cutting non-React utilities (fetch client, etc.)
     styles/               theme.css + main.css (see CSS section below)
     __generated__/        Orval-generated API client — do not edit by hand
@@ -58,6 +59,12 @@ Route files in `app/` import `src/` code via the `@/` alias (the alias only maps
 - Non-React utility → `lib/`
 
 **Imports**: always use the `@/` alias (mapped to `src/`). Do not use deep relative paths like `../../features/uploads/UploadList`.
+
+### Environment Configuration
+
+Never read `process.env` directly. All environment configuration goes through the typed, validated schema in `src/config/env.ts` (`@t3-oss/env-nextjs` + zod — the Next.js analogue of the backend's pydantic-settings `Settings`). Import `{ env }` from `@/config/env` and read `env.MY_VAR`; the schema is the single source of truth for what config exists and what shape it has, and it fails loudly at boot/build on anything missing or malformed.
+
+To add a var: declare it under `server` (or `client` for `NEXT_PUBLIC_*` vars, which must also be listed in `experimental__runtimeEnv`). Give it a zod schema with a sensible `.default(...)` where one exists. For booleans use enum-then-transform (`z.enum(["true","false"]).default("false").transform((v) => v === "true")`), **not** `z.coerce.boolean()` — under `coerce` the string `"false"` coerces to `true`. The `@/config/env` import works from root-level files like `instrumentation.ts` and `middleware.ts` too, not just `src/`.
 
 ### Frontend Import Rules
 

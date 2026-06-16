@@ -10,6 +10,13 @@
 //
 // Supplying `spanProcessors` overrides @vercel/otel's default OTLP exporter, so no
 // network export is attempted. Swapping in an OTLP exporter later is a one-liner.
+//
+// Tracing is always registered so Next's fetch instrumentation keeps injecting the
+// W3C `traceparent` header and a request stays one correlated trace. The console
+// exporter is the only export target, so it's only attached under DEBUG (mirroring
+// the backend's `settings.DEBUG`) — otherwise its per-span output is just noise.
+// An empty `spanProcessors` array still overrides the default OTLP exporter, so no
+// network export is attempted when debug is off.
 
 import {
   ConsoleSpanExporter,
@@ -17,9 +24,13 @@ import {
 } from "@opentelemetry/sdk-trace-node";
 import { registerOTel } from "@vercel/otel";
 
+import { env } from "@/config/env";
+
 export function register() {
   registerOTel({
     serviceName: "hexagone-web",
-    spanProcessors: [new SimpleSpanProcessor(new ConsoleSpanExporter())],
+    spanProcessors: env.DEBUG
+      ? [new SimpleSpanProcessor(new ConsoleSpanExporter())]
+      : [],
   });
 }

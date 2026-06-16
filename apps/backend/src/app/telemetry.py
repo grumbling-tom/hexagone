@@ -26,12 +26,15 @@ _instrumented = False
 
 
 def setup_tracing(app: FastAPI, settings: Settings) -> None:
-    """Configure console span export and instrument FastAPI + SQLAlchemy.
+    """Instrument FastAPI + SQLAlchemy, exporting spans to the console under DEBUG.
 
-    A no-op under ENV=TEST so the test suite stays quiet and the in-memory test
-    engine is never wrapped. Uses ``SimpleSpanProcessor`` (not batch) so spans
-    flush to the console as they close, keeping them in causal order against the
-    structured log lines.
+    Tracing (and the trace-context stamping on log lines) is always set up so a
+    request stays one correlated trace; the console exporter is only attached when
+    ``settings.DEBUG`` is set, since it's the sole export target and its per-span
+    output is just noise otherwise. A no-op under ENV=TEST so the test suite stays
+    quiet and the in-memory test engine is never wrapped. Uses
+    ``SimpleSpanProcessor`` (not batch) so spans flush to the console as they
+    close, keeping them in causal order against the structured log lines.
     """
     global _instrumented  # noqa: PLW0603 — one-shot guard against double instrumentation
     if _instrumented or settings.ENV == "TEST":
@@ -46,7 +49,8 @@ def setup_tracing(app: FastAPI, settings: Settings) -> None:
             }
         )
     )
-    provider.add_span_processor(SimpleSpanProcessor(ConsoleSpanExporter()))
+    if settings.DEBUG:
+        provider.add_span_processor(SimpleSpanProcessor(ConsoleSpanExporter()))
     trace.set_tracer_provider(provider)
 
     # Imported lazily so the OTel instrumentation packages aren't pulled in (and
