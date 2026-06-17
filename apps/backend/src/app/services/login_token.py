@@ -15,8 +15,8 @@ import hashlib
 import hmac
 import secrets
 from datetime import UTC, datetime, timedelta
-from typing import NamedTuple
 
+from pydantic import BaseModel, ConfigDict
 from sqlalchemy.orm import Session as DBSession
 
 from src.app.repository import EqualsFilter, LoginToken, Repository
@@ -31,14 +31,17 @@ logger = get_logger(__name__)
 _SECRET_BYTES = 32
 
 
-class IssuedLoginToken(NamedTuple):
+class IssuedLoginToken(BaseModel):
     """A freshly issued login token and its browser-binding nonce.
 
-    A NamedTuple (not a Pydantic schema) so it stays within the service-layer
-    return contract enforced by ``tests/app/test_service_returns.py``. Both
-    fields are plaintext secrets: the caller emails the ``token`` as a link and
-    sets the ``nonce`` as an httpOnly cookie. Neither is ever logged.
+    An internal value object — a plain Pydantic model, deliberately NOT a
+    ``BaseSchema`` response schema (services must not return those; see
+    ``tests/app/test_service_returns.py``). Frozen because it is a one-shot
+    carrier of two plaintext secrets: the caller emails the ``token`` as a link
+    and sets the ``nonce`` as an httpOnly cookie. Neither is ever logged.
     """
+
+    model_config = ConfigDict(frozen=True)
 
     token: str
     nonce: str
