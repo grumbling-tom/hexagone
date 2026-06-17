@@ -1,3 +1,4 @@
+import type { CSSProperties } from "react";
 import { buildTraceModel } from "@/features/landing/geometry";
 
 // The landing hero's trace visual: the Stanley Park basemap, a faint hex grid,
@@ -33,14 +34,28 @@ export default function TraceAnimation() {
       ))}
 
       {model.routeHexes.map((cell) => (
+        // The per-hex pop delay is the one inline style on this page. It's
+        // justified ONLY because it lets the whole trace stay a server
+        // component: the alternative (passing the geometry-derived delay to CSS
+        // any other way) would force a 'use client' TSX component. All actual
+        // styling — the keyframes and what --d drives — lives in main.css; this
+        // attribute only carries a data value.
         <polygon
           key={cell.points}
           className="hex-anim__cell"
           points={cell.points}
+          style={{ "--d": `${cell.delay.toFixed(2)}s` } as CSSProperties}
         />
       ))}
 
-      <polyline className="hex-anim__route" points={model.routePoints} />
+      {/* dash attributes (not inline style) prime the stroke-dashoffset
+          line-draw; main.css animates the offset to 0. */}
+      <polyline
+        className="hex-anim__route"
+        points={model.routePoints}
+        strokeDasharray={model.routeLength}
+        strokeDashoffset={model.routeLength}
+      />
 
       <text
         className="hex-anim__attrib"

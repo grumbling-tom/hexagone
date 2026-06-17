@@ -187,8 +187,11 @@ a {
 
 /** @define hex-anim */
 /* The landing trace visual: basemap + hex grid + drawn route + claimed hexes.
-   Slice 2a renders the finished (claimed) state statically; slice 2b layers the
-   play-once animation on top. currentColor sets the faint grid stroke. */
+   It plays once on load — the route line draws while the hexes it passes pop in
+   sequence (each offset by its own --d delay) — and settles in the claimed
+   state. It does not loop: per-cycle re-staggering isn't possible in pure CSS
+   (animation-delay only offsets the first iteration), and looping is not worth
+   a client component here. currentColor sets the faint grid stroke. */
 .hex-anim__svg {
   display: block;
   width: 100%;
@@ -205,27 +208,71 @@ a {
   stroke-width: 0.6;
   opacity: 0.16;
 }
+/* Starts unclaimed (transparent, shrunk); hex-pop animates it to the claimed
+   state. animation-delay is var(--d) — the hex's position along the route, set
+   per-element from the geometry (see TraceAnimation.tsx). */
 .hex-anim__cell {
   fill: var(--color-primary-500);
-  fill-opacity: 0.82;
+  fill-opacity: 0;
   stroke: var(--color-primary-600);
   stroke-width: 0.8;
-  stroke-opacity: 0.9;
+  stroke-opacity: 0;
+  transform: scale(0.4);
   transform-box: fill-box;
   transform-origin: center;
+  animation: hex-pop 0.7s ease-out var(--d) forwards;
 }
+/* The route line draws via stroke-dashoffset (primed by the dash attributes in
+   TraceAnimation.tsx). 3.4s matches TRACE_DRAW_SECONDS in geometry.ts, over
+   which the per-hex --d delays are spread, so hexes pop as the tip reaches them. */
 .hex-anim__route {
   fill: none;
   stroke: var(--color-secondary-500);
   stroke-width: 3.5;
   stroke-linecap: round;
   stroke-linejoin: round;
+  animation: route-draw 3.4s ease-in-out forwards;
 }
 .hex-anim__attrib {
   font-family: var(--font-body);
   font-size: 7px;
   fill: var(--color-neutral-500);
   opacity: 0.85;
+}
+@keyframes hex-pop {
+  0% {
+    fill-opacity: 0;
+    stroke-opacity: 0;
+    transform: scale(0.4);
+  }
+  60% {
+    fill-opacity: 0.92;
+    stroke-opacity: 1;
+    transform: scale(1.18);
+  }
+  100% {
+    fill-opacity: 0.82;
+    stroke-opacity: 0.9;
+    transform: scale(1);
+  }
+}
+@keyframes route-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+/* Reduced motion: skip the animation and show the finished claimed state. */
+@media (prefers-reduced-motion: reduce) {
+  .hex-anim__cell {
+    fill-opacity: 0.82;
+    stroke-opacity: 0.9;
+    transform: scale(1);
+    animation: none;
+  }
+  .hex-anim__route {
+    stroke-dashoffset: 0;
+    animation: none;
+  }
 }
 
 /** @define nav */
