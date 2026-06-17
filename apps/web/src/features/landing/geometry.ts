@@ -12,6 +12,15 @@ export const TRACE_HEIGHT = 512;
 // this window so they pop roughly as the line's tip reaches them.
 export const TRACE_DRAW_SECONDS = 3.4;
 
+// Animation timing shared with the CSS (.hex-anim in main.css) and the loop
+// (TraceLoop). One cycle is: draw the line + pop the last hex, then hold on the
+// finished map before replaying. Keep TRACE_POP_SECONDS in sync with the
+// hex-pop duration in main.css.
+export const TRACE_POP_SECONDS = 0.7;
+export const TRACE_GAP_SECONDS = 2;
+export const TRACE_CYCLE_SECONDS =
+  TRACE_DRAW_SECONDS + TRACE_POP_SECONDS + TRACE_GAP_SECONDS;
+
 // Hex geometry — pointy-top, matching the app's EmptyMap.
 const R = 15;
 const DX = Math.sqrt(3) * R; // horizontal centre spacing

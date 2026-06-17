@@ -34,12 +34,13 @@ export default function TraceAnimation() {
       ))}
 
       {model.routeHexes.map((cell) => (
-        // The per-hex pop delay is the one inline style on this page. It's
-        // justified ONLY because it lets the whole trace stay a server
-        // component: the alternative (passing the geometry-derived delay to CSS
-        // any other way) would force a 'use client' TSX component. All actual
-        // styling — the keyframes and what --d drives — lives in main.css; this
-        // attribute only carries a data value.
+        // --d carries this hex's geometry-derived pop delay (its position along
+        // the route) into the CSS cascade. The style attribute is the only
+        // inline style here, and it's deliberate: it carries a data value, not
+        // visual rules — all real styling (the hex-pop keyframes and what --d
+        // drives) lives in main.css. Setting it imperatively from TraceLoop
+        // instead would mean querying every cell from the client, which is
+        // strictly worse than letting the server emit it.
         <polygon
           key={cell.points}
           className="hex-anim__cell"
@@ -48,13 +49,14 @@ export default function TraceAnimation() {
         />
       ))}
 
-      {/* dash attributes (not inline style) prime the stroke-dashoffset
-          line-draw; main.css animates the offset to 0. */}
+      {/* strokeDasharray (an SVG attribute, not inline style) sets the dash;
+          --len carries the line length so the route-draw keyframe can animate
+          the offset from len → 0. The base (drawn) state lives in main.css. */}
       <polyline
         className="hex-anim__route"
         points={model.routePoints}
         strokeDasharray={model.routeLength}
-        strokeDashoffset={model.routeLength}
+        style={{ "--len": model.routeLength } as CSSProperties}
       />
 
       <text
