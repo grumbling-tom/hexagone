@@ -9,7 +9,6 @@ interface LandingHeroProps {
   heroCta: ReactNode;
   closingCta: ReactNode;
   traceVisual: ReactNode;
-  ringVisual: ReactNode;
 }
 
 // The marketing landing page ("/"). A single-conversion-goal hero: one CTA,
@@ -20,7 +19,6 @@ export default function LandingHero({
   heroCta,
   closingCta,
   traceVisual,
-  ringVisual,
 }: LandingHeroProps) {
   return (
     <div className="landing">
@@ -29,7 +27,7 @@ export default function LandingHero({
           <span className="landing__brand-mark" aria-hidden="true">
             ⬡
           </span>{" "}
-          Hexagone
+          Hexa<span className="landing__brand-fade">gone</span>
         </p>
         {navCta}
       </header>
@@ -37,17 +35,16 @@ export default function LandingHero({
       <main className="landing__main">
         <section className="landing__hero landing__section">
           <div className="landing__hero-body">
-            <p className="landing__eyebrow">Turn your runs into territory</p>
+            {/* TODO: Consider adding an eyebrow label */}
+            {/* <p className="landing__eyebrow">Turn your runs into territory</p> */}
             <h1 className="landing__title">Run the map. Claim the world.</h1>
             <p className="landing__lead">
-              Every kilometre you log colours in the map. Hexagone turns your GPX
-              tracks into a living atlas of everywhere you&rsquo;ve been &mdash;
-              and everywhere left to explore.
+              Every kilometre you log colours in the map. Hexagone turns your
+              GPX tracks into a living atlas of everywhere you&rsquo;ve been
+              &mdash; and everywhere left to explore.
             </p>
             <div className="landing__cta-group">{heroCta}</div>
-            <p className="landing__cta-note">
-              Free while in beta &middot; no card needed
-            </p>
+            <p className="landing__cta-note">Request early access</p>
           </div>
           <div className="landing__hero-media">
             <figure className="landing__figure">
@@ -58,25 +55,10 @@ export default function LandingHero({
             </figure>
           </div>
         </section>
-
-        <section className="landing__section landing__section--banner">
-          <h2 className="landing__heading">Then draw your line in the sand</h2>
-          <p className="landing__lead">
-            Loop a neighbourhood and everything inside is yours. Claiming
-            territory is one ring away.
-          </p>
-          <figure className="landing__figure">
-            {ringVisual}
-            <figcaption className="landing__caption">
-              Draw a ring &mdash; every hex inside is claimed for you.
-            </figcaption>
-          </figure>
-          <div className="landing__cta-group">{closingCta}</div>
-        </section>
       </main>
 
       <footer className="landing__footer">
-        Hexagone &middot; run it, ring it, claim it.
+        Hexagone &middot; Run the map. Claim the world &middot;{" "}
       </footer>
     </div>
   );

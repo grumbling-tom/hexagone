@@ -30,19 +30,12 @@ export default function LandingPage() {
           Claim your first hex
         </Link>
       }
-      // Slice 1 placeholders — replaced by the trace/ring animations in slice 2.
+      // Slice 1 placeholder — replaced by the trace animation in slice 2.
       traceVisual={
         <img
           className="landing__media"
           src="/map.png"
           alt="A city map with a running route and claimed hexagons"
-        />
-      }
-      ringVisual={
-        <img
-          className="landing__media"
-          src="/map.png"
-          alt="A map area ringed and claimed"
         />
       }
     />

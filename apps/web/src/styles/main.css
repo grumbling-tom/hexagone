@@ -76,6 +76,10 @@ a {
 .landing__brand-mark {
   color: var(--color-primary-600);
 }
+/* "gone" fades to a lighter grey — the brand visually living up to its name. */
+.landing__brand-fade {
+  color: var(--color-text-muted);
+}
 .landing__main {
   max-width: var(--content-max-width);
   margin: 0 auto;
