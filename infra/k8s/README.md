@@ -96,9 +96,10 @@ Postgres is backed up by a **logical dump** (`pg_dump -Fc`), not CNPG's
 continuous/PITR Barman backups — no extra operators, and each dump is a
 self-contained object. A `CronJob` (`infra/k8s/base/app/db-backup.yaml`) dumps the
 DB **every 6 hours** to a dedicated Tigris bucket (`hexagone-db-backups`, created
-in `infra/terraform/storage.tf`); a **7-day lifecycle rule** on that bucket
-auto-deletes old dumps. Trade-off: recovery is to the last dump (≤6h of data
-loss), not point-in-time.
+in `infra/terraform/storage.tf`); a **7-day expiry lifecycle rule** on that bucket
+auto-deletes old dumps. (The rule is applied by `prod-stack.sh up` via `aws s3api`,
+not Terraform — see the note in `infra/terraform/storage.tf`.) Trade-off: recovery
+is to the last dump (≤6h of data loss), not point-in-time.
 
 ```bash
 scripts/prod-stack.sh backup          # fire a one-off dump now (e.g. before a risky migration)

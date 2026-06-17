@@ -37,20 +37,12 @@ resource "aws_s3_bucket" "db_backups" {
   bucket = local.db_backups_bucket
 }
 
-# 7-day auto-expiry. Each dump is a self-contained object (no WAL chain), so a
-# blunt object-age rule is safe here — unlike continuous/PITR backups. This is
-# what enforces the 7-day retention.
-resource "aws_s3_bucket_lifecycle_configuration" "db_backups" {
-  bucket = aws_s3_bucket.db_backups.id
-
-  rule {
-    id     = "expire-after-7-days"
-    status = "Enabled"
-
-    filter {} # all objects in the bucket
-
-    expiration {
-      days = 7
-    }
-  }
-}
+# NOTE: the bucket's 7-day expiry lifecycle rule is deliberately NOT managed here.
+# The aws provider's `aws_s3_bucket_lifecycle_configuration` does a post-write
+# read-back "stabilization" wait that times out against Tigris (and other
+# S3-compatible stores) even though the PUT succeeds — see
+# https://github.com/hashicorp/terraform-provider-aws/issues/25939. So apply
+# always errored despite the rule being correctly applied. Instead, scripts/
+# prod-stack.sh sets it with an idempotent `aws s3api put-bucket-lifecycle-
+# configuration` (a plain PUT, no read-back loop). Keep the rule definition there
+# in sync with the 7-day retention intent.

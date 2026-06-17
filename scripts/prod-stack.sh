@@ -176,6 +176,19 @@ cmd_up() {
   TF_VAR_cloudflare_api_token="$cf_token" \
     terraform -chdir="$TF_DIR" apply -auto-approve -input=false
 
+  # 6b. Backups bucket lifecycle (7-day expiry) -----------------------------
+  # Set out-of-band rather than via Terraform: the aws provider's
+  # aws_s3_bucket_lifecycle_configuration does a post-write read-back wait that
+  # times out against Tigris (terraform-provider-aws#25939), so apply always
+  # errored even though the rule applied. A plain put-bucket-lifecycle-configuration
+  # is idempotent and has no read-back loop. Terraform still creates the bucket.
+  log "Ensuring 7-day expiry on s3://${BACKUP_BUCKET}"
+  AWS_ACCESS_KEY_ID="$tigris_id" AWS_SECRET_ACCESS_KEY="$tigris_secret" \
+    aws s3api put-bucket-lifecycle-configuration \
+      --bucket "$BACKUP_BUCKET" \
+      --endpoint-url "$TIGRIS_ENDPOINT" \
+      --lifecycle-configuration '{"Rules":[{"ID":"expire-after-7-days","Status":"Enabled","Filter":{},"Expiration":{"Days":7}}]}'
+
   # 7. Secrets (idempotent upsert) ------------------------------------------
   log "Upserting cloudflared-token secret"
   local tunnel_token

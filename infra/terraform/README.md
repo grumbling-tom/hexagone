@@ -91,9 +91,14 @@ backend):
   (the browser uploads directly via backend-issued presigned PUT URLs; the prod
   analogue of `scripts/seaweedfs-init.sh`). Name must stay in sync with
   `HEXAGONE_S3_BUCKET` in `infra/k8s/base/app/backend.yaml`.
-- **`hexagone-db-backups`** — Postgres logical-dump backups, with a **7-day expiry
-  lifecycle rule** that enforces backup retention. Name must stay in sync with
-  `BACKUP_BUCKET` in `infra/k8s/base/app/db-backup.yaml` and `scripts/prod-stack.sh`.
+- **`hexagone-db-backups`** — Postgres logical-dump backups. Name must stay in sync
+  with `BACKUP_BUCKET` in `infra/k8s/base/app/db-backup.yaml` and
+  `scripts/prod-stack.sh`. Its **7-day expiry lifecycle rule is intentionally not
+  managed here** — the `aws_s3_bucket_lifecycle_configuration` resource's
+  post-write read-back wait times out against Tigris
+  ([terraform-provider-aws#25939](https://github.com/hashicorp/terraform-provider-aws/issues/25939)),
+  so `scripts/prod-stack.sh up` applies it with an idempotent `aws s3api
+  put-bucket-lifecycle-configuration` instead (see the comment in `storage.tf`).
 
 > If a bucket was already created by hand, import it before the first apply, e.g.:
 > `terraform -chdir=infra/terraform import aws_s3_bucket.uploads hexagone-gpx-uploads`
