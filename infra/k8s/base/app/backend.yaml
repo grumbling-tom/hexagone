@@ -34,8 +34,12 @@ spec:
           image: hexagone-backend:latest
           imagePullPolicy: IfNotPresent
           command: ["alembic", "upgrade", "head"]
-          # Migrations only need the DB; ENV=PROD so settings.py applies the same
-          # URL handling (sslmode=require) as the app.
+          # Migrations only touch the DB, but alembic imports src/app/settings,
+          # which instantiates Settings() — and in PROD that validates the full
+          # config (e.g. RESEND_API_KEY must be set). So the init container needs
+          # the same app Secret as the main container, not just the DB URL.
+          # ENV=PROD also makes settings.py apply the same URL handling
+          # (sslmode=require) as the app.
           env:
             - name: ENV
               value: PROD
@@ -44,6 +48,9 @@ spec:
                 secretKeyRef:
                   name: hexagone-db-app
                   key: uri
+          envFrom:
+            - secretRef:
+                name: hexagone-backend-secrets
       containers:
         - name: backend
           image: hexagone-backend:latest
