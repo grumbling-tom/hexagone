@@ -43,6 +43,56 @@ Tooling: **Kustomize only** (bundled in `kubectl`). No Helm.
 
 ---
 
+## One-touch up/down — `scripts/prod-stack.sh`
+
+For day-to-day operation, `scripts/prod-stack.sh` automates the whole runbook
+below into three commands. Run it from anywhere in the repo, **on the mini**:
+
+```bash
+scripts/prod-stack.sh up [--build]   # bring the whole stack up (idempotent)
+scripts/prod-stack.sh down            # delete app workloads, stop the VM (data kept)
+scripts/prod-stack.sh status          # show what's running
+```
+
+The stack runs in a **dedicated Colima profile** (`hexagone-prod`, sized 2 CPU /
+4 GiB by default — edit the vars at the top of the script), kept separate from
+the `default` docker VM used by `docker compose` dev. The script pins both the
+docker and kube contexts to that profile (`colima-hexagone-prod`) and starts the
+VM with `--activate=false`, so it never hijacks your active context.
+
+- **`up`** folds in the one-time bootstrap (CNPG operator install, `terraform
+  apply`) and is safe to re-run: it starts the `hexagone-prod` profile **with
+  Kubernetes** if it isn't already (creating it on first run), builds the two
+  images only when missing (`--build` forces a rebuild after code changes),
+  upserts both Secrets, applies the overlay, and waits on the DB cluster + all
+  rollouts.
+- **`down`** deletes only the stateless Deployments (`hexagone-backend`,
+  `hexagone-web`, `cloudflared`) and then `colima stop`. It **deliberately leaves
+  the CNPG `Cluster` (and its PVC) and the Cloudflare tunnel in place** — deleting
+  the Cluster would garbage-collect the PVC and destroy the database — so `up`
+  restores all data.
+
+### Secrets live in the macOS Keychain
+
+The script reads every secret from the login Keychain (account `$USER`), so
+nothing sensitive lands on disk. Create these once on the mini (the first already
+exists if you followed `infra/terraform/README.md`):
+
+```bash
+security add-generic-password -a "$USER" -s cloudflare-api-token -w           # Cloudflare API token
+security add-generic-password -a "$USER" -s hexagone-tigris-access-key-id -w  # Tigris key   (tid_…)
+security add-generic-password -a "$USER" -s hexagone-tigris-secret-access-key -w  # Tigris secret (tsec_…)
+security add-generic-password -a "$USER" -s hexagone-resend-api-key -w        # Resend key   (re_…)
+```
+
+The Tigris keys are reused for the Terraform state backend and for
+`hexagone-backend-secrets`; the Cloudflare token is `TF_VAR_cloudflare_api_token`.
+
+The sections below remain the reference for what each step does (and for the
+one-time Tailscale admin-plane and Colima-profile setup the script assumes).
+
+---
+
 ## 1. Admin plane — host `tailscaled` (task #3)
 
 Run on the **Mac mini** — the open-source daemon via Homebrew, under launchd,

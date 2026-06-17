@@ -6,6 +6,12 @@ terraform {
       source  = "cloudflare/cloudflare"
       version = "~> 5.0"
     }
+    # Tigris is S3-compatible, so its object-storage buckets are managed with the
+    # aws provider pointed at the Tigris endpoint (see the provider block below).
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 5.0"
+    }
   }
 
   # State lives in Tigris (https://t3.storage.dev) — S3-compatible, no egress
@@ -16,8 +22,9 @@ terraform {
   #   export AWS_ACCESS_KEY_ID=tid_...        # Tigris access key
   #   export AWS_SECRET_ACCESS_KEY=tsec_...   # Tigris secret
   #
-  # This stack manages NO AWS resources, so there is no aws-provider credential
-  # clash — that's why it lives apart from the legacy terraform/ dir.
+  # The aws provider below reuses these same env credentials to manage Tigris
+  # buckets — it targets the Tigris endpoint, not an AWS account, so there's no
+  # real AWS in play (this stack lives apart from the legacy terraform/ dir).
   #
   # Bootstrap the bucket once (the backend won't create it):
   #   aws s3 mb s3://hexagone-tfstate --endpoint-url https://t3.storage.dev
@@ -41,4 +48,23 @@ terraform {
 
 provider "cloudflare" {
   api_token = var.cloudflare_api_token
+}
+
+# Tigris object storage (S3-compatible). Points at the Tigris endpoint and reuses
+# the AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY env credentials used by the state
+# backend above; no AWS account is involved, so the AWS-specific preflight checks
+# are skipped (mirroring the backend block).
+provider "aws" {
+  region = "auto"
+
+  skip_credentials_validation = true
+  skip_region_validation      = true
+  skip_requesting_account_id  = true
+  skip_metadata_api_check     = true
+
+  s3_use_path_style = true # path-style addressing against the custom endpoint
+
+  endpoints {
+    s3 = "https://t3.storage.dev"
+  }
 }
