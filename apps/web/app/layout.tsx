@@ -5,9 +5,10 @@ import type { ReactNode } from "react";
 import "@/styles/theme.css";
 import "@/styles/main.css";
 
+// Favicon is provided by the app/icon.svg file convention — Next auto-emits the
+// <link rel="icon"> with the correct type, so no `icons` entry is needed here.
 export const metadata: Metadata = {
   title: "Hexagone",
-  icons: { icon: "/favicon.svg" },
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
