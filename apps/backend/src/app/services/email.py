@@ -2,6 +2,7 @@
 
 from abc import ABC, abstractmethod
 from typing import Any
+from urllib.parse import quote_plus
 
 import resend
 
@@ -117,3 +118,31 @@ def send_welcome_email(email: EmailClient, *, user: User) -> str:
         html=html,
         log_context={"user_uid": str(user.uid)},
     )
+
+
+def send_login_link_email(email: EmailClient, *, to_email: str, token: str) -> str:
+    """Send the magic-link sign-in email.
+
+    Builds the sign-in link to ``${APP_BASE_URL}/auth/verify?token=...``. The
+    recipient is masked by ``EmailClient.send`` and the html body (which embeds
+    both the address and the token) is never logged — so the plaintext token
+    stays out of the logs.
+
+    Args:
+        email: The injected email client.
+        to_email: Recipient address — the link's destination.
+        token: Plaintext login token to embed in the link.
+
+    Returns:
+        The provider message id.
+    """
+    verify_url = f"{settings.APP_BASE_URL}/auth/verify?token={quote_plus(token)}"
+    minutes = settings.LOGIN_TOKEN_EXPIRY_MINUTES
+    subject = "Your Hexagone sign-in link"
+    html = (
+        f"<h1>Sign in to Hexagone</h1>"
+        f'<p><a href="{verify_url}">Click here to sign in</a>.</p>'
+        f"<p>This link expires in {minutes} minutes and can only be used once. "
+        f"Open it in the same browser you requested it from.</p>"
+    )
+    return email.send(to=to_email, subject=subject, html=html)

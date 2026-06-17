@@ -39,6 +39,13 @@ class Settings(BaseSettings):
     SESSION_COOKIE_NAME: str = "sessionid"
     SESSION_EXPIRY_HOURS: int = 24
 
+    # Magic-link (passwordless) login. ALLOWED_EMAILS is the invite gate: only
+    # these addresses may request a sign-in link. An empty list denies everyone
+    # (secure default for an invite-only app). Parsed as JSON from the env var,
+    # e.g. ALLOWED_EMAILS='["a@example.com","b@example.com"]'.
+    ALLOWED_EMAILS: list[str] = []
+    LOGIN_TOKEN_EXPIRY_MINUTES: int = 10
+
     AWS_ACCESS_KEY_ID: str = ""
     AWS_SECRET_ACCESS_KEY: str = ""
     HEXAGONE_AWS_REGION: str = "eu-west-1"
