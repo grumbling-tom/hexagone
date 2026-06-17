@@ -185,6 +185,92 @@ a {
   }
 }
 
+/** @define hex-anim */
+/* The landing trace visual: basemap + hex grid + drawn route + claimed hexes.
+   The BASE state is the finished map — route drawn, hexes claimed — so without
+   JS (or with reduced motion) it simply shows the result. TraceLoop adds the
+   --playing modifier on a timer to replay the cascade: the route line draws
+   while the hexes it passes pop in sequence (each offset by its own --d delay),
+   it holds on the finished map, then restarts. currentColor sets the faint grid
+   stroke. */
+.hex-anim__svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1 / 1;
+  color: var(--color-neutral-800);
+}
+.hex-anim__map {
+  opacity: 0.85;
+}
+.hex-anim__hex {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 0.6;
+  opacity: 0.16;
+}
+/* Base = claimed (the finished state). */
+.hex-anim__cell {
+  fill: var(--color-primary-500);
+  fill-opacity: 0.82;
+  stroke: var(--color-primary-600);
+  stroke-width: 0.8;
+  stroke-opacity: 0.9;
+  transform: scale(1);
+  transform-box: fill-box;
+  transform-origin: center;
+}
+/* Base = drawn. */
+.hex-anim__route {
+  fill: none;
+  stroke: var(--color-secondary-500);
+  stroke-width: 3.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dashoffset: 0;
+}
+.hex-anim__attrib {
+  font-family: var(--font-body);
+  font-size: 7px;
+  fill: var(--color-neutral-500);
+  opacity: 0.85;
+}
+/* While playing, replay the cascade from empty. `both` applies hex-pop's start
+   frame during each hex's --d delay, so a not-yet-reached hex reads as unclaimed
+   rather than flashing the claimed base. 0.7s/3.4s mirror TRACE_POP_SECONDS and
+   TRACE_DRAW_SECONDS in geometry.ts. */
+.hex-anim--playing .hex-anim__cell {
+  animation: hex-pop 0.7s ease-out var(--d) both;
+}
+.hex-anim--playing .hex-anim__route {
+  animation: route-draw 3.4s ease-in-out both;
+}
+@keyframes hex-pop {
+  0% {
+    fill-opacity: 0;
+    stroke-opacity: 0;
+    transform: scale(0.4);
+  }
+  60% {
+    fill-opacity: 0.92;
+    stroke-opacity: 1;
+    transform: scale(1.18);
+  }
+  100% {
+    fill-opacity: 0.82;
+    stroke-opacity: 0.9;
+    transform: scale(1);
+  }
+}
+@keyframes route-draw {
+  from {
+    stroke-dashoffset: var(--len);
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
 /** @define nav */
 .nav {
   display: flex;

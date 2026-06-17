@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import LandingHero from "@/features/landing/components/LandingHero";
+import TraceAnimation from "@/features/landing/components/TraceAnimation";
+import TraceLoop from "@/features/landing/components/TraceLoop";
 
 // Landing page (server component) — statically prerendered. The route owns
 // navigation, handing the (routing-free) LandingHero its CTAs as <Link> slots.
@@ -30,13 +32,10 @@ export default function LandingPage() {
           Claim your first hex
         </Link>
       }
-      // Slice 1 placeholder — replaced by the trace animation in slice 2.
       traceVisual={
-        <img
-          className="landing__media"
-          src="/map.png"
-          alt="A city map with a running route and claimed hexagons"
-        />
+        <TraceLoop>
+          <TraceAnimation />
+        </TraceLoop>
       }
     />
   );

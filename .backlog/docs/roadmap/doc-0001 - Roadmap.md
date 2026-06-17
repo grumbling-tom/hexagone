@@ -3,7 +3,7 @@ id: doc-0001
 title: Roadmap
 type: other
 created_date: '2026-06-16 11:11'
-updated_date: '2026-06-16 11:46'
+updated_date: '2026-06-17 11:33'
 ---
 Priority order for our epics (milestones). Backlog.md has no native milestone ordering, so **this doc is the source of truth** for what we work on next. Keep **Now** to 1–2 epics — that's the whole point.
 
@@ -16,8 +16,8 @@ To re-prioritise, move an epic's link to a different column. When an epic ships,
 
 | Now | Next | Later |
 | --- | --- | --- |
-| [Landing page](http://localhost:6420/?lane=milestone&milestone=m-11) | [Production Mac Mini Deployment](http://localhost:6420/?lane=milestone&milestone=m-1) | [Strava Integration](http://localhost:6420/?lane=milestone&milestone=m-14) |
-| | [Passwordless Login](http://localhost:6420/?lane=milestone&milestone=m-0) | [Garmin Connect Integration](http://localhost:6420/?lane=milestone&milestone=m-15) |
+|  [Production Mac Mini Deployment](http://localhost:6420/?lane=milestone&milestone=m-1) | [Passwordless Login](http://localhost:6420/?lane=milestone&milestone=m-0)  | [Strava Integration](http://localhost:6420/?lane=milestone&milestone=m-14) |
+| | | [Garmin Connect Integration](http://localhost:6420/?lane=milestone&milestone=m-15) |
 | | | [Hex algorithm redesign](http://localhost:6420/?lane=milestone&milestone=m-19) |
 | | | [Analytics Project Setup](http://localhost:6420/?lane=milestone&milestone=m-16) |
 | | | [Demo User](http://localhost:6420/?lane=milestone&milestone=m-13) |
