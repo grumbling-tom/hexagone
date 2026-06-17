@@ -151,6 +151,10 @@ export default function Dialog() {
 }
 ```
 
+## Task Lifecycle (run at session start)
+
+At the **start of each session**, run the start-of-session step of the `manage-backlog` skill: find the Backlog task this session's work maps to and move it to **In Progress** (ask if no task clearly fits; never create one autonomously). Then keep that task's description in sync if the scope changes during implementation, and move it to **Done** when you open a PR. The `manage-backlog` skill is the full procedure — invoke it (`/manage-backlog`) for the details.
+
 <!-- BACKLOG.MD MCP GUIDELINES START -->
 
 <CRITICAL_INSTRUCTION>
