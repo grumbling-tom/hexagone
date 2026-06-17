@@ -32,7 +32,7 @@ If there are uncommitted changes, stop and ask the user whether to commit them f
 
 If the branch has no upstream, stop and ask the user to push it first (e.g. `git push -u origin <branch>`). This skill does not push branches itself.
 
-**Check for the Backlog task.** Identify the task this PR delivers (match the diff against open tasks; `task_view` the likely candidate to confirm). The PR body must link it (see the body structure). If no task fits, tell the user and ask whether to proceed without one or create a task first — don't invent a task ID, and don't create the task yourself from this skill. This skill only reads Backlog; updating the task's status/notes is a separate step the user can ask for.
+**Check for the Backlog task.** Identify the task this PR delivers (match the diff against open tasks; `task_view` the likely candidate to confirm). The PR body must link it (see the body structure). If no task fits, tell the user and ask whether to proceed without one or create a task first — don't invent a task ID, and don't create the task yourself from this skill. This skill only reads Backlog; moving the task to Done once the PR is open is covered by the `/manage-backlog` skill.
 
 ### 2. Understand the change
 
