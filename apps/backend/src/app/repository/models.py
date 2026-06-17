@@ -328,7 +328,8 @@ class LoginToken(BaseModel):
     plaintext — so a database leak cannot be replayed to log in. Tokens are
     single-use (``used_at`` is stamped on a successful verify) and expire after
     a short window (``settings.LOGIN_TOKEN_EXPIRY_MINUTES``). Issuing a new
-    token for an email supersedes any outstanding one, so at most one token per
+    token for an email **revokes** any outstanding one — a soft delete via
+    ``revoked_at`` that keeps the row for audit — so at most one token per
     email is live at a time. See ``services/login_token.py``.
 
     **Browser binding (always on).** A second secret — the *nonce* — is minted
@@ -341,11 +342,15 @@ class LoginToken(BaseModel):
     request-on-desktop / open-on-phone.
 
     Attributes:
-        email: The target email address (stored lowercased).
+        email: The target email address (EmailStr-normalised at the request
+            boundary; local-part case preserved).
         token_hash: Hex SHA-256 digest of the plaintext token.
         nonce_hash: Hex SHA-256 digest of the browser-binding nonce.
         expires_at: When the token stops being valid.
         used_at: When the token was consumed; NULL while still spendable.
+        revoked_at: When the token was revoked (superseded by a newer token for
+            the same email); NULL while still live. A revoked token is rejected
+            at validation even if unexpired and unused.
     """
 
     __tablename__ = "login_token"
@@ -359,5 +364,8 @@ class LoginToken(BaseModel):
         DateTime(timezone=True), nullable=False
     )
     used_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    revoked_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )

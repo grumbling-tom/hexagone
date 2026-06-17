@@ -66,12 +66,16 @@ def test_unknown_token_is_rejected(test_db: Session) -> None:
     assert verify_login_token(test_db, "not-a-real-token", issued.nonce) is None
 
 
-def test_issuing_again_supersedes_the_previous_token(test_db: Session) -> None:
+def test_issuing_again_revokes_the_previous_token(test_db: Session) -> None:
     first = issue_login_token(test_db, "user@example.com")
     second = issue_login_token(test_db, "user@example.com")
 
-    # Only one token is live per email.
-    assert Repository(test_db, LoginToken).get_all().has_next is False
+    rows = Repository(test_db, LoginToken).get_all().items
+    # Soft-revoke keeps the old row for audit; exactly one stays live.
+    assert len(rows) == 2
+    assert sum(1 for r in rows if r.revoked_at is None) == 1
+
+    # The revoked token is rejected; the live one works.
     assert verify_login_token(test_db, first.token, first.nonce) is None
     assert verify_login_token(test_db, second.token, second.nonce) == "user@example.com"
 

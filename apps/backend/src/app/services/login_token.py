@@ -19,7 +19,7 @@ from datetime import UTC, datetime, timedelta
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy.orm import Session as DBSession
 
-from src.app.repository import EqualsFilter, LoginToken, Repository
+from src.app.repository import EqualsFilter, IsNullFilter, LoginToken, Repository
 from src.app.settings import settings
 from src.app.utils import get_logger, mask_email
 
@@ -84,20 +84,25 @@ def issue_login_token(db: DBSession, email: str) -> IssuedLoginToken:
         The plaintext token and nonce, to deliver over the two channels.
     """
     repo = Repository(db, LoginToken)
+    now = datetime.now(UTC)
 
-    # Supersede outstanding tokens for this email — one live token per email.
-    existing = repo.get_filtered(
-        filters=[EqualsFilter(field="email", value=email)],
+    # Revoke any live token for this email (soft delete via revoked_at, keeping
+    # the row for audit) — one live token per email. Filter on revoked_at IS
+    # NULL so we only touch live tokens, never paginating over the accumulating
+    # history of already-revoked/used rows.
+    live = repo.get_filtered(
+        filters=[
+            EqualsFilter(field="email", value=email),
+            IsNullFilter(field="revoked_at"),
+        ],
         page_size=100,
     )
-    for token in existing.items:
-        repo.permanent_delete(token)
+    for token in live.items:
+        token.revoked_at = now
 
     plaintext_token = secrets.token_urlsafe(_SECRET_BYTES)
     plaintext_nonce = secrets.token_urlsafe(_SECRET_BYTES)
-    expires_at = datetime.now(UTC) + timedelta(
-        minutes=settings.LOGIN_TOKEN_EXPIRY_MINUTES
-    )
+    expires_at = now + timedelta(minutes=settings.LOGIN_TOKEN_EXPIRY_MINUTES)
 
     repo.add(
         LoginToken(
@@ -121,9 +126,9 @@ def _find_spendable_token(db: DBSession, token: str, nonce: str) -> LoginToken |
     """Return the live, unspent ``LoginToken`` for *token* + *nonce*, else None.
 
     Non-consuming: runs every validity check (token hash match, browser-binding
-    nonce, single-use, expiry) but does not stamp ``used_at``. Shared by
-    ``verify_login_token`` (which consumes) and ``peek_login_token`` (which
-    doesn't).
+    nonce, revocation, single-use, expiry) but does not stamp ``used_at``.
+    Shared by ``verify_login_token`` (which consumes) and ``peek_login_token``
+    (which doesn't).
     """
     token_hash = _hash_secret(token)
     matches = Repository(db, LoginToken).get_filtered(
@@ -136,16 +141,21 @@ def _find_spendable_token(db: DBSession, token: str, nonce: str) -> LoginToken |
 
     login_token = matches.items[0]
 
-    # The DB already matched the token hash; re-compare in constant time (and
-    # check the browser-binding nonce the same way). A token scraped from an
-    # intercepted email is useless without the nonce from the requester's
+    # The DB already matched the token hash; re-verify both secrets in constant
+    # time (the token hash and the browser-binding nonce). A token scraped from
+    # an intercepted email is useless without the nonce from the requester's
     # cookie.
-    if not hmac.compare_digest(login_token.token_hash, token_hash):
-        return None
-    if not hmac.compare_digest(login_token.nonce_hash, _hash_secret(nonce)):
+    secrets_match = hmac.compare_digest(
+        login_token.token_hash, token_hash
+    ) and hmac.compare_digest(login_token.nonce_hash, _hash_secret(nonce))
+    if not secrets_match:
         logger.warning(
-            "login_token_nonce_mismatch", email=mask_email(login_token.email)
+            "login_token_secret_mismatch", email=mask_email(login_token.email)
         )
+        return None
+
+    if login_token.revoked_at is not None:
+        logger.warning("login_token_revoked", email=mask_email(login_token.email))
         return None
 
     if login_token.used_at is not None:
