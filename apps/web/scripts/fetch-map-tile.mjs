@@ -141,7 +141,9 @@ async function fetchTile(col, row) {
   const url = `https://basemaps.cartocdn.com/light_all/${zoom}/${tx}/${ty}@2x.png`;
   const res = await fetch(url, { headers: { "User-Agent": "hexagone-dev" } });
   if (!res.ok) {
-    throw new Error(`Tile ${zoom}/${tx}/${ty}: ${res.status} ${res.statusText}`);
+    throw new Error(
+      `Tile ${zoom}/${tx}/${ty}: ${res.status} ${res.statusText}`,
+    );
   }
   return Buffer.from(await res.arrayBuffer());
 }
@@ -224,4 +226,6 @@ if (writeStitched) {
   console.log(`Wrote ${canvasW}×${canvasH} stitched image to ${stitchedDest}`);
 }
 
-console.log("Inspect it, then re-run with public/map.png as the outfile if good.");
+console.log(
+  "Inspect it, then re-run with public/map.png as the outfile if good.",
+);
