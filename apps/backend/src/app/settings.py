@@ -47,6 +47,10 @@ class Settings(BaseSettings):
     # start with a bad allowlist entry.
     ALLOWED_EMAILS: list[EmailStr] = []
     LOGIN_TOKEN_EXPIRY_MINUTES: int = 10
+    # Entropy (in bytes) for the login token and its browser-binding nonce.
+    # token_urlsafe(32) yields a ~43-char, 256-bit secret — brute force is
+    # infeasible. Rarely needs changing.
+    LOGIN_TOKEN_SECRET_BYTES: int = 32
 
     AWS_ACCESS_KEY_ID: str = ""
     AWS_SECRET_ACCESS_KEY: str = ""

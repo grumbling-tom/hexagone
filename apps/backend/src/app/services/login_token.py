@@ -25,11 +25,6 @@ from src.app.utils import get_logger, mask_email
 
 logger = get_logger(__name__)
 
-# Entropy (in bytes) for the token and nonce. token_urlsafe(32) yields a
-# ~43-char, 256-bit secret — brute force is infeasible, so the hash lookup is
-# not a practical timing target; we still compare in constant time defensively.
-_SECRET_BYTES = 32
-
 
 class IssuedLoginToken(BaseModel):
     """A freshly issued login token and its browser-binding nonce.
@@ -100,8 +95,8 @@ def issue_login_token(db: DBSession, email: str) -> IssuedLoginToken:
     for token in live.items:
         token.revoked_at = now
 
-    plaintext_token = secrets.token_urlsafe(_SECRET_BYTES)
-    plaintext_nonce = secrets.token_urlsafe(_SECRET_BYTES)
+    plaintext_token = secrets.token_urlsafe(settings.LOGIN_TOKEN_SECRET_BYTES)
+    plaintext_nonce = secrets.token_urlsafe(settings.LOGIN_TOKEN_SECRET_BYTES)
     expires_at = now + timedelta(minutes=settings.LOGIN_TOKEN_EXPIRY_MINUTES)
 
     repo.add(
