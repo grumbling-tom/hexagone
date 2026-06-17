@@ -78,9 +78,8 @@ def delete_current_session(
 
     if session_id:
         user_agent = request.headers.get("user-agent", "")
-        ip_address = get_client_ip(request)
 
-        session = validate_session(db, session_id, user_agent, ip_address)
+        session = validate_session(db, session_id, user_agent)
         if session:
             invalidate_session(db, session)
 

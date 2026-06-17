@@ -294,14 +294,17 @@ class UserGroupMembership(BaseModel):
 class UserSession(BaseModel):
     """User session for authentication and session management.
 
-    Sessions are bound to a user, user agent, and IP address for security.
-    Sessions expire after a configurable period of inactivity (sliding window).
+    Sessions are bound to a user and user agent for security. Sessions expire
+    after a configurable period of inactivity (sliding window).
 
     Attributes:
         user_uid: The UID of the user who owns this session.
         user: The user who owns this session.
         user_agent_hash: SHA-256 hash of user agent string for fingerprinting.
-        ip_address: Client IP address bound to this session.
+        ip_address: Client IP recorded at session creation, for audit only.
+            Not part of the validation fingerprint — see
+            ``services.user_session.validate_session`` for why (mobile/VPN
+            clients legitimately change IP mid-session).
         expires_at: Session expiration timestamp.
     """
 
