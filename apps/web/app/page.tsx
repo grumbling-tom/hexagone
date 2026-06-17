@@ -16,8 +16,8 @@ export default function LandingPage() {
   return (
     <LandingHero
       navCta={
-        <Link className="button button--primary" href="/signup">
-          Start claiming
+        <Link className="button button--secondary" href="/login">
+          Login
         </Link>
       }
       heroCta={
