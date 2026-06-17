@@ -185,6 +185,49 @@ a {
   }
 }
 
+/** @define hex-anim */
+/* The landing trace visual: basemap + hex grid + drawn route + claimed hexes.
+   Slice 2a renders the finished (claimed) state statically; slice 2b layers the
+   play-once animation on top. currentColor sets the faint grid stroke. */
+.hex-anim__svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1 / 1;
+  color: var(--color-neutral-800);
+}
+.hex-anim__map {
+  opacity: 0.85;
+}
+.hex-anim__hex {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 0.6;
+  opacity: 0.16;
+}
+.hex-anim__cell {
+  fill: var(--color-primary-500);
+  fill-opacity: 0.82;
+  stroke: var(--color-primary-600);
+  stroke-width: 0.8;
+  stroke-opacity: 0.9;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+.hex-anim__route {
+  fill: none;
+  stroke: var(--color-secondary-500);
+  stroke-width: 3.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.hex-anim__attrib {
+  font-family: var(--font-body);
+  font-size: 7px;
+  fill: var(--color-neutral-500);
+  opacity: 0.85;
+}
+
 /** @define nav */
 .nav {
   display: flex;
