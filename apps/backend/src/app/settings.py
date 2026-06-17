@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Any, Literal
 from urllib.parse import parse_qs, quote_plus, urlencode, urlparse, urlunparse
 
-from pydantic import model_validator
+from pydantic import EmailStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -38,6 +38,19 @@ class Settings(BaseSettings):
     DEFAULT_PAGE_SIZE: int = 20
     SESSION_COOKIE_NAME: str = "sessionid"
     SESSION_EXPIRY_HOURS: int = 24
+
+    # Magic-link (passwordless) login. ALLOWED_EMAILS is the invite gate: only
+    # these addresses may request a sign-in link. An empty list denies everyone
+    # (secure default for an invite-only app). Parsed as JSON from the env var,
+    # e.g. ALLOWED_EMAILS='["a@example.com","b@example.com"]'. Typed as EmailStr
+    # so a malformed address fails Settings validation at boot — the app won't
+    # start with a bad allowlist entry.
+    ALLOWED_EMAILS: list[EmailStr] = []
+    LOGIN_TOKEN_EXPIRY_MINUTES: int = 10
+    # Entropy (in bytes) for the login token and its browser-binding nonce.
+    # token_urlsafe(32) yields a ~43-char, 256-bit secret — brute force is
+    # infeasible. Rarely needs changing.
+    LOGIN_TOKEN_SECRET_BYTES: int = 32
 
     AWS_ACCESS_KEY_ID: str = ""
     AWS_SECRET_ACCESS_KEY: str = ""

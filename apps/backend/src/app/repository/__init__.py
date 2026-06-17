@@ -35,6 +35,7 @@ from .filters import (
 )
 from .models import (
     HexClaim,
+    LoginToken,
     Upload,
     UploadStatus,
     UploadStatusValue,
@@ -59,6 +60,7 @@ __all__ = [
     "LessThanFilter",
     "LessThanOrEqualFilter",
     "LikeFilter",
+    "LoginToken",
     "NotEqualsFilter",
     "NotInFilter",
     "OrFilter",

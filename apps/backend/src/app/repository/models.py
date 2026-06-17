@@ -318,3 +318,54 @@ class UserSession(BaseModel):
     expires_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False
     )
+
+
+class LoginToken(BaseModel):
+    """Single-use, time-limited token backing magic-link (passwordless) login.
+
+    A login token is issued for an email address and emailed as a link. We
+    persist **only the SHA-256 hash** of the high-entropy token — never the
+    plaintext — so a database leak cannot be replayed to log in. Tokens are
+    single-use (``used_at`` is stamped on a successful verify) and expire after
+    a short window (``settings.LOGIN_TOKEN_EXPIRY_MINUTES``). Issuing a new
+    token for an email **revokes** any outstanding one — a soft delete via
+    ``revoked_at`` that keeps the row for audit — so at most one token per
+    email is live at a time. See ``services/login_token.py``.
+
+    **Browser binding (always on).** A second secret — the *nonce* — is minted
+    at issue time, stored here as ``nonce_hash`` and set as a cookie in the
+    requester's browser. Redemption requires both the token (from the email)
+    and the nonce (from the cookie), so a token scraped from an intercepted
+    email is useless without the browser that requested it. This is the PKCE
+    pattern applied to magic links. The deliberate consequence is that sign-in
+    must complete in the same browser that requested the link — there is no
+    request-on-desktop / open-on-phone.
+
+    Attributes:
+        email: The target email address (EmailStr-normalised at the request
+            boundary; local-part case preserved).
+        token_hash: Hex SHA-256 digest of the plaintext token.
+        nonce_hash: Hex SHA-256 digest of the browser-binding nonce.
+        expires_at: When the token stops being valid.
+        used_at: When the token was consumed; NULL while still spendable.
+        revoked_at: When the token was revoked (superseded by a newer token for
+            the same email); NULL while still live. A revoked token is rejected
+            at validation even if unexpired and unused.
+    """
+
+    __tablename__ = "login_token"
+
+    email: Mapped[str] = mapped_column(String, nullable=False, index=True)
+    token_hash: Mapped[str] = mapped_column(
+        String(64), unique=True, nullable=False, index=True
+    )
+    nonce_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+    used_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    revoked_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
