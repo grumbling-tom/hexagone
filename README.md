@@ -1,6 +1,6 @@
 # Hexagone
 
-Fullstack platform with a FastAPI backend and Astro + React frontend.
+Fullstack platform with a FastAPI backend and Next.js (React) frontend.
 
 ## Prerequisites
 
@@ -38,10 +38,11 @@ Commands run from the repo root using `pnpm -C apps/web`:
 | `pnpm -C apps/web api:gen-client`             | Generate typed API client from spec        |
 | `pnpm -C apps/web api:gen`                    | Generate OpenAPI spec and typed API client |
 
-The dev server starts at `http://localhost:4321/`:
+The dev server starts at `http://localhost:3000/`:
 
-- `/` — Static landing page
-- `/app` — React SPA (client-side routing)
+- `/` — Static landing page (prerendered)
+- `/login`, `/signup` — Auth pages
+- `/map`, `/uploads`, `/welcome` — Auth-gated app routes
 
 ## API (`apps/backend/`)
 
@@ -102,14 +103,18 @@ The GPX upload flow uses presigned S3 URLs and event-driven processing:
 ```
 hexagone/
 ├── apps/
-│   ├── web/                  # Astro + React frontend
+│   ├── web/                  # Next.js (App Router) frontend
+│   │   ├── app/              # Routing + app shell (layouts, pages, route groups)
 │   │   ├── src/
-│   │   │   ├── layouts/      # Astro layouts
-│   │   │   ├── pages/        # Astro pages (index, app shell)
-│   │   │   ├── components/   # Shared React components
-│   │   │   └── app/pages/    # SPA page components
+│   │   │   ├── features/     # Feature-grouped code (components/ + server/)
+│   │   │   ├── components/   # Truly shared, generic primitives
+│   │   │   ├── config/       # Typed, validated env config
+│   │   │   ├── lib/          # Cross-cutting non-React utilities
+│   │   │   ├── styles/       # theme.css + main.css (BEM)
+│   │   │   └── __generated__/ # Orval-generated API client
 │   │   ├── public/           # Static assets
-│   │   └── astro.config.mjs
+│   │   ├── middleware.ts     # Optimistic auth gate
+│   │   └── next.config.mjs
 │   └── backend/              # FastAPI API
 │       ├── src/app/
 │       │   ├── main.py       # App entry point
@@ -130,7 +135,7 @@ hexagone/
 Lefthook runs on every commit:
 
 - **Biome** — lint + format check on staged JS/TS files
-- **Typecheck** — `astro check` for type errors
+- **Typecheck** — `tsc --noEmit` for type errors
 - **Ruff** — lint + format check on staged Python files
 - **Pyright** — type checking for the API
 - **Validate migrations** — checks migration file numbering and one-per-PR rule

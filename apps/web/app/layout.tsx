@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 // Global stylesheets (BEM). theme.css first so its custom properties are defined
-// before main.css consumes them. Replaces the imports in the old Layout.astro.
+// before main.css consumes them.
 import "@/styles/theme.css";
 import "@/styles/main.css";
 
