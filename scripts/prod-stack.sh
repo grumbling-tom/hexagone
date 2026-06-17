@@ -13,10 +13,28 @@
 # safe to re-run. `--build` forces both images to rebuild; without it they're
 # built only when missing. `down` deliberately leaves the CNPG database Cluster
 # (and its PVC) and the Cloudflare tunnel in place, so `up` restores all data.
+#
+# The stack runs in a DEDICATED Colima profile (COLIMA_PROFILE below), separate
+# from the `default` docker VM used by docker-compose dev. Colima names that
+# profile's docker + kube contexts `colima-<profile>`; the script pins both
+# explicitly (via the `k` and `dkr` wrappers) and starts the VM with
+# --activate=false so it never hijacks your active docker/kube context.
 
 set -euo pipefail
 
 # --- Config -----------------------------------------------------------------
+
+# Dedicated Colima profile + VM sizing for the prod stack. Edit to taste; the
+# Mac mini's total RAM is the ceiling on COLIMA_MEMORY.
+COLIMA_PROFILE="hexagone-prod"
+COLIMA_CPU=2
+COLIMA_MEMORY=4      # GiB
+COLIMA_DISK=60       # GiB
+
+# Colima derives these context names from the profile (default profile -> just
+# `colima`; named profile `x` -> `colima-x`).
+KUBE_CONTEXT="colima-${COLIMA_PROFILE}"
+DOCKER_CONTEXT="colima-${COLIMA_PROFILE}"
 
 # CloudNativePG operator release (installed out-of-band, never in the overlay —
 # see infra/k8s/CLAUDE.md). Bump alongside the version in infra/k8s/README.md.
@@ -46,6 +64,11 @@ need_cmd() {
   command -v "$1" >/dev/null 2>&1 || die "missing required command: $1"
 }
 
+# kubectl / docker pinned to the prod profile's contexts, so the script never
+# depends on (or disturbs) your currently-active context.
+k()   { kubectl --context "$KUBE_CONTEXT" "$@"; }
+dkr() { docker --context "$DOCKER_CONTEXT" "$@"; }
+
 # Read a secret from the macOS login Keychain (account = $USER), matching the
 # convention in infra/terraform/README.md.
 kc() {
@@ -54,8 +77,27 @@ kc() {
     security add-generic-password -a \"\$USER\" -s $1 -w"
 }
 
-colima_running() {
-  colima status 2>/dev/null | grep -qi running
+# Is the prod Colima profile up AND running (VM state, not k8s)?
+profile_running() {
+  colima status "$COLIMA_PROFILE" 2>&1 | grep -qi running
+}
+
+# Ensure the prod profile is running with Kubernetes reachable. Handles all three
+# states: not created, running-without-k8s, and already-good.
+ensure_vm() {
+  if profile_running && k get --raw /healthz >/dev/null 2>&1; then
+    log "Colima profile '$COLIMA_PROFILE' running with Kubernetes"
+    return
+  fi
+  if profile_running; then
+    log "Profile '$COLIMA_PROFILE' running but Kubernetes not reachable — enabling"
+  else
+    log "Starting Colima profile '$COLIMA_PROFILE' (${COLIMA_CPU} CPU / ${COLIMA_MEMORY} GiB)"
+  fi
+  colima start "$COLIMA_PROFILE" \
+    --kubernetes \
+    --cpu "$COLIMA_CPU" --memory "$COLIMA_MEMORY" --disk "$COLIMA_DISK" \
+    --activate=false
 }
 
 # --- up ---------------------------------------------------------------------
@@ -80,14 +122,9 @@ cmd_up() {
   resend_key="$(kc hexagone-resend-api-key)"
 
   # 2. Colima + k3s ---------------------------------------------------------
-  if colima_running; then
-    log "Colima already running"
-  else
-    log "Starting Colima"
-    colima start
-  fi
+  ensure_vm
   log "Waiting for the k3s node to be Ready"
-  kubectl wait --for=condition=Ready nodes --all --timeout=120s
+  k wait --for=condition=Ready nodes --all --timeout=120s
 
   # 3. Tigris state bucket (one-time, guarded) ------------------------------
   if AWS_ACCESS_KEY_ID="$tigris_id" AWS_SECRET_ACCESS_KEY="$tigris_secret" \
@@ -100,20 +137,22 @@ cmd_up() {
   fi
 
   # 4. CNPG operator (idempotent) -------------------------------------------
-  if kubectl get deploy cnpg-controller-manager -n cnpg-system >/dev/null 2>&1; then
+  if k get deploy cnpg-controller-manager -n cnpg-system >/dev/null 2>&1; then
     log "CNPG operator already installed"
   else
     log "Installing CNPG operator ${CNPG_VERSION}"
-    kubectl apply --server-side -f "$CNPG_MANIFEST"
-    kubectl -n cnpg-system rollout status deploy/cnpg-controller-manager --timeout=180s
+    k apply --server-side -f "$CNPG_MANIFEST"
+    k -n cnpg-system rollout status deploy/cnpg-controller-manager --timeout=180s
   fi
 
   # 5. Images (build-if-missing; --build forces) ----------------------------
+  # Build against the prod profile's docker daemon so k3s sees the image in its
+  # own store (imagePullPolicy: IfNotPresent) with no registry/import step.
   build_image() {
     local image="$1" context="$2"
-    if [ "$force_build" -eq 1 ] || ! docker image inspect "$image" >/dev/null 2>&1; then
+    if [ "$force_build" -eq 1 ] || ! dkr image inspect "$image" >/dev/null 2>&1; then
       log "Building $image"
-      docker build -t "$image" "$context"
+      dkr build -t "$image" "$context"
     else
       log "$image present (use --build to rebuild)"
     fi
@@ -135,32 +174,32 @@ cmd_up() {
   local tunnel_token
   tunnel_token="$(AWS_ACCESS_KEY_ID="$tigris_id" AWS_SECRET_ACCESS_KEY="$tigris_secret" \
     terraform -chdir="$TF_DIR" output -raw cloudflared_token)"
-  kubectl create secret generic cloudflared-token \
+  k create secret generic cloudflared-token \
     --from-literal=token="$tunnel_token" \
-    --dry-run=client -o yaml | kubectl apply -f -
+    --dry-run=client -o yaml | k apply -f -
 
   log "Upserting hexagone-backend-secrets secret"
-  kubectl create secret generic hexagone-backend-secrets \
+  k create secret generic hexagone-backend-secrets \
     --from-literal=AWS_ACCESS_KEY_ID="$tigris_id" \
     --from-literal=AWS_SECRET_ACCESS_KEY="$tigris_secret" \
     --from-literal=RESEND_API_KEY="$resend_key" \
-    --dry-run=client -o yaml | kubectl apply -f -
+    --dry-run=client -o yaml | k apply -f -
 
   # 8. Apply overlay --------------------------------------------------------
   log "Applying app overlay ($K8S_OVERLAY)"
-  kubectl apply -k "$K8S_OVERLAY"
+  k apply -k "$K8S_OVERLAY"
 
   # 9. Wait for readiness ---------------------------------------------------
   log "Waiting for the database cluster"
-  kubectl wait --for=condition=Ready cluster/hexagone-db --timeout=300s
+  k wait --for=condition=Ready cluster/hexagone-db --timeout=300s
   for d in "${STATELESS_DEPLOYMENTS[@]}"; do
     log "Waiting for deploy/$d"
-    kubectl rollout status "deploy/$d" --timeout=300s
+    k rollout status "deploy/$d" --timeout=300s
   done
 
   # 10. Summary -------------------------------------------------------------
   log "Stack is up:"
-  kubectl get pods
+  k get pods
   printf '\n'
   log "Run 'scripts/prod-stack.sh status' anytime to re-check."
 }
@@ -170,13 +209,13 @@ cmd_up() {
 cmd_down() {
   need_cmd colima
   need_cmd kubectl
-  if colima_running; then
+  if profile_running; then
     log "Deleting stateless workloads (database Cluster + data are kept)"
-    kubectl delete deployment "${STATELESS_DEPLOYMENTS[@]}" --ignore-not-found
-    log "Stopping Colima"
-    colima stop
+    k delete deployment "${STATELESS_DEPLOYMENTS[@]}" --ignore-not-found
+    log "Stopping Colima profile '$COLIMA_PROFILE'"
+    colima stop "$COLIMA_PROFILE"
   else
-    log "Colima already stopped — nothing to tear down"
+    log "Profile '$COLIMA_PROFILE' already stopped — nothing to tear down"
   fi
   log "Stack is down. Data and the Cloudflare tunnel persist; 'up' restores it."
 }
@@ -185,17 +224,17 @@ cmd_down() {
 
 cmd_status() {
   need_cmd colima
-  if ! colima_running; then
-    log "Stack is DOWN (Colima stopped)."
+  if ! profile_running; then
+    log "Stack is DOWN (Colima profile '$COLIMA_PROFILE' stopped)."
     exit 0
   fi
   need_cmd kubectl
-  log "Colima running. Cluster state:"
-  kubectl get pods
+  log "Colima profile '$COLIMA_PROFILE' running. Cluster state:"
+  k get pods
   printf '\n'
-  kubectl get cluster hexagone-db 2>/dev/null || warn "CNPG cluster hexagone-db not found"
+  k get cluster hexagone-db 2>/dev/null || warn "CNPG cluster hexagone-db not found"
   printf '\n'
-  if kubectl logs deploy/cloudflared --tail=20 2>/dev/null | grep -qi "registered"; then
+  if k logs deploy/cloudflared --tail=20 2>/dev/null | grep -qi "registered"; then
     log "Cloudflare tunnel: registered (connected to edge)"
   else
     warn "Cloudflare tunnel: no 'registered' line in recent logs"

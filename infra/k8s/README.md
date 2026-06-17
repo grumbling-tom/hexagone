@@ -54,8 +54,15 @@ scripts/prod-stack.sh down            # delete app workloads, stop the VM (data 
 scripts/prod-stack.sh status          # show what's running
 ```
 
+The stack runs in a **dedicated Colima profile** (`hexagone-prod`, sized 2 CPU /
+4 GiB by default — edit the vars at the top of the script), kept separate from
+the `default` docker VM used by `docker compose` dev. The script pins both the
+docker and kube contexts to that profile (`colima-hexagone-prod`) and starts the
+VM with `--activate=false`, so it never hijacks your active context.
+
 - **`up`** folds in the one-time bootstrap (CNPG operator install, `terraform
-  apply`) and is safe to re-run: it starts Colima if stopped, builds the two
+  apply`) and is safe to re-run: it starts the `hexagone-prod` profile **with
+  Kubernetes** if it isn't already (creating it on first run), builds the two
   images only when missing (`--build` forces a rebuild after code changes),
   upserts both Secrets, applies the overlay, and waits on the DB cluster + all
   rollouts.
