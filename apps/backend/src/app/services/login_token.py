@@ -52,22 +52,20 @@ def _hash_secret(value: str) -> str:
     return hashlib.sha256(value.encode("utf-8")).hexdigest()
 
 
-def _normalise_email(email: str) -> str:
-    """Lowercase and strip an email for consistent storage and comparison."""
-    return email.strip().lower()
-
-
 def is_email_allowed(email: str) -> bool:
     """Return whether *email* may sign in / sign up.
 
-    ``settings.ALLOWED_EMAILS`` is the invite gate; matching is
-    case-insensitive. An empty allowlist denies everyone — the secure default
-    for an invite-only app.
+    ``settings.ALLOWED_EMAILS`` is the invite gate. Both the allowlist and the
+    incoming address are normalised by ``EmailStr`` at their boundaries (the
+    request schema and Settings) — surrounding whitespace stripped, domain
+    lower-cased — so this is an exact membership check. An empty allowlist
+    denies everyone, the secure default for an invite-only app.
+
+    Note: ``EmailStr`` preserves the case of the local part (before the ``@``),
+    so matching is case-sensitive there — consistent with how the rest of the
+    app treats ``User.email``.
     """
-    normalised = _normalise_email(email)
-    return any(
-        normalised == _normalise_email(allowed) for allowed in settings.ALLOWED_EMAILS
-    )
+    return email in settings.ALLOWED_EMAILS
 
 
 def issue_login_token(db: DBSession, email: str) -> IssuedLoginToken:
@@ -79,17 +77,17 @@ def issue_login_token(db: DBSession, email: str) -> IssuedLoginToken:
 
     Args:
         db: Database session.
-        email: Target email address (normalised to lowercase).
+        email: Target email address, already ``EmailStr``-normalised by the
+            request boundary — this service does not re-normalise.
 
     Returns:
         The plaintext token and nonce, to deliver over the two channels.
     """
-    normalised = _normalise_email(email)
     repo = Repository(db, LoginToken)
 
     # Supersede outstanding tokens for this email — one live token per email.
     existing = repo.get_filtered(
-        filters=[EqualsFilter(field="email", value=normalised)],
+        filters=[EqualsFilter(field="email", value=email)],
         page_size=100,
     )
     for token in existing.items:
@@ -103,7 +101,7 @@ def issue_login_token(db: DBSession, email: str) -> IssuedLoginToken:
 
     repo.add(
         LoginToken(
-            email=normalised,
+            email=email,
             token_hash=_hash_secret(plaintext_token),
             nonce_hash=_hash_secret(plaintext_nonce),
             expires_at=expires_at,
@@ -113,7 +111,7 @@ def issue_login_token(db: DBSession, email: str) -> IssuedLoginToken:
 
     logger.info(
         "login_token_issued",
-        email=mask_email(normalised),
+        email=mask_email(email),
         expires_at=expires_at.isoformat(),
     )
     return IssuedLoginToken(token=plaintext_token, nonce=plaintext_nonce)

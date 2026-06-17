@@ -37,12 +37,6 @@ def test_issue_then_verify_returns_email(test_db: Session) -> None:
     assert verify_login_token(test_db, issued.token, issued.nonce) == "user@example.com"
 
 
-def test_issue_normalises_email(test_db: Session) -> None:
-    issued = issue_login_token(test_db, "  User@Example.COM ")
-
-    assert verify_login_token(test_db, issued.token, issued.nonce) == "user@example.com"
-
-
 def test_only_hashes_are_persisted_not_plaintext(test_db: Session) -> None:
     issued = issue_login_token(test_db, "user@example.com")
 
@@ -137,10 +131,6 @@ def test_peek_rejects_wrong_nonce(test_db: Session) -> None:
 
 def test_allowlist_allows_listed_email() -> None:
     assert is_email_allowed("allowed@example.com") is True
-
-
-def test_allowlist_is_case_insensitive() -> None:
-    assert is_email_allowed("  ALLOWED@Example.com ") is True
 
 
 def test_allowlist_denies_unlisted_email() -> None:
