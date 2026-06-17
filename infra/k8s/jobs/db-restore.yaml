@@ -1,0 +1,83 @@
+# On-demand Postgres restore: pull the latest dump from the backup bucket and
+# load it into the cluster. Deliberately NOT part of any kustomization (it must
+# never auto-run) — `scripts/prod-stack.sh restore` applies it on demand.
+#
+# Use it to recover a fresh cluster after the PVC is lost (new mini, colima
+# delete, deleted volume): `prod-stack.sh up` brings up an empty DB, then
+# `prod-stack.sh restore` repopulates it from the most recent dump.
+#
+# Mirror of the backup, reversed:
+#   - initContainer `fetch`  — aws CLI, finds the newest object and downloads it.
+#   - container `restore`    — the CNPG postgres image, pg_restore --clean.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: hexagone-db-restore
+  labels:
+    app: hexagone-db-restore
+spec:
+  backoffLimit: 1
+  template:
+    metadata:
+      labels:
+        app: hexagone-db-restore
+    spec:
+      restartPolicy: Never
+      volumes:
+        - name: scratch
+          emptyDir: {}
+      initContainers:
+        # Objects are named hexagone-<UTC-ISO8601>.pgcustom, so lexical sort ==
+        # chronological; tail -1 is the most recent. Fail loudly if the bucket is
+        # empty rather than restoring nothing.
+        - name: fetch
+          image: public.ecr.aws/aws-cli/aws-cli:2
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              set -eu
+              latest=$(aws s3 ls "s3://${BACKUP_BUCKET}/" --endpoint-url "$AWS_ENDPOINT_URL" | sort | tail -1 | awk '{print $4}')
+              if [ -z "$latest" ]; then
+                echo "No backups found in s3://${BACKUP_BUCKET}/" >&2
+                exit 1
+              fi
+              echo "Restoring from $latest"
+              aws s3 cp "s3://${BACKUP_BUCKET}/${latest}" /restore/latest.pgcustom --endpoint-url "$AWS_ENDPOINT_URL"
+          env:
+            - name: BACKUP_BUCKET
+              value: hexagone-db-backups
+            - name: AWS_ENDPOINT_URL
+              value: https://t3.storage.dev
+            - name: AWS_REGION
+              value: auto
+          envFrom:
+            - secretRef:
+                name: hexagone-backend-secrets
+          volumeMounts:
+            - name: scratch
+              mountPath: /restore
+      containers:
+        # --clean --if-exists drops existing objects first, so this is safe over
+        # the empty schema the backend's migrate init container created. The dump
+        # includes alembic_version, so the migration state stays consistent.
+        - name: restore
+          image: ghcr.io/cloudnative-pg/postgresql:17
+          imagePullPolicy: IfNotPresent
+          command: ["/bin/sh", "-c"]
+          args:
+            - pg_restore --clean --if-exists --no-owner --no-privileges -d "$DATABASE_URL" /restore/latest.pgcustom
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: hexagone-db-app
+                  key: uri
+          volumeMounts:
+            - name: scratch
+              mountPath: /restore
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              memory: 512Mi

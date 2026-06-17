@@ -5,9 +5,11 @@
 # infra/k8s/README.md + infra/terraform/README.md.
 #
 # Usage:
-#   scripts/prod-stack.sh up [--build]   bring the whole stack up (idempotent)
+#   scripts/prod-stack.sh up [--build]    bring the whole stack up (idempotent)
 #   scripts/prod-stack.sh down            delete app workloads, stop the VM (data kept)
 #   scripts/prod-stack.sh status          show what's running
+#   scripts/prod-stack.sh backup          take an on-demand Postgres dump now
+#   scripts/prod-stack.sh restore [--yes] restore the DB from the latest backup
 #
 # `up` folds in the one-time bootstrap (CNPG operator, Cloudflare tunnel) and is
 # safe to re-run. `--build` forces both images to rebuild; without it they're
@@ -46,6 +48,11 @@ TIGRIS_ENDPOINT="https://t3.storage.dev"
 TF_STATE_BUCKET="hexagone-tfstate"
 TF_DIR="infra/terraform"
 K8S_OVERLAY="infra/k8s/production"
+
+# Postgres backups: dedicated Tigris bucket (created in infra/terraform/storage.tf
+# with a 7-day expiry rule) + the on-demand restore Job (kept out of the overlay).
+BACKUP_BUCKET="hexagone-db-backups"
+RESTORE_MANIFEST="infra/k8s/jobs/db-restore.yaml"
 
 BACKEND_IMAGE="hexagone-backend:latest"
 WEB_IMAGE="hexagone-web:latest"
@@ -241,21 +248,91 @@ cmd_status() {
   fi
 }
 
+# --- backup -----------------------------------------------------------------
+
+# Require the stack to be up with the DB cluster Ready. Used by backup/restore.
+require_cluster_ready() {
+  need_cmd colima
+  need_cmd kubectl
+  profile_running || die "stack is down — run 'scripts/prod-stack.sh up' first"
+  k get cluster hexagone-db >/dev/null 2>&1 || die "cluster hexagone-db not found"
+  log "Waiting for the database cluster to be Ready"
+  k wait --for=condition=Ready cluster/hexagone-db --timeout=120s
+}
+
+cmd_backup() {
+  require_cluster_ready
+  # Fire a one-off run of the scheduled CronJob, so an ad-hoc dump is identical to
+  # a scheduled one. Fixed name + delete-first so manual runs don't accumulate.
+  log "Triggering an on-demand backup"
+  k delete job hexagone-db-backup-manual --ignore-not-found
+  k create job hexagone-db-backup-manual --from=cronjob/hexagone-db-backup
+  log "Waiting for the backup job to finish"
+  if ! k wait --for=condition=complete job/hexagone-db-backup-manual --timeout=300s; then
+    k logs job/hexagone-db-backup-manual --all-containers --tail=50 || true
+    die "backup job did not complete"
+  fi
+  # The upload container's `aws s3 cp` line names the object it wrote.
+  k logs job/hexagone-db-backup-manual --all-containers --tail=20 || true
+  log "Backup complete."
+}
+
+# --- restore ----------------------------------------------------------------
+
+cmd_restore() {
+  local assume_yes=0
+  for arg in "$@"; do
+    case "$arg" in
+      --yes | -y) assume_yes=1 ;;
+      *) die "unknown option for restore: $arg (use --yes)" ;;
+    esac
+  done
+
+  require_cluster_ready
+
+  # Destructive: pg_restore --clean drops existing objects before reloading.
+  if [ "$assume_yes" -ne 1 ]; then
+    warn "Restore REPLACES the current database with the latest backup (drops existing data)."
+    printf 'Type "restore" to continue: '
+    read -r reply || reply=""
+    [ "$reply" = "restore" ] || die "aborted"
+  fi
+
+  log "Running restore job (latest dump from s3://${BACKUP_BUCKET})"
+  k delete job hexagone-db-restore --ignore-not-found
+  k apply -f "$RESTORE_MANIFEST"
+  log "Waiting for the restore job to finish"
+  if ! k wait --for=condition=complete job/hexagone-db-restore --timeout=600s; then
+    k logs job/hexagone-db-restore --all-containers --tail=50 || true
+    die "restore job did not complete"
+  fi
+  k logs job/hexagone-db-restore --all-containers --tail=30 || true
+
+  log "Restarting backend to drop stale connections"
+  k rollout restart deploy/hexagone-backend
+  k rollout status deploy/hexagone-backend --timeout=180s
+  log "Restore complete."
+}
+
 # --- Dispatch ---------------------------------------------------------------
 
 cd "$(git rev-parse --show-toplevel 2>/dev/null || echo .)"
 
 case "${1:-}" in
-  up)     shift; cmd_up "$@" ;;
-  down)   shift; cmd_down "$@" ;;
-  status) shift; cmd_status "$@" ;;
+  up)      shift; cmd_up "$@" ;;
+  down)    shift; cmd_down "$@" ;;
+  status)  shift; cmd_status "$@" ;;
+  backup)  shift; cmd_backup "$@" ;;
+  restore) shift; cmd_restore "$@" ;;
   *)
     cat >&2 <<EOF
 Usage: scripts/prod-stack.sh <command>
 
-  up [--build]   Bring the whole stack up (idempotent). --build forces image rebuild.
-  down           Delete app workloads and stop the VM (database + tunnel persist).
-  status         Show what's currently running.
+  up [--build]    Bring the whole stack up (idempotent). --build forces image rebuild.
+  down            Delete app workloads and stop the VM (database + tunnel persist).
+  status          Show what's currently running.
+  backup          Take an on-demand Postgres dump now (e.g. before a risky migration).
+  restore [--yes] Restore the database from the latest backup. Destructive; prompts unless --yes.
 EOF
     exit 1
     ;;

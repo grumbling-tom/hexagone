@@ -7,6 +7,8 @@
 locals {
   # Must match HEXAGONE_S3_BUCKET in infra/k8s/base/app/backend.yaml.
   uploads_bucket = "hexagone-gpx-uploads"
+  # Must match BACKUP_BUCKET in infra/k8s/base/app/db-backup.yaml + scripts/prod-stack.sh.
+  db_backups_bucket = "hexagone-db-backups"
 }
 
 resource "aws_s3_bucket" "uploads" {
@@ -25,5 +27,30 @@ resource "aws_s3_bucket_cors_configuration" "uploads" {
     allowed_headers = ["*"]
     expose_headers  = ["ETag", "Content-Disposition"]
     max_age_seconds = 3000
+  }
+}
+
+# Dedicated bucket for Postgres logical-dump backups (the pg_dump CronJob in
+# infra/k8s/base/app/db-backup.yaml writes here; prod-stack.sh backup/restore
+# read/write it). Server-side only, so no CORS.
+resource "aws_s3_bucket" "db_backups" {
+  bucket = local.db_backups_bucket
+}
+
+# 7-day auto-expiry. Each dump is a self-contained object (no WAL chain), so a
+# blunt object-age rule is safe here — unlike continuous/PITR backups. This is
+# what enforces the 7-day retention.
+resource "aws_s3_bucket_lifecycle_configuration" "db_backups" {
+  bucket = aws_s3_bucket.db_backups.id
+
+  rule {
+    id     = "expire-after-7-days"
+    status = "Enabled"
+
+    filter {} # all objects in the bucket
+
+    expiration {
+      days = 7
+    }
   }
 }

@@ -1,0 +1,88 @@
+# Scheduled Postgres backup: a logical pg_dump pushed to the dedicated Tigris
+# bucket (hexagone-db-backups, created in infra/terraform/storage.tf with a 7-day
+# expiry lifecycle rule). Logical dumps are self-contained, so this needs no
+# Barman/WAL machinery — see the trade-offs in infra/k8s/README.md.
+#
+# Two stock images coordinate over an emptyDir, so there's no custom image to
+# build:
+#   - initContainer `dump`   — the CNPG postgres image (has pg_dump 17), writes
+#                              the dump to the shared volume.
+#   - container `upload`     — the aws CLI, copies it to Tigris.
+#
+# An on-demand run (e.g. before a risky migration) is just this CronJob fired off
+# manually — `scripts/prod-stack.sh backup` does exactly that.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: hexagone-db-backup
+  labels:
+    app: hexagone-db-backup
+spec:
+  schedule: "0 */6 * * *" # every 6 hours
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      template:
+        metadata:
+          labels:
+            app: hexagone-db-backup
+        spec:
+          restartPolicy: Never
+          volumes:
+            - name: scratch
+              emptyDir: {}
+          initContainers:
+            # pg_dump in custom format (-Fc): compressed, and restorable with
+            # pg_restore --clean. DATABASE_URL is CNPG's published connection URI.
+            - name: dump
+              image: ghcr.io/cloudnative-pg/postgresql:17
+              imagePullPolicy: IfNotPresent
+              command: ["/bin/sh", "-c"]
+              args:
+                - pg_dump -Fc "$DATABASE_URL" -f /backup/hexagone.pgcustom
+              env:
+                - name: DATABASE_URL
+                  valueFrom:
+                    secretKeyRef:
+                      name: hexagone-db-app
+                      key: uri
+              volumeMounts:
+                - name: scratch
+                  mountPath: /backup
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 128Mi
+                limits:
+                  memory: 256Mi
+          containers:
+            # Upload under a UTC-ISO8601 name so objects sort chronologically —
+            # the restore Job relies on that to pick the latest.
+            - name: upload
+              image: public.ecr.aws/aws-cli/aws-cli:2
+              command: ["/bin/sh", "-c"]
+              args:
+                - aws s3 cp /backup/hexagone.pgcustom "s3://${BACKUP_BUCKET}/hexagone-$(date -u +%Y%m%dT%H%M%SZ).pgcustom" --endpoint-url "$AWS_ENDPOINT_URL"
+              env:
+                - name: BACKUP_BUCKET
+                  value: hexagone-db-backups
+                - name: AWS_ENDPOINT_URL
+                  value: https://t3.storage.dev
+                - name: AWS_REGION
+                  value: auto
+              envFrom:
+                # Reuses the Tigris keys (AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY).
+                - secretRef:
+                    name: hexagone-backend-secrets
+              volumeMounts:
+                - name: scratch
+                  mountPath: /backup
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 128Mi
+                limits:
+                  memory: 256Mi

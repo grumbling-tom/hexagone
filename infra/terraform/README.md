@@ -80,19 +80,24 @@ export TF_VAR_cloudflare_api_token=$(security find-generic-password -a "$USER" -
 
 Rotate by deleting and re-adding: `security delete-generic-password -s cloudflare-api-token`.
 
-## Object storage (Tigris uploads bucket)
+## Object storage (Tigris buckets)
 
-`storage.tf` also manages the GPX uploads bucket (`hexagone-gpx-uploads`) and its
-CORS policy — the browser uploads to it directly via backend-issued presigned PUT
-URLs, so it needs CORS for the public apex (the prod analogue of
-`scripts/seaweedfs-init.sh`). Tigris is S3-compatible, so it's managed with the
-`aws` provider pointed at the Tigris endpoint (see `main.tf`), reusing the same
+`storage.tf` manages two Tigris buckets (S3-compatible, so both use the `aws`
+provider pointed at the Tigris endpoint in `main.tf`, reusing the same
 `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` env credentials as the state
-backend. The bucket name must stay in sync with `HEXAGONE_S3_BUCKET` in
-`infra/k8s/base/app/backend.yaml`.
+backend):
 
-> If the bucket was already created by hand, import it before the first apply:
+- **`hexagone-gpx-uploads`** — GPX uploads, with a CORS policy for the public apex
+  (the browser uploads directly via backend-issued presigned PUT URLs; the prod
+  analogue of `scripts/seaweedfs-init.sh`). Name must stay in sync with
+  `HEXAGONE_S3_BUCKET` in `infra/k8s/base/app/backend.yaml`.
+- **`hexagone-db-backups`** — Postgres logical-dump backups, with a **7-day expiry
+  lifecycle rule** that enforces backup retention. Name must stay in sync with
+  `BACKUP_BUCKET` in `infra/k8s/base/app/db-backup.yaml` and `scripts/prod-stack.sh`.
+
+> If a bucket was already created by hand, import it before the first apply, e.g.:
 > `terraform -chdir=infra/terraform import aws_s3_bucket.uploads hexagone-gpx-uploads`
+> (and `aws_s3_bucket.db_backups hexagone-db-backups`).
 
 ## Apply
 
