@@ -12,6 +12,8 @@ import { fetchClient } from '../../lib/fetch-client';
 
 
 
+type SecondParameter<T extends (...args: any) => any> = Parameters<T>[1];
+
 
   /**
  * Create a session via a magic-link token or email + password.
@@ -19,13 +21,13 @@ import { fetchClient } from '../../lib/fetch-client';
  */
 export const createUserSession = (
     createUserSessionRequest: CreateUserSessionRequest,
- ) => {
+ options?: SecondParameter<typeof fetchClient>,) => {
       return fetchClient<UserSessionResponse>(
       {url: `/api/v1/user-sessions`, method: 'POST',
       headers: {'Content-Type': 'application/json', },
       data: createUserSessionRequest
     },
-      );
+      options);
     }
   /**
  * Log out by invalidating the current session.
@@ -33,11 +35,11 @@ export const createUserSession = (
  */
 export const deleteCurrentSession = (
     
- ) => {
+ options?: SecondParameter<typeof fetchClient>,) => {
       return fetchClient<void>(
       {url: `/api/v1/user-sessions/current`, method: 'DELETE'
     },
-      );
+      options);
     }
   export type CreateUserSessionResult = NonNullable<Awaited<ReturnType<typeof createUserSession>>>
 export type DeleteCurrentSessionResult = NonNullable<Awaited<ReturnType<typeof deleteCurrentSession>>>

@@ -12,6 +12,8 @@ import { fetchClient } from '../../lib/fetch-client';
 
 
 
+type SecondParameter<T extends (...args: any) => any> = Parameters<T>[1];
+
 
   /**
  * List the authenticated user's raw hex claims.
@@ -19,11 +21,11 @@ import { fetchClient } from '../../lib/fetch-client';
  */
 export const listHexClaims = (
     params?: ListHexClaimsParams,
- ) => {
+ options?: SecondParameter<typeof fetchClient>,) => {
       return fetchClient<PaginatedResultHexClaimResponse>(
       {url: `/api/v1/hex-claims`, method: 'GET',
         params
     },
-      );
+      options);
     }
   export type ListHexClaimsResult = NonNullable<Awaited<ReturnType<typeof listHexClaims>>>

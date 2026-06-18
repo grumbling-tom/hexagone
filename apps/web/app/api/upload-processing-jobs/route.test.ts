@@ -1,7 +1,13 @@
 // @vitest-environment node
 import { afterEach, expect, test, vi } from "vitest";
-import { env } from "@/config/env";
+import { ApiError, HttpStatus } from "@/lib/fetch-client";
 import { POST } from "./route";
+
+const createUploadProcessingJob = vi.hoisted(() => vi.fn());
+
+vi.mock("@/__generated__/backend-client/upload-processing-jobs", () => ({
+  createUploadProcessingJob,
+}));
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -15,37 +21,30 @@ function webhookRequest(init?: RequestInit): Request {
   });
 }
 
-test("forwards the webhook to the backend, keeping the Bearer header and body", async () => {
-  const fetchMock = vi
-    .spyOn(globalThis, "fetch")
-    .mockResolvedValue(new Response(null, { status: 202 }));
+test("forwards the parsed body and Bearer header to the backend client", async () => {
+  createUploadProcessingJob.mockResolvedValue(undefined);
 
-  const body = JSON.stringify({
-    events: [{ eventName: "OBJECT_CREATED_PUT" }],
-  });
+  const events = [{ eventName: "OBJECT_CREATED_PUT", object: { key: "a" } }];
   const response = await POST(
     webhookRequest({
-      body,
+      body: JSON.stringify({ events }),
       headers: { authorization: "Bearer s3cr3t" },
     }),
   );
 
   expect(response.status).toBe(202);
-  expect(fetchMock).toHaveBeenCalledOnce();
-  const [url, requestInit] = fetchMock.mock.calls[0];
-  expect((url as URL).toString()).toBe(
-    `${env.BACKEND_ORIGIN}/api/v1/upload-processing-jobs`,
-  );
-  expect(requestInit?.method).toBe("POST");
-  expect(requestInit?.body).toBe(body);
-  expect(new Headers(requestInit?.headers).get("authorization")).toBe(
-    "Bearer s3cr3t",
+  expect(createUploadProcessingJob).toHaveBeenCalledOnce();
+  expect(createUploadProcessingJob).toHaveBeenCalledWith(
+    { events },
+    { headers: { authorization: "Bearer s3cr3t" } },
   );
 });
 
 test("passes the backend's status through (e.g. 401 on a bad secret)", async () => {
-  vi.spyOn(globalThis, "fetch").mockResolvedValue(
-    new Response(null, { status: 401 }),
+  createUploadProcessingJob.mockRejectedValue(
+    new ApiError(HttpStatus.UNAUTHORIZED, {
+      detail: "Invalid notification secret",
+    }),
   );
 
   const response = await POST(webhookRequest());
@@ -54,7 +53,7 @@ test("passes the backend's status through (e.g. 401 on a bad secret)", async () 
 });
 
 test("returns 502 when the backend is unreachable", async () => {
-  vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("ECONNREFUSED"));
+  createUploadProcessingJob.mockRejectedValue(new Error("ECONNREFUSED"));
 
   const response = await POST(webhookRequest());
 

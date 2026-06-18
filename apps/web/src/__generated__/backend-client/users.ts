@@ -14,6 +14,8 @@ import { fetchClient } from '../../lib/fetch-client';
 
 
 
+type SecondParameter<T extends (...args: any) => any> = Parameters<T>[1];
+
 
   /**
  * Create a new user account and start a session.
@@ -21,13 +23,13 @@ import { fetchClient } from '../../lib/fetch-client';
  */
 export const createUser = (
     createUserRequest: CreateUserRequest,
- ) => {
+ options?: SecondParameter<typeof fetchClient>,) => {
       return fetchClient<UserResponse>(
       {url: `/api/v1/users`, method: 'POST',
       headers: {'Content-Type': 'application/json', },
       data: createUserRequest
     },
-      );
+      options);
     }
   /**
  * List users filtered by group membership.
@@ -37,12 +39,12 @@ Caller must be able to see the group (owner OR member); 404 otherwise.
  */
 export const listUsers = (
     params: ListUsersParams,
- ) => {
+ options?: SecondParameter<typeof fetchClient>,) => {
       return fetchClient<PaginatedResultUserResponse>(
       {url: `/api/v1/users`, method: 'GET',
         params
     },
-      );
+      options);
     }
   /**
  * Return the currently authenticated user.
@@ -50,11 +52,11 @@ export const listUsers = (
  */
 export const getCurrentUser = (
     
- ) => {
+ options?: SecondParameter<typeof fetchClient>,) => {
       return fetchClient<UserResponse>(
       {url: `/api/v1/users/current`, method: 'GET'
     },
-      );
+      options);
     }
   export type CreateUserResult = NonNullable<Awaited<ReturnType<typeof createUser>>>
 export type ListUsersResult = NonNullable<Awaited<ReturnType<typeof listUsers>>>

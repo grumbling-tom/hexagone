@@ -11,6 +11,8 @@ import { fetchClient } from '../../lib/fetch-client';
 
 
 
+type SecondParameter<T extends (...args: any) => any> = Parameters<T>[1];
+
 
   /**
  * Return the health status of the application.
@@ -18,10 +20,10 @@ import { fetchClient } from '../../lib/fetch-client';
  */
 export const getHealth = (
     
- ) => {
+ options?: SecondParameter<typeof fetchClient>,) => {
       return fetchClient<GetHealth200>(
       {url: `/api/health`, method: 'GET'
     },
-      );
+      options);
     }
   export type GetHealthResult = NonNullable<Awaited<ReturnType<typeof getHealth>>>

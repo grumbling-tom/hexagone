@@ -11,6 +11,8 @@ import { fetchClient } from '../../lib/fetch-client';
 
 
 
+type SecondParameter<T extends (...args: any) => any> = Parameters<T>[1];
+
 
   /**
  * Enqueue a processing job for each newly-created object.
@@ -18,12 +20,12 @@ import { fetchClient } from '../../lib/fetch-client';
  */
 export const createUploadProcessingJob = (
     uploadNotification: UploadNotification,
- ) => {
+ options?: SecondParameter<typeof fetchClient>,) => {
       return fetchClient<unknown>(
       {url: `/api/v1/upload-processing-jobs`, method: 'POST',
       headers: {'Content-Type': 'application/json', },
       data: uploadNotification
     },
-      );
+      options);
     }
   export type CreateUploadProcessingJobResult = NonNullable<Awaited<ReturnType<typeof createUploadProcessingJob>>>
