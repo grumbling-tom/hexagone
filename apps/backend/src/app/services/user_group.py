@@ -113,14 +113,11 @@ def update_group(db: DBSession, user: User, group_uid: str, *, name: str) -> Use
     and mutation are one atomic statement (no read-then-write race).
     """
     repo = Repository(db, UserGroup)
-    try:
-        group = repo.update(
-            group_uid,
-            {"name": name},
-            guards=permissions_predicates(user, UserGroup, Operation.WRITE),
-        )
-    except NotAuthorisedError:
-        raise UserGroupNotFoundError(group_uid) from None
+    group = repo.update(
+        group_uid,
+        {"name": name},
+        guards=permissions_predicates(user, UserGroup, Operation.WRITE),
+    )
 
     db.commit()
     return group

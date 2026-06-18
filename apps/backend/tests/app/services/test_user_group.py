@@ -5,7 +5,7 @@ from collections.abc import Callable
 import pytest
 from sqlalchemy.orm import Session
 
-from src.app.repository import User, UserGroup, UserGroupMembership
+from src.app.repository import NotAuthorisedError, User, UserGroup, UserGroupMembership
 from src.app.services import user_group as user_group_service
 
 
@@ -128,13 +128,13 @@ def test_archive_group_for_non_owner_raises_not_found(
 ):
     """Non-owners get the same 404-shaped result as non-members — the WRITE
     permission guard on the atomic update matches no row for them, so
-    `update_group` / `archive_group` raise `UserGroupNotFoundError` rather than
+    `update_group` / `archive_group` raise `NotAuthorisedError` rather than
     a permission-specific error."""
     owner = create_user(email="owner@example.com")
     group = create_group(name="Theirs", owner=owner)
     create_membership(group=group, user=test_user)
 
-    with pytest.raises(user_group_service.UserGroupNotFoundError):
+    with pytest.raises(NotAuthorisedError):
         user_group_service.archive_group(test_db, test_user, group.uid)
 
 
