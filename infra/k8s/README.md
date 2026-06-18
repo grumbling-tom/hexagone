@@ -102,22 +102,30 @@ not Terraform — see the note in `infra/terraform/storage.tf`.) Trade-off: reco
 is to the last dump (≤6h of data loss), not point-in-time.
 
 ```bash
-scripts/prod-stack.sh backup          # fire a one-off dump now (e.g. before a risky migration)
-scripts/prod-stack.sh restore [--yes] # load the latest dump into the cluster (destructive)
+scripts/prod-stack.sh backup                       # fire a one-off dump now (e.g. before a risky migration)
+scripts/prod-stack.sh restore [--yes]              # load the LATEST dump into the cluster (destructive)
+scripts/prod-stack.sh restore --restore-from <key> # restore a SPECIFIC dump by object key
+tigris ls hexagone-db-backups                      # list dumps to find a key
 ```
+
+**`down` also takes an off-box backup.** `prod-stack.sh down` runs a backup before
+tearing the stack down, so data safety never depends solely on the host PVC (the
+PVC is still kept for fast restarts — this just guarantees a fresh dump in Tigris
+too). Pass `--skip-backup` to skip it; a failed backup warns but doesn't block the
+teardown (the PVC still holds the data).
 
 **Recovery after a lost PVC** (new mini, `colima delete`, deleted volume — a normal
 `down`/`up` keeps the PVC and needs none of this):
 
 1. `scripts/prod-stack.sh up` — CNPG bootstraps a *fresh, empty* `hexagone` DB; the
    stack comes up healthy but with no data.
-2. `scripts/prod-stack.sh restore` — runs the on-demand restore Job
-   (`infra/k8s/jobs/db-restore.yaml`, kept out of the overlay so it never
-   auto-runs), which fetches the newest dump and `pg_restore --clean`s it in, then
-   restarts the backend.
+2. `scripts/prod-stack.sh restore` (or `--restore-from <key>`) — runs the on-demand
+   restore Job (`infra/k8s/jobs/db-restore.yaml`, kept out of the overlay so it
+   never auto-runs), which fetches the chosen dump and `pg_restore --clean`s it in,
+   then restarts the backend.
 
-Note: dumps only run while the stack is up — if the mini is stopped, the newest
-backup is from before the last `down`.
+Note: scheduled dumps only run while the stack is up — but `down` now takes one on
+the way out, so the newest backup reflects the moment you tore the stack down.
 
 The sections below remain the reference for what each step does (and for the
 one-time Tailscale admin-plane and Colima-profile setup the script assumes).

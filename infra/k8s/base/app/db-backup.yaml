@@ -62,7 +62,7 @@ spec:
             # Upload under a UTC-ISO8601 name so objects sort chronologically —
             # the restore Job relies on that to pick the latest.
             - name: upload
-              image: public.ecr.aws/aws-cli/aws-cli:2
+              image: public.ecr.aws/aws-cli/aws-cli:2.35.7
               command: ["/bin/sh", "-c"]
               args:
                 - aws s3 cp /backup/hexagone.pgcustom "s3://${BACKUP_BUCKET}/hexagone-$(date -u +%Y%m%dT%H%M%SZ).pgcustom" --endpoint-url "$AWS_ENDPOINT_URL"

@@ -27,22 +27,28 @@ spec:
         - name: scratch
           emptyDir: {}
       initContainers:
-        # Objects are named hexagone-<UTC-ISO8601>.pgcustom, so lexical sort ==
-        # chronological; tail -1 is the most recent. Fail loudly if the bucket is
-        # empty rather than restoring nothing.
+        # Pick the dump to restore. BACKUP_KEY (injected by `prod-stack.sh restore
+        # --from <key>`) selects a specific object; when unset, fall back to the
+        # newest — objects are named hexagone-<UTC-ISO8601>.pgcustom, so lexical
+        # sort == chronological and tail -1 is most recent. Fail loudly rather
+        # than restoring nothing.
         - name: fetch
-          image: public.ecr.aws/aws-cli/aws-cli:2
+          image: public.ecr.aws/aws-cli/aws-cli:2.35.7
           command: ["/bin/sh", "-c"]
           args:
             - |
               set -eu
-              latest=$(aws s3 ls "s3://${BACKUP_BUCKET}/" --endpoint-url "$AWS_ENDPOINT_URL" | sort | tail -1 | awk '{print $4}')
-              if [ -z "$latest" ]; then
-                echo "No backups found in s3://${BACKUP_BUCKET}/" >&2
+              if [ -n "${BACKUP_KEY:-}" ]; then
+                key="$BACKUP_KEY"
+              else
+                key=$(aws s3 ls "s3://${BACKUP_BUCKET}/" --endpoint-url "$AWS_ENDPOINT_URL" | sort | tail -1 | awk '{print $4}')
+              fi
+              if [ -z "$key" ]; then
+                echo "No backup found to restore in s3://${BACKUP_BUCKET}/" >&2
                 exit 1
               fi
-              echo "Restoring from $latest"
-              aws s3 cp "s3://${BACKUP_BUCKET}/${latest}" /restore/latest.pgcustom --endpoint-url "$AWS_ENDPOINT_URL"
+              echo "Restoring from $key"
+              aws s3 cp "s3://${BACKUP_BUCKET}/${key}" /restore/latest.pgcustom --endpoint-url "$AWS_ENDPOINT_URL"
           env:
             - name: BACKUP_BUCKET
               value: hexagone-db-backups

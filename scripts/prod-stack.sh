@@ -5,11 +5,12 @@
 # infra/k8s/README.md + infra/terraform/README.md.
 #
 # Usage:
-#   scripts/prod-stack.sh up [--build]    bring the whole stack up (idempotent)
-#   scripts/prod-stack.sh down            delete app workloads, stop the VM (data kept)
-#   scripts/prod-stack.sh status          show what's running
-#   scripts/prod-stack.sh backup          take an on-demand Postgres dump now
-#   scripts/prod-stack.sh restore [--yes] restore the DB from the latest backup
+#   scripts/prod-stack.sh up [--build]              bring the whole stack up (idempotent)
+#   scripts/prod-stack.sh down [--skip-backup]      back up the DB, then stop the VM
+#   scripts/prod-stack.sh status                    show what's running
+#   scripts/prod-stack.sh backup                    take an on-demand Postgres dump now
+#   scripts/prod-stack.sh restore [--yes] [--restore-from <key>]
+#                                                   restore the DB (latest, or a specific dump)
 #
 # `up` folds in the one-time bootstrap (CNPG operator, Cloudflare tunnel) and is
 # safe to re-run. `--build` forces both images to rebuild; without it they're
@@ -227,9 +228,35 @@ cmd_up() {
 # --- down -------------------------------------------------------------------
 
 cmd_down() {
+  local skip_backup=0
+  for arg in "$@"; do
+    case "$arg" in
+      --skip-backup) skip_backup=1 ;;
+      *) die "unknown option for down: $arg (use --skip-backup)" ;;
+    esac
+  done
+
   need_cmd colima
   need_cmd kubectl
   if profile_running; then
+    # Take an off-box backup before teardown so recovery never depends solely on
+    # the host PVC. The PVC is still kept (for fast restarts), but there's now
+    # always a fresh dump in Tigris too.
+    if [ "$skip_backup" -eq 1 ]; then
+      warn "Skipping pre-teardown backup (--skip-backup)"
+    elif k get cluster hexagone-db >/dev/null 2>&1; then
+      log "Backing up the database before teardown"
+      k wait --for=condition=Ready cluster/hexagone-db --timeout=120s \
+        || warn "DB cluster not Ready; attempting the backup anyway"
+      if run_backup_job; then
+        log "Off-box backup stored in s3://${BACKUP_BUCKET}"
+      else
+        warn "Backup FAILED — proceeding anyway (the host PVC still holds the data). Re-run 'backup' once the cluster is healthy."
+      fi
+    else
+      warn "No DB cluster found; skipping pre-teardown backup"
+    fi
+
     log "Deleting stateless workloads (database Cluster + data are kept)"
     k delete deployment "${STATELESS_DEPLOYMENTS[@]}" --ignore-not-found
     log "Stopping Colima profile '$COLIMA_PROFILE'"
@@ -273,47 +300,70 @@ require_cluster_ready() {
   k wait --for=condition=Ready cluster/hexagone-db --timeout=120s
 }
 
-cmd_backup() {
-  require_cluster_ready
-  # Fire a one-off run of the scheduled CronJob, so an ad-hoc dump is identical to
-  # a scheduled one. Fixed name + delete-first so manual runs don't accumulate.
+# Fire a one-off run of the scheduled CronJob (so an ad-hoc dump is identical to a
+# scheduled one) and wait for it. Fixed name + delete-first so manual runs don't
+# accumulate. Returns non-zero if the job doesn't complete. Shared by backup/down.
+run_backup_job() {
   log "Triggering an on-demand backup"
   k delete job hexagone-db-backup-manual --ignore-not-found
   k create job hexagone-db-backup-manual --from=cronjob/hexagone-db-backup
   log "Waiting for the backup job to finish"
-  if ! k wait --for=condition=complete job/hexagone-db-backup-manual --timeout=300s; then
+  if ! k wait --for=condition=complete job/hexagone-db-backup-manual --timeout=600s; then
     k logs job/hexagone-db-backup-manual --all-containers --tail=50 || true
-    die "backup job did not complete"
+    return 1
   fi
   # The upload container's `aws s3 cp` line names the object it wrote.
   k logs job/hexagone-db-backup-manual --all-containers --tail=20 || true
+}
+
+cmd_backup() {
+  require_cluster_ready
+  run_backup_job || die "backup job did not complete"
   log "Backup complete."
 }
 
 # --- restore ----------------------------------------------------------------
 
 cmd_restore() {
-  local assume_yes=0
-  for arg in "$@"; do
-    case "$arg" in
+  local assume_yes=0 restore_from=""
+  while [ $# -gt 0 ]; do
+    case "$1" in
       --yes | -y) assume_yes=1 ;;
-      *) die "unknown option for restore: $arg (use --yes)" ;;
+      --restore-from)
+        shift
+        [ $# -gt 0 ] || die "--restore-from needs an object key (see 'tigris ls ${BACKUP_BUCKET}')"
+        restore_from="$1"
+        ;;
+      --restore-from=*) restore_from="${1#--restore-from=}" ;;
+      *) die "unknown option for restore: $1 (use --yes, --restore-from <key>)" ;;
     esac
+    shift
   done
 
   require_cluster_ready
 
+  # Default to the latest dump; --restore-from picks a specific object.
+  local what="the latest backup"
+  [ -n "$restore_from" ] && what="backup '$restore_from'"
+
   # Destructive: pg_restore --clean drops existing objects before reloading.
   if [ "$assume_yes" -ne 1 ]; then
-    warn "Restore REPLACES the current database with the latest backup (drops existing data)."
+    warn "Restore REPLACES the current database with ${what} (drops existing data)."
     printf 'Type "restore" to continue: '
     read -r reply || reply=""
     [ "$reply" = "restore" ] || die "aborted"
   fi
 
-  log "Running restore job (latest dump from s3://${BACKUP_BUCKET})"
+  log "Running restore job (${what} from s3://${BACKUP_BUCKET})"
   k delete job hexagone-db-restore --ignore-not-found
-  k apply -f "$RESTORE_MANIFEST"
+  if [ -n "$restore_from" ]; then
+    # Inject BACKUP_KEY into the fetch init container so it restores that exact
+    # object instead of the newest one (--local renders the manifest, no API call).
+    kubectl set env --local -f "$RESTORE_MANIFEST" --containers=fetch \
+      "BACKUP_KEY=$restore_from" -o yaml | k apply -f -
+  else
+    k apply -f "$RESTORE_MANIFEST"
+  fi
   log "Waiting for the restore job to finish"
   if ! k wait --for=condition=complete job/hexagone-db-restore --timeout=600s; then
     k logs job/hexagone-db-restore --all-containers --tail=50 || true
@@ -341,11 +391,13 @@ case "${1:-}" in
     cat >&2 <<EOF
 Usage: scripts/prod-stack.sh <command>
 
-  up [--build]    Bring the whole stack up (idempotent). --build forces image rebuild.
-  down            Delete app workloads and stop the VM (database + tunnel persist).
-  status          Show what's currently running.
-  backup          Take an on-demand Postgres dump now (e.g. before a risky migration).
-  restore [--yes] Restore the database from the latest backup. Destructive; prompts unless --yes.
+  up [--build]            Bring the whole stack up (idempotent). --build forces image rebuild.
+  down [--skip-backup]    Back up the DB off-box, then delete app workloads and stop the VM.
+  status                  Show what's currently running.
+  backup                  Take an on-demand Postgres dump now (e.g. before a risky migration).
+  restore [--yes] [--restore-from <key>]
+                          Restore the database (latest backup by default, or a specific
+                          object key). Destructive; prompts unless --yes.
 EOF
     exit 1
     ;;
