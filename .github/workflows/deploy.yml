@@ -1,0 +1,111 @@
+name: deploy
+
+# Auto-deploy to the k3s cluster (Argo CD Core). On merge to main this builds both
+# app images, pushes them to GHCR tagged with the short commit SHA, and writes that
+# SHA into the Kustomize overlay (infra/k8s/production). Argo CD watches main and
+# rolls the cluster to the new SHA — no manual kubectl. See infra/k8s/README.md,
+# "GitOps auto-deploy". Image BUILDING is CI's job; Argo only reconciles git -> cluster.
+#
+# Loop-safety: this only triggers on app-source changes (paths below), so the
+# tag-bump commit — which touches infra/k8s/** — never retriggers it. (Belt and
+# braces: pushes made with GITHUB_TOKEN don't start new workflow runs anyway.)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "apps/backend/**"
+      - "apps/web/**"
+      - ".github/workflows/deploy.yml"
+  workflow_dispatch: # manual re-deploy of the current main
+
+# Only the newest merge needs to reach the cluster; cancel a superseded in-flight
+# deploy so rapid merges don't race on the bump commit.
+concurrency:
+  group: deploy-main
+  cancel-in-progress: true
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_PREFIX: ghcr.io/grumbling-tom/hexagone
+
+jobs:
+  prep:
+    runs-on: ubuntu-latest
+    outputs:
+      sha: ${{ steps.sha.outputs.short }}
+    steps:
+      - id: sha
+        run: echo "short=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+
+  build:
+    needs: prep
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write # push images to ghcr.io/grumbling-tom/*
+    strategy:
+      matrix:
+        include:
+          - app: backend
+            context: apps/backend
+          - app: web
+            context: apps/web
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push ${{ matrix.app }}
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          push: true
+          tags: |
+            ${{ env.IMAGE_PREFIX }}-${{ matrix.app }}:${{ needs.prep.outputs.sha }}
+            ${{ env.IMAGE_PREFIX }}-${{ matrix.app }}:latest
+          # Registry-backed layer cache keeps rebuilds fast across merges.
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  bump:
+    needs: [prep, build]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # commit the tag bump back to main
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install kustomize
+        run: |
+          curl -fsSL "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh" | bash
+          sudo mv kustomize /usr/local/bin/
+
+      - name: Pin both images to the SHA
+        working-directory: infra/k8s/production
+        env:
+          SHA: ${{ needs.prep.outputs.sha }}
+        run: |
+          kustomize edit set image \
+            "hexagone-backend=${IMAGE_PREFIX}-backend:${SHA}" \
+            "hexagone-web=${IMAGE_PREFIX}-web:${SHA}"
+
+      - name: Commit the bump
+        env:
+          SHA: ${{ needs.prep.outputs.sha }}
+        run: |
+          git config user.name "hexagone-deploy[bot]"
+          git config user.email "hexagone-deploy[bot]@users.noreply.github.com"
+          git add infra/k8s/production/kustomization.yaml
+          if git diff --cached --quiet; then
+            echo "No image change to commit."
+          else
+            git commit -m "deploy: pin images to ${SHA} [skip ci]"
+            git push
+          fi

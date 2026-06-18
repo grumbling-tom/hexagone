@@ -8,14 +8,22 @@ namespace: default
 resources:
   - ../base
 
-# Single-node Colima: images are built and imported straight into k3s containerd
-# as hexagone-backend:latest / hexagone-web:latest (imagePullPolicy: IfNotPresent
-# in base), so no registry/override is needed. When a registry enters the picture,
-# pin per-environment here:
-# images:
-#   - name: hexagone-backend
-#     newName: ghcr.io/OWNER/hexagone-backend
-#     newTag: "0.1.0"
-#   - name: hexagone-web
-#     newName: ghcr.io/OWNER/hexagone-web
-#     newTag: "0.1.0"
+# Image source: GitHub Container Registry, SHA-pinned. CI (.github/workflows/
+# deploy.yml) builds both images on merge to main, pushes them to GHCR tagged with
+# the short commit SHA, and rewrites the `newTag`s below via `kustomize edit set
+# image`, committing the bump back to main. Argo CD (Core) then syncs this overlay
+# and k3s pulls the SHA from GHCR (private — see the `ghcr-pull` imagePullSecret in
+# base/app/*.yaml). The transformer matches by image NAME, so each entry rewrites
+# every container that references it (the backend `migrate` init container + the
+# main container, and web).
+#
+# `newTag: latest` is only the seed for a brand-new checkout; CI overwrites it with
+# a real short SHA on the first merge, and that immutable tag is what triggers each
+# rollout.
+images:
+  - name: hexagone-backend
+    newName: ghcr.io/grumbling-tom/hexagone-backend
+    newTag: latest
+  - name: hexagone-web
+    newName: ghcr.io/grumbling-tom/hexagone-web
+    newTag: latest

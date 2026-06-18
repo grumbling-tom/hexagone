@@ -22,6 +22,11 @@ spec:
       labels:
         app: hexagone-backend
     spec:
+      # Pull both the init and main container images from private GHCR. The
+      # `ghcr-pull` Secret (a read:packages PAT) is created out-of-band by
+      # scripts/prod-stack.sh — see infra/k8s/README.md, "GitOps auto-deploy".
+      imagePullSecrets:
+        - name: ghcr-pull
       # Run DB migrations before the server starts, from the same image. alembic
       # reads DATABASE_URL via src/app/settings, exactly as the app does.
       # NOTE: with replicas > 1, every pod runs this on first rollout, so the
@@ -31,8 +36,8 @@ spec:
       # the pods wait on it instead.
       initContainers:
         - name: migrate
-          image: hexagone-backend:latest
-          imagePullPolicy: IfNotPresent
+          image: hexagone-backend:latest # rewritten to ghcr.io/…:<sha> by the overlay
+          imagePullPolicy: IfNotPresent # SHA tags are immutable: pull once, then cache
           command: ["alembic", "upgrade", "head"]
           # Migrations only touch the DB, but alembic imports src/app/settings,
           # which instantiates Settings() — and in PROD that validates the full
@@ -53,8 +58,8 @@ spec:
                 name: hexagone-backend-secrets
       containers:
         - name: backend
-          image: hexagone-backend:latest
-          imagePullPolicy: IfNotPresent # use the locally-built image, don't pull
+          image: hexagone-backend:latest # rewritten to ghcr.io/…:<sha> by the overlay
+          imagePullPolicy: IfNotPresent # SHA tags are immutable: pull once, then cache
           command: ["uvicorn", "src.app.main:app", "--host", "0.0.0.0", "--port", "8000"]
           ports:
             - name: http
