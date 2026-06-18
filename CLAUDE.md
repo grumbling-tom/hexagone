@@ -8,15 +8,14 @@ Use `pnpm` exclusively. Never use `npm` or `npx`.
 
 Code under `apps/web/src/` is grouped by **feature**, not by file type. New components default to a feature folder; only promote to top-level `components/` once something is genuinely reused across features.
 
-The **Next.js App Router** lives at `apps/web/app/` (project root, *outside* `src/`) and is reserved for **routing**: Next's file conventions (`layout.tsx`, `page.tsx`, route segments, route groups like `(authed)/`) plus app chrome (`Nav.tsx`, `providers.tsx`). Route files stay thin and compose feature components and feature Server Actions. **No `actions.ts` under `app/`** — Server Actions are feature code and live in `features/<x>/server/` (a route imports them, it doesn't define them). This is enforced by `pnpm lint:app-structure`. Static routes are prerendered at build; the image runs the standalone Node server (`output: "standalone"`, which also proxies `/api` to the backend).
+The **Next.js App Router** lives at `apps/web/app/` (project root, *outside* `src/`) and is reserved for **routing**: Next's file conventions (`layout.tsx`, `page.tsx`, route segments, route groups like `(authed)/`) plus app chrome (`Nav.tsx`). Route files stay thin and compose feature components and feature Server Actions. **No `actions.ts` under `app/`** — Server Actions are feature code and live in `features/<x>/server/` (a route imports them, it doesn't define them). This is enforced by `pnpm lint:app-structure`. Static routes are prerendered at build; the image runs the standalone Node server (`output: "standalone"`, which also proxies `/api` to the backend).
 
 A feature folder splits into two subfolders: `components/` (UI) and `server/` (`'use server'` Server Actions). Anything genuinely shared *within* the feature by both (e.g. a `types.ts`) sits at the feature root.
 
 ```
 apps/web/
   app/                  Routing + app shell (Next App Router; project root)
-    layout.tsx          Root layout: <html>, fonts, global CSS, <Providers>
-    providers.tsx       'use client' — QueryClientProvider
+    layout.tsx          Root layout: <html>, fonts, global CSS
     page.tsx            '/' landing — static, prerendered
     Nav.tsx             Top nav (app chrome)
     login/page.tsx      '/login' — imports LoginForm + login action from features/auth
