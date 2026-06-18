@@ -49,9 +49,11 @@ For day-to-day operation, `scripts/prod-stack.sh` automates the whole runbook
 below into three commands. Run it from anywhere in the repo, **on the mini**:
 
 ```bash
-scripts/prod-stack.sh up [--build]   # bring the whole stack up (idempotent)
+scripts/prod-stack.sh up [--build]    # bring the whole stack up (idempotent)
 scripts/prod-stack.sh down            # delete app workloads, stop the VM (data kept)
 scripts/prod-stack.sh status          # show what's running
+scripts/prod-stack.sh backup          # take an on-demand Postgres dump now
+scripts/prod-stack.sh restore [--yes] # restore the DB from the latest backup
 ```
 
 The stack runs in a **dedicated Colima profile** (`hexagone-prod`, sized 2 CPU /
@@ -87,6 +89,43 @@ security add-generic-password -a "$USER" -s hexagone-resend-api-key -w        # 
 
 The Tigris keys are reused for the Terraform state backend and for
 `hexagone-backend-secrets`; the Cloudflare token is `TF_VAR_cloudflare_api_token`.
+
+### Backups & restore
+
+Postgres is backed up by a **logical dump** (`pg_dump -Fc`), not CNPG's
+continuous/PITR Barman backups — no extra operators, and each dump is a
+self-contained object. A `CronJob` (`infra/k8s/base/app/db-backup.yaml`) dumps the
+DB **every 6 hours** to a dedicated Tigris bucket (`hexagone-db-backups`, created
+in `infra/terraform/storage.tf`); a **7-day expiry lifecycle rule** on that bucket
+auto-deletes old dumps. (The rule is applied by `prod-stack.sh up` via `aws s3api`,
+not Terraform — see the note in `infra/terraform/storage.tf`.) Trade-off: recovery
+is to the last dump (≤6h of data loss), not point-in-time.
+
+```bash
+scripts/prod-stack.sh backup                       # fire a one-off dump now (e.g. before a risky migration)
+scripts/prod-stack.sh restore [--yes]              # load the LATEST dump into the cluster (destructive)
+scripts/prod-stack.sh restore --restore-from <key> # restore a SPECIFIC dump by object key
+tigris ls hexagone-db-backups                      # list dumps to find a key
+```
+
+**`down` takes an off-box backup first — and aborts if it fails.** `prod-stack.sh
+down` runs a backup before tearing the stack down, so data safety never depends
+solely on the host PVC (the PVC is still kept for fast restarts — this just
+guarantees a fresh dump in Tigris too). **A failed backup stops the teardown**; the
+only way to tear down without a fresh backup is to pass `--skip-backup` explicitly.
+
+**Recovery after a lost PVC** (new mini, `colima delete`, deleted volume — a normal
+`down`/`up` keeps the PVC and needs none of this):
+
+1. `scripts/prod-stack.sh up` — CNPG bootstraps a *fresh, empty* `hexagone` DB; the
+   stack comes up healthy but with no data.
+2. `scripts/prod-stack.sh restore` (or `--restore-from <key>`) — runs the on-demand
+   restore Job (`infra/k8s/jobs/db-restore.yaml`, kept out of the overlay so it
+   never auto-runs), which fetches the chosen dump and `pg_restore --clean`s it in,
+   then restarts the backend.
+
+Note: scheduled dumps only run while the stack is up — but `down` now takes one on
+the way out, so the newest backup reflects the moment you tore the stack down.
 
 The sections below remain the reference for what each step does (and for the
 one-time Tailscale admin-plane and Colima-profile setup the script assumes).
