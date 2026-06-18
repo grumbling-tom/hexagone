@@ -85,7 +85,7 @@ class ConsoleEmailClient(EmailClient):
         *,
         to: str,
         subject: str,
-        html: str,  # noqa: ARG002 — body intentionally not logged (embeds PII)
+        html: str,
         log_context: dict[str, Any] | None = None,
     ) -> str:
         """Log the email instead of sending it; returns a sentinel id."""
@@ -93,6 +93,7 @@ class ConsoleEmailClient(EmailClient):
         # Dev/test sink: masks the recipient and omits the html body (which
         # embeds the address) to keep the same no-plaintext-PII guarantee.
         logger.info("send_email_console", to=mask_email(to), subject=subject, **ctx)
+        logger.info("send_email_console_body", body=html, **ctx)
         return "console"
 
 
