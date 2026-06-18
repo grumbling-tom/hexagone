@@ -5,8 +5,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type {
-  CreateLoginTokenRequest,
-  CreateLoginTokenResponse
+  CreateLoginTokenRequest
 } from './backend.schemas'
 import { fetchClient } from '../../lib/fetch-client';
 
@@ -16,17 +15,17 @@ import { fetchClient } from '../../lib/fetch-client';
   /**
  * Request a magic-link sign-in email (enumeration-safe).
 
-Always responds identically and always sets a browser-binding nonce cookie,
-so neither the body, the status, nor the headers reveal whether the address
-is on the invite allowlist. A link is only issued and emailed for
-allow-listed addresses; the nonce cookie is bound to the emailed token (and
-is a harmless throwaway otherwise).
+Always returns 202 with an empty body and always sets a browser-binding
+nonce cookie, so neither the status, the body, nor the headers reveal
+whether the address is on the invite allowlist. A link is only issued and
+emailed for allow-listed addresses; the nonce is a harmless throwaway
+otherwise. How (or whether) to message the user is left to the frontend.
  * @summary Create Login Token
  */
 export const createLoginToken = (
     createLoginTokenRequest: CreateLoginTokenRequest,
  ) => {
-      return fetchClient<CreateLoginTokenResponse>(
+      return fetchClient<unknown>(
       {url: `/api/v1/login-tokens`, method: 'POST',
       headers: {'Content-Type': 'application/json', },
       data: createLoginTokenRequest

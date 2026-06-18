@@ -326,13 +326,6 @@ export interface CreateUploadRequest {
 }
 
 /**
- * Generic, enumeration-safe acknowledgement.
- */
-export interface CreateLoginTokenResponse {
-  detail: string;
-}
-
-/**
  * Request body for requesting a magic-link sign-in email.
  */
 export interface CreateLoginTokenRequest {

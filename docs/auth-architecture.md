@@ -142,9 +142,10 @@ Key points:
   (same browser → has the nonce); in practice preload fetches HTML without
   mounting components and firing the action, so it doesn't consume. A manual
   button would close even this, at the cost of the click — we accept the residual.
-- **Enumeration-safe.** `POST /login-tokens` responds identically (same 202 body,
-  and a nonce cookie is always set) regardless of whether the email exists or is
-  allow-listed.
+- **Enumeration-safe.** `POST /login-tokens` responds identically (same 202 with
+  an empty body, and a nonce cookie is always set) regardless of whether the
+  email exists or is allow-listed. The backend returns no message; how to inform
+  the user is the frontend's call.
 - **No secrets in logs.** The plaintext token and nonce are never logged; emails
   are masked (`mask_email`, and centrally via `TASK-0022`). Tokens must also be
   kept out of access logs / OpenTelemetry spans (`TASK-0019`).

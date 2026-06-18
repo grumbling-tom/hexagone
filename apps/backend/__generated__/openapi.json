@@ -319,7 +319,7 @@
           "login-tokens"
         ],
         "summary": "Create Login Token",
-        "description": "Request a magic-link sign-in email (enumeration-safe).\n\nAlways responds identically and always sets a browser-binding nonce cookie,\nso neither the body, the status, nor the headers reveal whether the address\nis on the invite allowlist. A link is only issued and emailed for\nallow-listed addresses; the nonce cookie is bound to the emailed token (and\nis a harmless throwaway otherwise).",
+        "description": "Request a magic-link sign-in email (enumeration-safe).\n\nAlways returns 202 with an empty body and always sets a browser-binding\nnonce cookie, so neither the status, the body, nor the headers reveal\nwhether the address is on the invite allowlist. A link is only issued and\nemailed for allow-listed addresses; the nonce is a harmless throwaway\notherwise. How (or whether) to message the user is left to the frontend.",
         "operationId": "createLoginToken",
         "requestBody": {
           "content": {
@@ -336,9 +336,7 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/CreateLoginTokenResponse"
-                }
+                "schema": {}
               }
             }
           },
@@ -1108,20 +1106,6 @@
         ],
         "title": "CreateLoginTokenRequest",
         "description": "Request body for requesting a magic-link sign-in email."
-      },
-      "CreateLoginTokenResponse": {
-        "properties": {
-          "detail": {
-            "type": "string",
-            "title": "Detail"
-          }
-        },
-        "type": "object",
-        "required": [
-          "detail"
-        ],
-        "title": "CreateLoginTokenResponse",
-        "description": "Generic, enumeration-safe acknowledgement."
       },
       "CreateUploadRequest": {
         "properties": {

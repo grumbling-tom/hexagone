@@ -1,11 +1,11 @@
 ---
 id: TASK-0019
 title: 'Backend: passwordless auth endpoints (request magic link + verify)'
-status: In Progress
+status: Done
 assignee:
   - grumbling-tom
 created_date: '2026-06-17 10:18'
-updated_date: '2026-06-18 09:26'
+updated_date: '2026-06-18 09:32'
 labels:
   - auth
   - backend
@@ -68,3 +68,19 @@ TASK-0018 provides the domain layer: issue-token (returns plaintext token + stor
 - [x] #8 The token reaches the backend in the request body only (never a URL), consumed only on the explicit POST; it is not logged and not captured in OTel http.url spans. (Scrubbing the frontend `/auth/verify?token=` URL is TASK-0020.)
 - [x] #9 Rate-limiting is intentionally deferred (allowlist + 10-min expiry + single-use + one-live-token-per-email supersede are the current defenses); noted in the PR.
 <!-- AC:END -->
+
+## Final Summary
+
+<!-- SECTION:FINAL_SUMMARY:BEGIN -->
+Delivered in PR #61 (draft), branch `passwordless-auth-endpoints`, off merged main.
+
+**Endpoints (resource-oriented; `/auth/*` verbs rejected per backend CLAUDE.md):**
+- `POST /login-tokens` (`createLoginToken`, public, 202) — issues a link for an allow-listed email and always sets the browser-binding nonce cookie. Enumeration-safe: identical body + nonce cookie regardless of allow-status; only allow-listed emails get mail; email-send failure swallowed.
+- `POST /user-sessions` gains a token-credential variant via a validated union body (`{token}` XOR `{email,password}`). Token mode verifies token+nonce, re-checks the allowlist, auto-creates a first-time user (welcome email), and sets the `sessionid` cookie exactly as password login. Password path unchanged.
+
+**Supporting:** `get_user_by_email` + `get_or_create_user_by_email` in `services/user.py` (new users get an unusable random `password_hash` placeholder until TASK-0021); `LOGIN_NONCE_COOKIE_NAME` setting; main.py router registration; `.env.example` + `docs/auth-architecture.md` updated; orval client regenerated.
+
+**Deferred (documented in PR):** rate-limiting (allowlist + expiry + single-use + supersede are the defenses; per-IP belongs at the edge since Next.js is the sole entrypoint); token log/trace scrubbing (token is body-only on the backend; the `/auth/verify?token=` URL scrub is TASK-0020); `peek` endpoint (TASK-0020 decides).
+
+**Verification:** 194 backend tests pass (new `test_login_tokens.py` + magic-link cases in `test_user_sessions.py`); ruff, pyright, validate-migrations green (no new migration); all pre-commit hooks pass incl. tsc/biome/gen-api-client.
+<!-- SECTION:FINAL_SUMMARY:END -->
