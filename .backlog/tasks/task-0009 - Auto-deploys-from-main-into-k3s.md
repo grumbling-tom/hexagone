@@ -1,13 +1,15 @@
 ---
 id: TASK-0009
 title: Auto deploys from main into k3s
-status: In Progress
+status: Done
 assignee: []
 created_date: '2026-06-16 10:48'
-updated_date: '2026-06-18 12:37'
+updated_date: '2026-06-18 13:06'
 labels: []
 milestone: m-1
 dependencies: []
+references:
+  - 'https://github.com/grumbling-tom/hexagone/pull/64'
 ordinal: 9000
 ---
 
