@@ -232,14 +232,32 @@ cmd_up() {
   # Argo CD repository Secret (argocd ns): the read-only deploy key the repo-server
   # uses to clone the private repo over SSH. The argocd.argoproj.io/secret-type
   # label is what makes Argo treat it as a repo credential.
+  #
+  # Two macOS-Keychain gotchas to defuse, both of which yield Argo's "ssh: no key
+  # found":
+  #   1. `security -w` returns a MULTI-LINE secret (an SSH key is multi-line) as a
+  #      HEX string, not the raw bytes — so kc() hands us hex, which is not a key.
+  #   2. Go's SSH parser rejects a key without a trailing newline.
+  # Handle both: if kc() gave us a real PEM, pass it through with exactly one
+  # trailing newline; otherwise hex-decode what `security` dumped (xxd restores the
+  # original bytes, trailing newline and all). --from-file avoids the newline-
+  # stripping of --from-literal/`$()`.
   log "Upserting Argo CD repository secret"
+  local tmpkey
+  tmpkey="$(mktemp)"
+  if printf '%s' "$argocd_deploy_key" | grep -q 'BEGIN OPENSSH'; then
+    printf '%s\n' "$argocd_deploy_key" >"$tmpkey"
+  else
+    printf '%s' "$argocd_deploy_key" | xxd -r -p >"$tmpkey"
+  fi
   k create secret generic hexagone-repo -n argocd \
     --from-literal=type=git \
     --from-literal=url="$REPO_SSH_URL" \
-    --from-literal=sshPrivateKey="$argocd_deploy_key" \
+    --from-file=sshPrivateKey="$tmpkey" \
     --dry-run=client -o yaml \
     | k label --local -f - argocd.argoproj.io/secret-type=repository -o yaml \
     | k apply -f -
+  rm -f "$tmpkey"
 
   # 7. Hand the app to Argo CD ----------------------------------------------
   # Argo owns the production overlay from here: it syncs it now and re-syncs on
