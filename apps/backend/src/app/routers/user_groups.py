@@ -99,10 +99,7 @@ def update_user_group(
     db: Annotated[Session, Depends(db_session)],
 ) -> UserGroupResponse:
     """Rename a group. Owner only."""
-    try:
-        group = user_group_service.update_group(db, user, group_uid, name=body.name)
-    except user_group_service.UserGroupNotFoundError:
-        raise HTTPException(status_code=404, detail="Group not found") from None
+    group = user_group_service.update_group(db, user, group_uid, name=body.name)
     return UserGroupResponse.model_validate(group)
 
 
@@ -117,9 +114,5 @@ def delete_user_group(
     db: Annotated[Session, Depends(db_session)],
 ) -> Response:
     """Soft-delete (archive) a group. Owner only."""
-    try:
-        user_group_service.archive_group(db, user, group_uid)
-    except user_group_service.UserGroupNotFoundError:
-        raise HTTPException(status_code=404, detail="Group not found") from None
-
+    user_group_service.archive_group(db, user, group_uid)
     return Response(status_code=204)

@@ -297,11 +297,11 @@ class Or(Predicate):
 
     ``field`` is inherited from ``Predicate`` but unused; it defaults to ``""``
     so the model can be constructed without one. The real contract is the
-    ``filters`` list, typed as the nominal ``Predicate`` so Pydantic can nest
+    ``predicates`` list, typed as the nominal ``Predicate`` so Pydantic can nest
     arbitrary predicates (including SQL-only ones like ``Related``).
 
     Example:
-        Or(filters=[
+        Or(predicates=[
             Equals(field="status", value="active"),
             Equals(field="status", value="pending"),
         ])
@@ -309,15 +309,15 @@ class Or(Predicate):
     """
 
     field: str = ""  # unused; satisfies base
-    filters: list[Predicate] = Field(
+    predicates: list[Predicate] = Field(
         ...,
         description="Inner predicates whose SQL expressions are OR-combined",
     )
 
     def to_sql(self, entity: type[BaseModel]) -> ColumnElement[bool]:
-        if not self.filters:
+        if not self.predicates:
             return false()  # an empty OR matches nothing
-        return or_(*(p.to_sql(entity) for p in self.filters))
+        return or_(*(p.to_sql(entity) for p in self.predicates))
 
     # No is_satisfied_by: an OR whose children may be SQL-only can't be evaluated
     # in memory. Omitting it makes `Or` a static type error as a create guard.
@@ -354,4 +354,11 @@ class Related(Predicate):
             return relationship_attr.any(condition)
         return relationship_attr.has(condition)
 
-    # No is_satisfied_by: EXISTS-over-a-relationship has no in-memory answer.
+    # Omitting is_satisfied_by on Related is correct, but the precise
+    # justification is: a create guard runs against an unpersisted instance
+    # whose relationships aren't loaded, so the only sound way to evaluate a
+    # relational predicate is a query — and a Guard is defined as the thing
+    # that doesn't query. Relational authorization therefore belongs on the
+    # read side (which is exactly what add_member's get_group(..., WRITE)
+    # does), and the type system encoding "Related can't be a create guard"
+    # matches that reality.

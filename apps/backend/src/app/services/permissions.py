@@ -59,7 +59,7 @@ def permissions_predicates(
         # Readable if the user owns the group or is a member of it.
         return [
             Or(
-                filters=[
+                predicates=[
                     is_owner,
                     Related(
                         field="members",

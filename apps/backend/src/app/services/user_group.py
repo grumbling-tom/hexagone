@@ -5,7 +5,6 @@ from sqlalchemy.orm import Session as DBSession
 
 from src.app.repository import (
     Equals,
-    NotAuthorisedError,
     Repository,
     User,
     UserGroup,
@@ -127,22 +126,19 @@ def archive_group(db: DBSession, user: User, group_uid: str) -> UserGroup:
     """Soft-delete a group. Owner-only, atomic, and idempotent.
 
     The guards reproduce every WHERE the old gating read applied: the WRITE
-    permission predicates plus `archived == False` so re-archiving an
-    already-archived group is a no-op that surfaces as "not found".
+    permission predicates plus `archived == False`. A non-owner, a missing
+    group, or an already-archived group all match no row, so `repo.update`
+    raises `NotAuthorisedError` (handled app-wide as a 403).
     """
     repo = Repository(db, UserGroup)
-    try:
-        group = repo.update(
-            group_uid,
-            {"archived": True},
-            guards=[
-                *permissions_predicates(user, UserGroup, Operation.WRITE),
-                Equals(field="archived", value=False),
-            ],
-        )
-    except NotAuthorisedError:
-        raise UserGroupNotFoundError(group_uid) from None
-
+    group = repo.update(
+        group_uid,
+        {"archived": True},
+        guards=[
+            *permissions_predicates(user, UserGroup, Operation.WRITE),
+            Equals(field="archived", value=False),
+        ],
+    )
     db.commit()
     logger.info("user_group_archived", user_group_uid=group.uid)
     return group

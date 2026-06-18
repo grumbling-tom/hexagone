@@ -92,11 +92,11 @@ def test_archive_group_is_idempotent(
     create_group: Callable[..., UserGroup],
 ):
     """Re-archiving an already-archived group hits the `archived == False`
-    guard and matches no row, so it surfaces as `UserGroupNotFoundError`."""
+    guard and matches no row, so `repo.update` raises `NotAuthorisedError`."""
     group = create_group(name="Doomed", owner=test_user)
     user_group_service.archive_group(test_db, test_user, group.uid)
 
-    with pytest.raises(user_group_service.UserGroupNotFoundError):
+    with pytest.raises(NotAuthorisedError):
         user_group_service.archive_group(test_db, test_user, group.uid)
 
 
@@ -119,17 +119,15 @@ def test_list_groups_excludes_archived(
     assert [g.uid for g in remaining] == [live.uid]
 
 
-def test_archive_group_for_non_owner_raises_not_found(
+def test_archive_group_for_non_owner_raises_not_authorised(
     test_db: Session,
     test_user: User,
     create_user: Callable[..., User],
     create_group: Callable[..., UserGroup],
     create_membership: Callable[..., UserGroupMembership],
 ):
-    """Non-owners get the same 404-shaped result as non-members — the WRITE
-    permission guard on the atomic update matches no row for them, so
-    `update_group` / `archive_group` raise `NotAuthorisedError` rather than
-    a permission-specific error."""
+    """A non-owner (even a member) matches no row under the WRITE guard, so
+    `archive_group` raises `NotAuthorisedError` — surfaced app-wide as 403."""
     owner = create_user(email="owner@example.com")
     group = create_group(name="Theirs", owner=owner)
     create_membership(group=group, user=test_user)

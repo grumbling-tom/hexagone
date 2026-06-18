@@ -393,7 +393,7 @@ def test_or_filter_returns_rows_matching_any_inner_filter(
     result = repo.get_filtered(
         filters=[
             Or(
-                filters=[
+                predicates=[
                     Equals(field="original_filename", value="alpha.gpx"),
                     Equals(field="file_size_bytes", value=300),
                 ]
