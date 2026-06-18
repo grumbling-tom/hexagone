@@ -367,14 +367,16 @@ local process that reads the cluster straight from the kubeconfig (no login, no
 Dex). Run it **on the mini**:
 
 ```bash
-scripts/prod-stack.sh dashboard          # serves the UI on localhost:8080
+scripts/prod-stack.sh dashboard          # serves the UI on 127.0.0.1:8080
 ```
 
-From your laptop (also on the tailnet), tunnel to it over SSH and open the URL —
-nothing is ever exposed publicly, consistent with the rest of the admin plane:
+The script pins the prod kube context for you (via a throwaway kubeconfig — your
+active `kubectl` context is left untouched) and binds to `127.0.0.1`. From your
+laptop (also on the tailnet), tunnel to it over SSH and open the URL — nothing is
+ever exposed publicly, consistent with the rest of the admin plane:
 
 ```bash
-ssh -L 8080:localhost:8080 <hexagone-mini-tailnet-ip>   # then browse http://localhost:8080
+ssh -L 8080:127.0.0.1:8080 <hexagone-mini-tailnet-ip>   # then browse http://127.0.0.1:8080
 ```
 
 Quit it (Ctrl-C) and the cluster is back to the three headless Argo pods. CLI

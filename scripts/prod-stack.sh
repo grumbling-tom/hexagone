@@ -430,10 +430,23 @@ cmd_dashboard() {
   profile_running || die "stack is down — run 'scripts/prod-stack.sh up' first"
 
   local port="${1:-8080}"
-  log "Argo CD UI → http://localhost:${port}  (Ctrl-C to stop)"
+
+  # `argocd admin dashboard` reads the kubeconfig's CURRENT context — unlike
+  # kubectl it does NOT honour a --kube-context flag — and we deliberately never
+  # make the prod context active (the VM starts with --activate=false so it can't
+  # hijack your kubectl). So hand argocd a throwaway, self-contained kubeconfig
+  # whose current-context IS the prod context, leaving ~/.kube/config untouched.
+  local tmpkc
+  tmpkc="$(mktemp)"
+  trap 'rm -f "$tmpkc"' EXIT
+  kubectl config view --raw --minify --context "$KUBE_CONTEXT" >"$tmpkc"
+
+  # Bind to 127.0.0.1 explicitly: the default `localhost` can resolve to the IPv6
+  # loopback only, which then refuses IPv4 (127.0.0.1) connections.
+  log "Argo CD UI → http://127.0.0.1:${port}  (Ctrl-C to stop)"
   log "From your laptop over Tailscale, tunnel first:"
-  log "    ssh -L ${port}:localhost:${port} <hexagone-mini-tailnet-ip>   # then open the URL above"
-  argocd admin dashboard -n argocd --port "$port" --kube-context "$KUBE_CONTEXT"
+  log "    ssh -L ${port}:127.0.0.1:${port} <hexagone-mini-tailnet-ip>   # then open the URL above"
+  KUBECONFIG="$tmpkc" argocd admin dashboard -n argocd --port "$port" --address 127.0.0.1
 }
 
 # --- Dispatch ---------------------------------------------------------------
