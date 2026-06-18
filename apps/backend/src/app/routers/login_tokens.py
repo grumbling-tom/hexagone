@@ -3,7 +3,7 @@
 import secrets
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Response
+from fastapi import APIRouter, Depends, HTTPException, Response
 from pydantic import EmailStr
 from sqlalchemy.orm import Session
 
@@ -32,23 +32,28 @@ def create_login_token(
 ) -> Response:
     """Request a magic-link sign-in email (enumeration-safe).
 
-    Always returns 202 with an empty body and always sets a browser-binding
-    nonce cookie, so neither the status, the body, nor the headers reveal
-    whether the address is on the invite allowlist. A link is only issued and
-    emailed for allow-listed addresses; the nonce is a harmless throwaway
-    otherwise. How (or whether) to message the user is left to the frontend.
+    On success returns 202 with an empty body and sets a browser-binding nonce
+    cookie, so neither the status, the body, nor the headers reveal whether the
+    address is on the invite allowlist. A link is only issued and emailed for
+    allow-listed addresses; the nonce is a harmless throwaway otherwise. How (or
+    whether) to message the user is left to the frontend.
+
+    If sending the email fails for an allow-listed address, the request fails
+    with 502 so the frontend can surface the problem rather than leave the user
+    waiting for a link that never arrives. This means a provider outage is a
+    theoretical allow-status signal, but such failures aren't
+    attacker-controllable per address, so the UX win wins.
     """
     nonce = secrets.token_urlsafe(settings.LOGIN_TOKEN_SECRET_BYTES)
 
     if is_email_allowed(body.email):
         issued = issue_login_token(db, body.email)
         nonce = issued.nonce
-        # Best-effort: a provider failure must not change the response (that
-        # would leak allow-status), so swallow and log.
         try:
             send_login_link_email(mailer, to_email=body.email, token=issued.token)
-        except Exception:
+        except Exception as exc:
             logger.exception("login_link_email_failed")
+            raise HTTPException(status_code=502) from exc
 
     response = Response(status_code=202)
     response.set_cookie(

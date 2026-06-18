@@ -53,3 +53,24 @@ def test_request_link_rejects_malformed_email(
         "/api/v1/login-tokens", json={"email": "not-an-email"}
     )
     assert response.status_code == 422
+
+
+def test_request_link_surfaces_email_send_failure(
+    unauthenticated_client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(settings, "ALLOWED_EMAILS", ["allowed@example.com"])
+
+    def _boom(*_args: Any, **_kwargs: Any) -> str:
+        msg = "email provider down"
+        raise RuntimeError(msg)
+
+    monkeypatch.setattr("src.app.routers.login_tokens.send_login_link_email", _boom)
+
+    response = unauthenticated_client.post(
+        "/api/v1/login-tokens", json={"email": "allowed@example.com"}
+    )
+
+    # The failure is surfaced (not swallowed) so the frontend can tell the user
+    # the link couldn't be sent.
+    assert response.status_code == 502

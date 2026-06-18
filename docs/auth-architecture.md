@@ -145,7 +145,10 @@ Key points:
 - **Enumeration-safe.** `POST /login-tokens` responds identically (same 202 with
   an empty body, and a nonce cookie is always set) regardless of whether the
   email exists or is allow-listed. The backend returns no message; how to inform
-  the user is the frontend's call.
+  the user is the frontend's call. The one exception: if the email provider fails
+  for an allow-listed address the request returns 502 (so the frontend can
+  surface it) — a theoretical allow-status signal, accepted because provider
+  failures aren't attacker-controllable per address.
 - **No secrets in logs.** The plaintext token and nonce are never logged; emails
   are masked (`mask_email`, and centrally via `TASK-0022`). Tokens must also be
   kept out of access logs / OpenTelemetry spans (`TASK-0019`).
