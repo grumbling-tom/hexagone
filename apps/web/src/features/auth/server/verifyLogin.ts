@@ -1,0 +1,20 @@
+"use server";
+
+import { redirect } from "next/navigation";
+import { createUserSession } from "@/__generated__/backend-client/user-sessions";
+import type { AuthFormState } from "@/features/auth/types";
+
+export async function verifyLogin(token: string): Promise<AuthFormState> {
+  try {
+    // Consume the token. fetchClient forwards the browser-binding nonce cookie
+    // (set when the link was requested) and propagates the new `sessionid`
+    // cookie back. A bad/expired/used token or missing nonce -> 401.
+    await createUserSession({ token });
+  } catch {
+    return { error: "This sign-in link is invalid or has expired." };
+  }
+
+  // redirect() throws a control-flow signal — keep it outside the try/catch.
+  // Lands on a clean URL with the token stripped from the address.
+  redirect("/map");
+}

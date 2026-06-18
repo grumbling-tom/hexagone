@@ -4,21 +4,34 @@ import type { ReactNode } from "react";
 import { useActionState } from "react";
 import type { AuthFormState } from "@/features/auth/types";
 
-// The `action` (which creates the account + redirects) and the `footer`
-// cross-link are supplied by the route (app/), keeping routing and data access
-// out of the feature — see CLAUDE.md → Frontend Import Rules.
-export default function SignupForm({
+// The `action` (which requests the magic-link email) and the optional `footer`
+// are supplied by the route (app/), keeping routing and data access out of the
+// feature — see CLAUDE.md → Frontend Import Rules.
+export default function RequestLinkForm({
   action,
   footer,
 }: {
   action: (state: AuthFormState, formData: FormData) => Promise<AuthFormState>;
-  footer: ReactNode;
+  footer?: ReactNode;
 }) {
   const [state, formAction, pending] = useActionState(action, {});
 
+  if (state.sent) {
+    return (
+      <div className="auth-form">
+        <h1 className="auth-form__title">Check your email</h1>
+        <p className="auth-form__notice">
+          If your email is on the invite list, a sign-in link is on its way.
+          Open it in this browser to finish signing in.
+        </p>
+        {footer && <p className="auth-form__footer">{footer}</p>}
+      </div>
+    );
+  }
+
   return (
     <form className="auth-form" action={formAction}>
-      <h1 className="auth-form__title">Sign up</h1>
+      <h1 className="auth-form__title">Sign in</h1>
 
       {state.error && <p className="auth-form__error">{state.error}</p>}
 
@@ -30,17 +43,7 @@ export default function SignupForm({
         id="email"
         name="email"
         type="email"
-        required
-      />
-
-      <label className="auth-form__label" htmlFor="password">
-        Password
-      </label>
-      <input
-        className="auth-form__input"
-        id="password"
-        name="password"
-        type="password"
+        autoComplete="email"
         required
       />
 
@@ -49,10 +52,10 @@ export default function SignupForm({
         type="submit"
         disabled={pending}
       >
-        {pending ? "Signing up" : "Sign up"}
+        {pending ? "Sending link" : "Send sign-in link"}
       </button>
 
-      <p className="auth-form__footer">{footer}</p>
+      {footer && <p className="auth-form__footer">{footer}</p>}
     </form>
   );
 }

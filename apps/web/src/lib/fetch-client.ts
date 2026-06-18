@@ -12,6 +12,7 @@ import { env } from "@/config/env";
 export enum HttpStatus {
   UNAUTHORIZED = 401,
   CONFLICT = 409,
+  BAD_GATEWAY = 502,
 }
 
 export class ApiError<T> extends Error {
@@ -100,7 +101,11 @@ export async function fetchClient<T>(config: {
     return undefined as T;
   }
 
-  return response.json();
+  // Some endpoints return an empty body with a 2xx other than 204 (e.g. the
+  // accepted-but-no-content 202 from POST /login-tokens); response.json() throws
+  // on an empty body, so read text and parse only when there's something there.
+  const text = await response.text();
+  return (text ? JSON.parse(text) : undefined) as T;
 }
 
 export default fetchClient;

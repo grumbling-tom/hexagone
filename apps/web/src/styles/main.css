@@ -1161,6 +1161,10 @@ a {
   color: var(--color-danger);
   margin-bottom: var(--space-sm);
 }
+.auth-form__notice {
+  font-family: var(--font-body);
+  margin-bottom: var(--space-sm);
+}
 .auth-form__submit {
   margin-top: var(--space-xs);
   align-self: flex-start;

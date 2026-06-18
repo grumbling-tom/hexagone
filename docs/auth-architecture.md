@@ -11,7 +11,7 @@ session layer — no third-party auth vendor.
 > |------|--------|-------|
 > | Token domain (model, issue/verify/peek, allowlist, email) | ✅ implemented | `TASK-0018` / PR #56 |
 > | HTTP endpoints (`POST /login-tokens`, `POST /user-sessions {token}`) + nonce cookie | ✅ implemented | `TASK-0019` |
-> | Frontend (email-only forms, verify route, auto-redirect) | ⏳ planned | `TASK-0020` |
+> | Frontend (email-only form, verify route, auto-redirect) | ✅ implemented | `TASK-0020` |
 > | Remove password auth | ⏳ planned | `TASK-0021` |
 > | Centralised email masking in logs | ⏳ planned | `TASK-0022` |
 
@@ -41,7 +41,8 @@ useless without the browser that asked for it.
 | Session minting (reused) | `apps/backend/src/app/services/user_session.py` (`create_session`) |
 | Settings | `apps/backend/src/app/settings.py` (`ALLOWED_EMAILS`, `LOGIN_TOKEN_*`) |
 | Endpoints | `routers/login_tokens.py` (`POST /login-tokens`); `routers/user_sessions.py` (`POST /user-sessions` token mode) |
-| Frontend forms + verify route (planned) | `apps/web/src/features/auth/`, `apps/web/app/auth/verify/` |
+| Frontend email form + actions | `features/auth/components/RequestLinkForm.tsx`, `features/auth/server/requestLink.ts`; route `app/login/page.tsx` (`/signup` redirects here) |
+| Frontend verify route | `app/auth/verify/page.tsx` + `features/auth/components/VerifyStatus.tsx` + `features/auth/server/verifyLogin.ts` |
 
 ## Flow 1 — request a link (issue)
 
