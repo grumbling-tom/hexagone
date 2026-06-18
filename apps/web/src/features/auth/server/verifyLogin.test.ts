@@ -20,7 +20,7 @@ beforeEach(() => {
   vi.clearAllMocks();
 });
 
-test("consumes the token and redirects to /map on success", async () => {
+test("consumes the token and redirects to /welcome on success", async () => {
   (createUserSession as Mock).mockResolvedValue({
     uid: "1",
     email: "user@example.com",
@@ -29,7 +29,8 @@ test("consumes the token and redirects to /map on success", async () => {
   await expect(verifyLogin("a-token")).rejects.toThrow("NEXT_REDIRECT");
 
   expect(createUserSession).toHaveBeenCalledWith({ token: "a-token" });
-  expect(mockRedirect).toHaveBeenCalledWith("/map");
+  // /welcome is the onboarding gate (it bounces to /map for returning users).
+  expect(mockRedirect).toHaveBeenCalledWith("/welcome");
 });
 
 test("returns an error and does not redirect on an invalid token", async () => {

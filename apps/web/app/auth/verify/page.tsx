@@ -16,7 +16,8 @@ export default async function VerifyPage({
   searchParams: Promise<{ token?: string | string[] }>;
 }) {
   // Already signed in (e.g. a refresh after a successful verify, where the token
-  // is now spent)? Don't dead-end the user — send them into the app.
+  // is now spent)? Don't dead-end the user — send them through /welcome, which
+  // routes them on (onboarding if new, /map if they have uploads).
   let authenticated = false;
   try {
     await getCurrentUser();
@@ -28,7 +29,7 @@ export default async function VerifyPage({
       throw err;
     }
   }
-  if (authenticated) redirect("/map");
+  if (authenticated) redirect("/welcome");
 
   const { token } = await searchParams;
   const tokenValue = typeof token === "string" ? token : null;

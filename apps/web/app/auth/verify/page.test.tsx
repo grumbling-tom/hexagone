@@ -33,7 +33,7 @@ beforeEach(() => {
   vi.clearAllMocks();
 });
 
-test("redirects to /map when the visitor is already signed in", async () => {
+test("redirects to /welcome when the visitor is already signed in", async () => {
   (getCurrentUser as Mock).mockResolvedValue({
     uid: "1",
     email: "a@example.com",
@@ -42,7 +42,7 @@ test("redirects to /map when the visitor is already signed in", async () => {
   await expect(
     VerifyPage({ searchParams: Promise.resolve({ token: "a-token" }) }),
   ).rejects.toThrow("NEXT_REDIRECT");
-  expect(mockRedirect).toHaveBeenCalledWith("/map");
+  expect(mockRedirect).toHaveBeenCalledWith("/welcome");
 });
 
 test("renders the verifier when not signed in", async () => {

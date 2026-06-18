@@ -15,6 +15,9 @@ export async function verifyLogin(token: string): Promise<AuthFormState> {
   }
 
   // redirect() throws a control-flow signal — keep it outside the try/catch.
-  // Lands on a clean URL with the token stripped from the address.
-  redirect("/map");
+  // Land on /welcome (a clean URL, token stripped). /welcome is the onboarding
+  // gate: it shows onboarding for a user with no uploads (e.g. a brand-new
+  // account auto-created on first verify) and bounces to /map otherwise — so
+  // sign-in and sign-up converge on one destination that routes correctly.
+  redirect("/welcome");
 }

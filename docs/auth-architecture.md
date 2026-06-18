@@ -101,7 +101,7 @@ The browser never calls the backend directly — only Next.js does
         │                  │                   │                      │  stamp used_at ◀ CONSUME
         │                  │                   │                      │  create_session()
         │                  │                   │◀─────────────────────│ Set-Cookie sessionid
-        │                  │  Set-Cookie sessionid; 303 → /map (clean URL)
+        │                  │  Set-Cookie sessionid; 303 → /welcome (clean URL)
         │                  │◀──────────────────│                      │
         │                  │  authenticated ✓ — token spent, no replay │
 ```
@@ -113,7 +113,9 @@ Key points:
   *"expired — request a new link"*.
 - **Consume is automatic, not a button.** A client component fires the verify
   Server Action **on mount**; on success the backend stamps `used_at`, calls
-  `create_session`, and the user is redirected to a clean URL (token stripped).
+  `create_session`, and the user is redirected to a clean URL (token stripped) —
+  `/welcome`, the onboarding gate, which shows onboarding for a new account and
+  bounces to `/map` for a returning one.
 - **Why auto-redirect is safe** (see the threat table below): the always-on
   nonce is the real gate, not the click.
 
