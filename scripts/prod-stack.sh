@@ -267,10 +267,23 @@ cmd_up() {
   k apply -f "$ARGOCD_APP_MANIFEST"
 
   # 8. Wait for readiness ---------------------------------------------------
-  log "Waiting for Argo CD to report the app Healthy"
-  k -n argocd wait --for=jsonpath='{.status.health.status}'=Healthy \
-    application/hexagone --timeout=420s \
-    || warn "Argo app not Healthy yet — inspect with 'scripts/prod-stack.sh dashboard'"
+  # Argo owns the app now: it creates the DB Cluster, backend, web and cloudflared.
+  # Its app health aggregates all of them, so that's the real readiness signal —
+  # wait on it first. If it never goes Healthy, the workloads may not exist yet, so
+  # DON'T fall through to per-resource waits (they'd error NotFound on a Deployment
+  # Argo hasn't synced) — surface the state and stop with a pointer to the sync.
+  log "Waiting for Argo CD to sync the app Healthy (it creates the DB, backend, web, cloudflared)"
+  if ! k -n argocd wait --for=jsonpath='{.status.health.status}'=Healthy \
+       application/hexagone --timeout=420s; then
+    warn "Argo app did not reach Healthy. The app workloads are created by Argo, so"
+    warn "they may be missing or still progressing. Inspect the sync:"
+    warn "    scripts/prod-stack.sh dashboard"
+    warn "    kubectl --context $KUBE_CONTEXT -n argocd get application hexagone"
+    k get pods 2>/dev/null || true
+    return 1
+  fi
+
+  # Healthy ⇒ the resources exist; these waits are now race-free confirmation.
   log "Waiting for the database cluster"
   k wait --for=condition=Ready cluster/hexagone-db --timeout=300s
   for d in "${STATELESS_DEPLOYMENTS[@]}"; do
