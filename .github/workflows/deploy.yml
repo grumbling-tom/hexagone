@@ -42,6 +42,7 @@ jobs:
     needs: prep
     runs-on: ubuntu-latest
     permissions:
+      contents: read # checkout the (private) repo — an explicit block zeroes every unlisted scope
       packages: write # push images to ghcr.io/grumbling-tom/*
     strategy:
       matrix:
