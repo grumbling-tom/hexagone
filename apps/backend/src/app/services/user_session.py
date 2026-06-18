@@ -68,7 +68,6 @@ def validate_session(
     db: DBSession,
     session_id: str,
     user_agent: str,
-    ip_address: str,
 ) -> UserSession | None:
     """Validate session ID and fingerprint.
 
@@ -76,7 +75,6 @@ def validate_session(
         db: Database session.
         session_id: Session UID from cookie.
         user_agent: Current user agent string.
-        ip_address: Current client IP address.
 
     Returns:
         Valid UserSession if all checks pass, None otherwise.
@@ -86,7 +84,14 @@ def validate_session(
         - User account not archived
         - Session not expired
         - User agent matches
-        - IP address matches
+
+    Note:
+        The session's origin IP is recorded at creation for audit, but is
+        deliberately *not* part of the fingerprint: client IPs legitimately
+        change mid-session (mobile networks roaming between Wi-Fi and
+        cellular, carrier-grade NAT, VPNs), and binding to the IP forced a
+        re-login on every change. Validation relies on the opaque, httpOnly
+        session cookie plus the user-agent hash instead.
     """
     session_repo = Repository(db, UserSession)
     session = session_repo.find_by_uid(session_id)
@@ -118,17 +123,6 @@ def validate_session(
         logger.warning(
             "session_user_agent_mismatch",
             session_id=session_id,
-            ip_address=ip_address,
-        )
-        invalidate_session(db, session)
-        return None
-
-    if session.ip_address != ip_address:
-        logger.warning(
-            "session_ip_mismatch",
-            session_id=session_id,
-            expected_ip=session.ip_address,
-            actual_ip=ip_address,
         )
         invalidate_session(db, session)
         return None

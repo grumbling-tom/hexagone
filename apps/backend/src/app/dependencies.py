@@ -12,7 +12,6 @@ from src.app.services.email import (
 from src.app.services.storage import S3StorageBackend, StorageBackend
 from src.app.services.user_session import validate_session
 from src.app.settings import settings
-from src.app.utils import get_client_ip
 
 if TYPE_CHECKING:
     from src.app.repository.models import User
@@ -42,9 +41,8 @@ def authenticated_user(
         raise HTTPException(status_code=401, detail="Authentication required")
 
     user_agent = request.headers.get("user-agent", "")
-    ip_address = get_client_ip(request)
 
-    session = validate_session(db, session_id, user_agent, ip_address)
+    session = validate_session(db, session_id, user_agent)
     if not session:
         raise HTTPException(status_code=401, detail="Invalid or expired session")
 

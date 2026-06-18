@@ -45,7 +45,7 @@ def test_create_session(test_db: Session):
 def test_validate_session_success(test_db: Session):
     user = _make_user(test_db)
     session = create_session(test_db, user.uid, "TestAgent", "127.0.0.1")
-    result = validate_session(test_db, session.uid, "TestAgent", "127.0.0.1")
+    result = validate_session(test_db, session.uid, "TestAgent")
     assert result is not None
     assert result.uid == session.uid
 
@@ -57,22 +57,30 @@ def test_validate_session_expired(test_db: Session):
     session.expires_at = datetime.now(UTC).replace(tzinfo=None) - timedelta(hours=1)
     test_db.commit()
 
-    result = validate_session(test_db, session.uid, "TestAgent", "127.0.0.1")
+    result = validate_session(test_db, session.uid, "TestAgent")
     assert result is None
 
 
 def test_validate_session_ua_mismatch(test_db: Session):
     user = _make_user(test_db)
     session = create_session(test_db, user.uid, "TestAgent", "127.0.0.1")
-    result = validate_session(test_db, session.uid, "DifferentAgent", "127.0.0.1")
+    result = validate_session(test_db, session.uid, "DifferentAgent")
     assert result is None
 
 
-def test_validate_session_ip_mismatch(test_db: Session):
-    user = _make_user(test_db)
+def test_validate_session_ignores_ip_change(test_db: Session):
+    """A changed client IP must NOT invalidate the session — mobile and VPN
+    clients legitimately roam across IPs mid-session."""
+    user = _make_user(test_db, email="iproam@example.com")
     session = create_session(test_db, user.uid, "TestAgent", "127.0.0.1")
-    result = validate_session(test_db, session.uid, "TestAgent", "192.168.1.1")
-    assert result is None
+
+    # Same cookie + user agent, different IP: still valid, still alive.
+    result = validate_session(test_db, session.uid, "TestAgent")
+    assert result is not None
+    assert result.uid == session.uid
+
+    repo = Repository(test_db, UserSession)
+    assert repo.find_by_uid(session.uid) is not None
 
 
 def test_validate_session_archived_user(test_db: Session):
@@ -82,7 +90,7 @@ def test_validate_session_archived_user(test_db: Session):
     user.archived = True
     test_db.commit()
 
-    result = validate_session(test_db, session.uid, "TestAgent", "127.0.0.1")
+    result = validate_session(test_db, session.uid, "TestAgent")
     assert result is None
 
 
@@ -91,7 +99,7 @@ def test_hard_delete_on_mismatch(test_db: Session):
     session = create_session(test_db, user.uid, "TestAgent", "127.0.0.1")
     session_uid = session.uid
 
-    validate_session(test_db, session_uid, "DifferentAgent", "127.0.0.1")
+    validate_session(test_db, session_uid, "DifferentAgent")
 
     repo = Repository(test_db, UserSession)
     assert repo.find_by_uid(session_uid) is None
@@ -104,7 +112,7 @@ def test_sliding_window_refresh(test_db: Session):
 
     time.sleep(0.01)
 
-    validate_session(test_db, session.uid, "TestAgent", "127.0.0.1")
+    validate_session(test_db, session.uid, "TestAgent")
     test_db.refresh(session)
     assert session.expires_at >= original_expires
 
