@@ -1,5 +1,7 @@
 """User service for authentication and account management."""
 
+import secrets
+
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session as DBSession
 
@@ -10,6 +12,15 @@ from src.app.settings import settings
 from src.app.utils import PaginatedResult, SortOrder, get_logger, mask_email
 
 logger = get_logger(__name__)
+
+
+def get_user_by_email(db: DBSession, email: str) -> User | None:
+    """Return the user with this email, or None if none exists."""
+    result = Repository(db, User).get_filtered(
+        filters=[EqualsFilter(field="email", value=email)],
+        page_size=1,
+    )
+    return result.items[0] if result.items else None
 
 
 def authenticate_user(db: DBSession, email: str, password: str) -> User | None:
@@ -23,17 +34,11 @@ def authenticate_user(db: DBSession, email: str, password: str) -> User | None:
     Returns:
         The authenticated User, or None if authentication fails.
     """
-    user_repo = Repository(db, User)
-    result = user_repo.get_filtered(
-        filters=[EqualsFilter(field="email", value=email)],
-        page_size=1,
-    )
+    user = get_user_by_email(db, email)
 
-    if not result.items:
+    if user is None:
         logger.warning("auth_user_not_found", email=email)
         return None
-
-    user = result.items[0]
 
     if user.archived:
         logger.warning("auth_user_archived", user_uid=user.uid)
@@ -82,6 +87,32 @@ def create_user(db: DBSession, email: str, password: str) -> User:
     db.refresh(user)
     logger.info("user_created", user_uid=user.uid, email=mask_email(email))
     return user
+
+
+def get_or_create_user_by_email(db: DBSession, email: str) -> tuple[User, bool]:
+    """Fetch the user for *email*, creating one if absent.
+
+    Used by passwordless sign-in: an allow-listed email verifying a magic link
+    for the first time gets an account. The user is created with an unusable
+    random password placeholder — they have no password and can only sign in
+    via magic link. (The ``password_hash`` column is dropped in TASK-0021, at
+    which point the placeholder goes away.)
+
+    Returns:
+        ``(user, created)`` — ``created`` is True only when a new row was made.
+    """
+    user = get_user_by_email(db, email)
+    if user is not None:
+        return user, False
+
+    try:
+        return create_user(db, email, secrets.token_urlsafe(32)), True
+    except DuplicateEmailError:
+        # Lost a create race against a concurrent verify; the row now exists.
+        user = get_user_by_email(db, email)
+        if user is None:  # pragma: no cover - defensive
+            raise
+        return user, False
 
 
 def list_users(

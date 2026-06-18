@@ -217,6 +217,19 @@ export type PaginatedResultHexClaimResponsePreviousCursor = string | null;
 
 export type PaginatedResultHexClaimResponseNextCursor = string | null;
 
+export interface PaginatedResultHexClaimResponse {
+  has_next: boolean;
+  has_previous: boolean;
+  items: HexClaimResponse[];
+  next_cursor: PaginatedResultHexClaimResponseNextCursor;
+  /** Number of items returned in this page.
+
+Returns:
+    The length of the items list. */
+  readonly page_size: number;
+  previous_cursor: PaginatedResultHexClaimResponsePreviousCursor;
+}
+
 export type PaginatedResultAggregatedHexClaimByCellPreviousCursor = string | null;
 
 export type PaginatedResultAggregatedHexClaimByCellNextCursor = string | null;
@@ -261,29 +274,28 @@ export interface HexClaimResponse {
   upload_uid: string;
 }
 
-export interface PaginatedResultHexClaimResponse {
-  has_next: boolean;
-  has_previous: boolean;
-  items: HexClaimResponse[];
-  next_cursor: PaginatedResultHexClaimResponseNextCursor;
-  /** Number of items returned in this page.
-
-Returns:
-    The length of the items list. */
-  readonly page_size: number;
-  previous_cursor: PaginatedResultHexClaimResponsePreviousCursor;
-}
-
 export interface HTTPValidationError {
   detail?: ValidationError[];
 }
 
+export type CreateUserSessionRequestToken = string | null;
+
+export type CreateUserSessionRequestPassword = string | null;
+
+export type CreateUserSessionRequestEmail = string | null;
+
 /**
- * Request body for login.
+ * Credentials for creating a session — password mode OR magic-link mode.
+
+Exactly one mode must be supplied: ``email`` + ``password`` (legacy password
+login) or ``token`` (magic link; the browser-binding nonce is read from the
+cookie, not the body). The password mode is removed in TASK-0021, after
+which this collapses to just ``token``.
  */
 export interface CreateUserSessionRequest {
-  email: string;
-  password: string;
+  email?: CreateUserSessionRequestEmail;
+  password?: CreateUserSessionRequestPassword;
+  token?: CreateUserSessionRequestToken;
 }
 
 /**
@@ -311,6 +323,13 @@ export interface CreateUserGroupRequest {
 export interface CreateUploadRequest {
   file_size_bytes: number;
   original_filename: string;
+}
+
+/**
+ * Request body for requesting a magic-link sign-in email.
+ */
+export interface CreateLoginTokenRequest {
+  email: string;
 }
 
 /**
