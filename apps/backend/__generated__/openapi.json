@@ -319,7 +319,7 @@
           "login-tokens"
         ],
         "summary": "Create Login Token",
-        "description": "Request a magic-link sign-in email (enumeration-safe).\n\nAlways returns 202 with an empty body and always sets a browser-binding\nnonce cookie, so neither the status, the body, nor the headers reveal\nwhether the address is on the invite allowlist. A link is only issued and\nemailed for allow-listed addresses; the nonce is a harmless throwaway\notherwise. How (or whether) to message the user is left to the frontend.",
+        "description": "Request a magic-link sign-in email (enumeration-safe).\n\nOn success returns 202 with an empty body and sets a browser-binding nonce\ncookie, so neither the status, the body, nor the headers reveal whether the\naddress is on the invite allowlist. A link is only issued and emailed for\nallow-listed addresses; the nonce is a harmless throwaway otherwise. How (or\nwhether) to message the user is left to the frontend.\n\nIf sending the email fails for an allow-listed address, the request fails\nwith 502 so the frontend can surface the problem rather than leave the user\nwaiting for a link that never arrives. This means a provider outage is a\ntheoretical allow-status signal, but such failures aren't\nattacker-controllable per address, so the UX win wins.",
         "operationId": "createLoginToken",
         "requestBody": {
           "content": {
