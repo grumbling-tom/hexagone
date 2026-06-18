@@ -40,7 +40,10 @@ jobs:
 
   build:
     needs: prep
-    runs-on: ubuntu-latest
+    # Native ARM runner: the prod cluster is a single arm64 node (the Apple-Silicon
+    # mini), so images must be linux/arm64. Building on a native arm runner avoids
+    # QEMU emulation (fast) and GitHub bills arm runners at the x86 rate.
+    runs-on: ubuntu-24.04-arm
     permissions:
       contents: read # checkout the (private) repo — an explicit block zeroes every unlisted scope
       packages: write # push images to ghcr.io/grumbling-tom/*
@@ -67,6 +70,9 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: ${{ matrix.context }}
+          # The cluster node is arm64; build only that. (No amd64 consumer — local
+          # dev builds images via docker-compose, not from GHCR.)
+          platforms: linux/arm64
           push: true
           tags: |
             ${{ env.IMAGE_PREFIX }}-${{ matrix.app }}:${{ needs.prep.outputs.sha }}
