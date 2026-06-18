@@ -111,11 +111,13 @@ Key points:
 - **The `GET` never consumes.** The RSC render is side-effect-free; it may call
   the read-only `peek_login_token` to show *"Link valid! Redirecting…"* or
   *"expired — request a new link"*.
-- **Consume is automatic, not a button.** A client component fires the verify
-  Server Action **on mount**; on success the backend stamps `used_at`, calls
-  `create_session`, and the user is redirected to a clean URL (token stripped) —
-  `/welcome`, the onboarding gate, which shows onboarding for a new account and
-  bounces to `/map` for a returning one.
+- **Consume is automatic, with a manual fallback.** A client component runs a
+  short countdown then fires the verify Server Action (a "Sign in now" button is
+  the manual fallback). Either way consumption happens client-side, after the GET
+  render. On success the backend stamps `used_at`, calls `create_session`, and
+  the user is redirected to a clean URL (token stripped) — `/welcome`, the
+  onboarding gate, which shows onboarding for a new account and bounces to `/map`
+  for a returning one.
 - **Why auto-redirect is safe** (see the threat table below): the always-on
   nonce is the real gate, not the click.
 

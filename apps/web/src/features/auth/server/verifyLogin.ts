@@ -4,7 +4,12 @@ import { redirect } from "next/navigation";
 import { createUserSession } from "@/__generated__/backend-client/user-sessions";
 import type { AuthFormState } from "@/features/auth/types";
 
-export async function verifyLogin(token: string): Promise<AuthFormState> {
+export async function verifyLogin(
+  _prevState: AuthFormState,
+  formData: FormData,
+): Promise<AuthFormState> {
+  const token = String(formData.get("token") ?? "");
+
   try {
     // Consume the token. fetchClient forwards the browser-binding nonce cookie
     // (set when the link was requested) and propagates the new `sessionid`
