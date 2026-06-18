@@ -22,9 +22,7 @@ from src.app.utils import configure_logging
 configure_logging()
 
 
-def _handle_not_authorised(
-    request: Request, exc: NotAuthorisedError
-) -> JSONResponse:
+def _handle_not_authorised(request: Request, exc: Exception) -> JSONResponse:  # noqa: ARG001 — request/exc are required by Starlette's exception-handler signature
     """Map a repository write-guard rejection to 403 Forbidden.
 
     Services let `NotAuthorisedError` propagate rather than translating it,
