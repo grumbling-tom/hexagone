@@ -6,7 +6,7 @@ kind: Kustomization
 namespace: default
 
 resources:
-  - ../base
+- ../base
 
 # Image source: GitHub Container Registry, SHA-pinned. CI (.github/workflows/
 # deploy.yml) builds both images on merge to main, pushes them to GHCR tagged with
@@ -21,9 +21,9 @@ resources:
 # a real short SHA on the first merge, and that immutable tag is what triggers each
 # rollout.
 images:
-  - name: hexagone-backend
-    newName: ghcr.io/grumbling-tom/hexagone-backend
-    newTag: latest
-  - name: hexagone-web
-    newName: ghcr.io/grumbling-tom/hexagone-web
-    newTag: latest
+- name: hexagone-backend
+  newName: ghcr.io/grumbling-tom/hexagone-backend
+  newTag: a1f7dbe
+- name: hexagone-web
+  newName: ghcr.io/grumbling-tom/hexagone-web
+  newTag: a1f7dbe
