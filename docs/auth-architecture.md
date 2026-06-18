@@ -10,7 +10,7 @@ session layer — no third-party auth vendor.
 > | Part | Status | Where |
 > |------|--------|-------|
 > | Token domain (model, issue/verify/peek, allowlist, email) | ✅ implemented | `TASK-0018` / PR #56 |
-> | HTTP endpoints (`request-link`, `verify`) + rate-limit + nonce cookie | ⏳ planned | `TASK-0019` |
+> | HTTP endpoints (`POST /login-tokens`, `POST /user-sessions {token}`) + nonce cookie | ✅ implemented | `TASK-0019` |
 > | Frontend (email-only forms, verify route, auto-redirect) | ⏳ planned | `TASK-0020` |
 > | Remove password auth | ⏳ planned | `TASK-0021` |
 > | Centralised email masking in logs | ⏳ planned | `TASK-0022` |
@@ -40,12 +40,12 @@ useless without the browser that asked for it.
 | Magic-link email template | `apps/backend/src/app/services/email.py` (`send_login_link_email`) |
 | Session minting (reused) | `apps/backend/src/app/services/user_session.py` (`create_session`) |
 | Settings | `apps/backend/src/app/settings.py` (`ALLOWED_EMAILS`, `LOGIN_TOKEN_*`) |
-| Endpoints (planned) | `apps/backend/src/app/routers/` |
+| Endpoints | `routers/login_tokens.py` (`POST /login-tokens`); `routers/user_sessions.py` (`POST /user-sessions` token mode) |
 | Frontend forms + verify route (planned) | `apps/web/src/features/auth/`, `apps/web/app/auth/verify/` |
 
 ## Flow 1 — request a link (issue)
 
-1. User submits their email on `/login` (a Server Action → `POST /auth/request-link`).
+1. User submits their email on `/login` (a Server Action → `POST /login-tokens`).
 2. Backend checks `is_email_allowed`. The response is **identical** whether or not
    the email is allow-listed/known — *"if your email is allowed, we've sent a
    link"* — so the endpoint never reveals who has an account (no enumeration).
@@ -92,7 +92,7 @@ The browser never calls the backend directly — only Next.js does
         │                  │  (client mounts → auto-fires, no button) │
         │                  │  POST verify (Server Action)             │
         │                  │   + nonce cookie (auto-sent)             │
-        │                  │──────────────────▶│ POST /api/auth/verify│
+        │                  │──────────────────▶│ POST /user-sessions  │
         │                  │                   │  {token:T} + nonce   │
         │                  │                   │─────────────────────▶│ verify_login_token
         │                  │                   │                      │  secrets? revoked?
@@ -142,8 +142,9 @@ Key points:
   (same browser → has the nonce); in practice preload fetches HTML without
   mounting components and firing the action, so it doesn't consume. A manual
   button would close even this, at the cost of the click — we accept the residual.
-- **Enumeration-safe.** `request-link` responds identically regardless of whether
-  the email exists or is allow-listed.
+- **Enumeration-safe.** `POST /login-tokens` responds identically (same 202 body,
+  and a nonce cookie is always set) regardless of whether the email exists or is
+  allow-listed.
 - **No secrets in logs.** The plaintext token and nonce are never logged; emails
   are masked (`mask_email`, and centrally via `TASK-0022`). Tokens must also be
   kept out of access logs / OpenTelemetry spans (`TASK-0019`).
@@ -169,3 +170,4 @@ job is expected eventually (not yet built).
 | `ALLOWED_EMAILS` | `[]` (deny all) | Invite gate, `list[EmailStr]`; bad address fails boot |
 | `LOGIN_TOKEN_EXPIRY_MINUTES` | `10` | Link lifetime |
 | `LOGIN_TOKEN_SECRET_BYTES` | `32` | Token/nonce entropy |
+| `LOGIN_NONCE_COOKIE_NAME` | `login_nonce` | Cookie holding the browser-binding nonce |

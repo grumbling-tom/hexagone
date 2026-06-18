@@ -216,17 +216,35 @@
           "user-sessions"
         ],
         "summary": "Create User Session",
-        "description": "Authenticate and create a new session.",
+        "description": "Create a session via a magic-link token or email + password.",
         "operationId": "createUserSession",
+        "parameters": [
+          {
+            "name": "login_nonce",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Login Nonce"
+            }
+          }
+        ],
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/CreateUserSessionRequest"
               }
             }
-          },
-          "required": true
+          }
         },
         "responses": {
           "200": {
@@ -281,6 +299,48 @@
         "responses": {
           "204": {
             "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/login-tokens": {
+      "post": {
+        "tags": [
+          "login-tokens"
+        ],
+        "summary": "Create Login Token",
+        "description": "Request a magic-link sign-in email (enumeration-safe).\n\nAlways responds identically and always sets a browser-binding nonce cookie,\nso neither the body, the status, nor the headers reveal whether the address\nis on the invite allowlist. A link is only issued and emailed for\nallow-listed addresses; the nonce cookie is bound to the emailed token (and\nis a harmless throwaway otherwise).",
+        "operationId": "createLoginToken",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateLoginTokenRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateLoginTokenResponse"
+                }
+              }
+            }
           },
           "422": {
             "description": "Validation Error",
@@ -1034,6 +1094,35 @@
         "title": "AggregatedHexClaimByCell",
         "description": "One aggregated row when ``by=hex_cell``."
       },
+      "CreateLoginTokenRequest": {
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email",
+            "title": "Email"
+          }
+        },
+        "type": "object",
+        "required": [
+          "email"
+        ],
+        "title": "CreateLoginTokenRequest",
+        "description": "Request body for requesting a magic-link sign-in email."
+      },
+      "CreateLoginTokenResponse": {
+        "properties": {
+          "detail": {
+            "type": "string",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "required": [
+          "detail"
+        ],
+        "title": "CreateLoginTokenResponse",
+        "description": "Generic, enumeration-safe acknowledgement."
+      },
       "CreateUploadRequest": {
         "properties": {
           "original_filename": {
@@ -1092,22 +1181,43 @@
       "CreateUserSessionRequest": {
         "properties": {
           "email": {
-            "type": "string",
-            "format": "email",
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "email"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Email"
           },
           "password": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Password"
+          },
+          "token": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Token"
           }
         },
         "type": "object",
-        "required": [
-          "email",
-          "password"
-        ],
         "title": "CreateUserSessionRequest",
-        "description": "Request body for login."
+        "description": "Credentials for creating a session \u2014 password mode OR magic-link mode.\n\nExactly one mode must be supplied: ``email`` + ``password`` (legacy password\nlogin) or ``token`` (magic link; the browser-binding nonce is read from the\ncookie, not the body). The password mode is removed in TASK-0021, after\nwhich this collapses to just ``token``."
       },
       "HTTPValidationError": {
         "properties": {

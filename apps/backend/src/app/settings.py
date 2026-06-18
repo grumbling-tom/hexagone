@@ -51,6 +51,9 @@ class Settings(BaseSettings):
     # token_urlsafe(32) yields a ~43-char, 256-bit secret — brute force is
     # infeasible. Rarely needs changing.
     LOGIN_TOKEN_SECRET_BYTES: int = 32
+    # Cookie holding the magic-link browser-binding nonce. Set when a link is
+    # requested; read back (with the emailed token) when the session is created.
+    LOGIN_NONCE_COOKIE_NAME: str = "login_nonce"
 
     AWS_ACCESS_KEY_ID: str = ""
     AWS_SECRET_ACCESS_KEY: str = ""

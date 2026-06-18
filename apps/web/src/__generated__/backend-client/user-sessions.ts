@@ -14,7 +14,7 @@ import { fetchClient } from '../../lib/fetch-client';
 
 
   /**
- * Authenticate and create a new session.
+ * Create a session via a magic-link token or email + password.
  * @summary Create User Session
  */
 export const createUserSession = (
