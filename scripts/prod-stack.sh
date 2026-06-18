@@ -248,13 +248,12 @@ cmd_down() {
       log "Backing up the database before teardown"
       k wait --for=condition=Ready cluster/hexagone-db --timeout=120s \
         || warn "DB cluster not Ready; attempting the backup anyway"
-      if run_backup_job; then
-        log "Off-box backup stored in s3://${BACKUP_BUCKET}"
-      else
-        warn "Backup FAILED — proceeding anyway (the host PVC still holds the data). Re-run 'backup' once the cluster is healthy."
-      fi
+      # A failed backup ABORTS the teardown — the whole point is to not leave the
+      # data only on the host PVC. Use --skip-backup to tear down without one.
+      run_backup_job || die "pre-teardown backup FAILED — aborting 'down'. Fix the backup, or re-run with --skip-backup to tear down anyway."
+      log "Off-box backup stored in s3://${BACKUP_BUCKET}"
     else
-      warn "No DB cluster found; skipping pre-teardown backup"
+      die "no DB cluster found to back up — aborting 'down'. Re-run with --skip-backup if this is intentional."
     fi
 
     log "Deleting stateless workloads (database Cluster + data are kept)"

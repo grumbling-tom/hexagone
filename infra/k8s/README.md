@@ -108,11 +108,11 @@ scripts/prod-stack.sh restore --restore-from <key> # restore a SPECIFIC dump by 
 tigris ls hexagone-db-backups                      # list dumps to find a key
 ```
 
-**`down` also takes an off-box backup.** `prod-stack.sh down` runs a backup before
-tearing the stack down, so data safety never depends solely on the host PVC (the
-PVC is still kept for fast restarts — this just guarantees a fresh dump in Tigris
-too). Pass `--skip-backup` to skip it; a failed backup warns but doesn't block the
-teardown (the PVC still holds the data).
+**`down` takes an off-box backup first — and aborts if it fails.** `prod-stack.sh
+down` runs a backup before tearing the stack down, so data safety never depends
+solely on the host PVC (the PVC is still kept for fast restarts — this just
+guarantees a fresh dump in Tigris too). **A failed backup stops the teardown**; the
+only way to tear down without a fresh backup is to pass `--skip-backup` explicitly.
 
 **Recovery after a lost PVC** (new mini, `colima delete`, deleted volume — a normal
 `down`/`up` keeps the PVC and needs none of this):
