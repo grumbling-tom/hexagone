@@ -7,9 +7,9 @@ from pathlib import Path
 from sqlalchemy.orm import Session as DBSession
 
 from src.app.repository import (
-    EqualsFilter,
+    Equals,
     HexClaim,
-    InFilter,
+    In,
     Repository,
     Upload,
     UploadStatus,
@@ -17,7 +17,7 @@ from src.app.repository import (
 )
 from src.app.repository.models import User
 from src.app.services.gpx import GpxValidationError, gpx_bytes_to_polygons
-from src.app.services.permissions import permission_filters
+from src.app.services.permissions import permissions_predicates
 from src.app.services.storage import StorageBackend
 from src.app.settings import settings
 from src.app.utils import PaginatedResult, SortOrder, get_logger
@@ -173,8 +173,8 @@ def list_uploads(  # noqa: PLR0913
             UploadStatusValue.UPLOAD_INVALID,
         ]
 
-    filters = permission_filters(user, Upload)
-    filters.append(InFilter(field="current_status", values=statuses))
+    filters = permissions_predicates(user, Upload)
+    filters.append(In(field="current_status", values=statuses))
 
     upload_repo = Repository(db, Upload)
     return upload_repo.get_filtered(
@@ -189,7 +189,7 @@ def list_uploads(  # noqa: PLR0913
 def find_upload_by_s3_key(db: DBSession, key: str) -> Upload | None:
     """Find an Upload record by its associated object key."""
     result = Repository(db, Upload).get_filtered(
-        filters=[EqualsFilter(field="s3_key", value=key)],
+        filters=[Equals(field="s3_key", value=key)],
         page_size=1,
     )
     return result.items[0] if result.items else None

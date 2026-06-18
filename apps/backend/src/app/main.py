@@ -1,8 +1,10 @@
 """FastAPI application entry point."""
 
-from fastapi import APIRouter, FastAPI
+from fastapi import APIRouter, FastAPI, Request
+from fastapi.responses import JSONResponse
 
 from src.app.middleware import RequestThrottlerMiddleware
+from src.app.repository import NotAuthorisedError
 from src.app.routers.health import router as health_router
 from src.app.routers.hex_claims import (
     aggregated_hex_claims_router,
@@ -18,6 +20,15 @@ from src.app.telemetry import setup_tracing
 from src.app.utils import configure_logging
 
 configure_logging()
+
+
+def _handle_not_authorised(request: Request, exc: Exception) -> JSONResponse:  # noqa: ARG001 — request/exc are required by Starlette's exception-handler signature
+    """Map a repository write-guard rejection to 403 Forbidden.
+
+    Services let `NotAuthorisedError` propagate rather than translating it,
+    so authorization failures are rendered consistently in one place.
+    """
+    return JSONResponse(status_code=403, content={"detail": "Not authorised"})
 
 
 def create_app(settings: Settings = settings) -> FastAPI:
@@ -45,6 +56,8 @@ def create_app(settings: Settings = settings) -> FastAPI:
 
     app.include_router(health_router, prefix="/api", tags=["health"])
     app.include_router(api_v1_router)
+
+    app.add_exception_handler(NotAuthorisedError, _handle_not_authorised)
 
     # Instrument last, once every route and middleware is in place.
     setup_tracing(app, settings)

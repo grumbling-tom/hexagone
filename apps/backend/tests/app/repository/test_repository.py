@@ -8,19 +8,20 @@ from typing import TYPE_CHECKING
 import pytest
 
 from src.app.repository import (
-    EqualsFilter,
-    GreaterThanFilter,
-    GreaterThanOrEqualFilter,
-    InFilter,
-    IsNullFilter,
-    LessThanFilter,
-    LessThanOrEqualFilter,
-    LikeFilter,
-    NotEqualsFilter,
-    NotInFilter,
-    OrFilter,
-    RangeFilter,
-    RelationFilter,
+    Equals,
+    GreaterThan,
+    GreaterThanOrEqual,
+    In,
+    IsNull,
+    LessThan,
+    LessThanOrEqual,
+    Like,
+    NotAuthorisedError,
+    NotEquals,
+    NotIn,
+    Or,
+    Range,
+    Related,
     Repository,
     Upload,
     UploadStatus,
@@ -231,7 +232,7 @@ def test_equals_filter(test_db: Session, create_upload: Callable[..., Upload]):
     repo = Repository(test_db, Upload)
 
     result = repo.get_filtered(
-        filters=[EqualsFilter(field="original_filename", value="alpha.gpx")]
+        filters=[Equals(field="original_filename", value="alpha.gpx")]
     )
     assert len(result.items) == 2
     assert all(u.original_filename == "alpha.gpx" for u in result.items)
@@ -244,7 +245,7 @@ def test_not_equals_filter(test_db: Session, create_upload: Callable[..., Upload
     repo = Repository(test_db, Upload)
 
     result = repo.get_filtered(
-        filters=[NotEqualsFilter(field="original_filename", value="alpha.gpx")]
+        filters=[NotEquals(field="original_filename", value="alpha.gpx")]
     )
     assert len(result.items) == 2
     assert {u.original_filename for u in result.items} == {"beta.gpx", "gamma.gpx"}
@@ -258,7 +259,7 @@ def test_greater_than_filter(test_db: Session, create_upload: Callable[..., Uplo
     repo = Repository(test_db, Upload)
 
     result = repo.get_filtered(
-        filters=[GreaterThanFilter(field="created_at", value=now - timedelta(hours=1))]
+        filters=[GreaterThan(field="created_at", value=now - timedelta(hours=1))]
     )
     assert len(result.items) == 1
     assert result.items[0].original_filename == "late.gpx"
@@ -274,9 +275,7 @@ def test_greater_than_or_equal_filter(
     repo = Repository(test_db, Upload)
 
     result = repo.get_filtered(
-        filters=[
-            GreaterThanOrEqualFilter(field="created_at", value=now - timedelta(hours=1))
-        ]
+        filters=[GreaterThanOrEqual(field="created_at", value=now - timedelta(hours=1))]
     )
     assert len(result.items) == 2
     assert {u.original_filename for u in result.items} == {"middle.gpx", "late.gpx"}
@@ -290,7 +289,7 @@ def test_less_than_filter(test_db: Session, create_upload: Callable[..., Upload]
     repo = Repository(test_db, Upload)
 
     result = repo.get_filtered(
-        filters=[LessThanFilter(field="created_at", value=now - timedelta(hours=1))]
+        filters=[LessThan(field="created_at", value=now - timedelta(hours=1))]
     )
     assert len(result.items) == 1
     assert result.items[0].original_filename == "early.gpx"
@@ -306,9 +305,7 @@ def test_less_than_or_equal_filter(
     repo = Repository(test_db, Upload)
 
     result = repo.get_filtered(
-        filters=[
-            LessThanOrEqualFilter(field="created_at", value=now - timedelta(hours=1))
-        ]
+        filters=[LessThanOrEqual(field="created_at", value=now - timedelta(hours=1))]
     )
     assert len(result.items) == 2
     assert {u.original_filename for u in result.items} == {"early.gpx", "middle.gpx"}
@@ -325,9 +322,7 @@ def test_like_filter_case_insensitive(
 
     result = repo.get_filtered(
         filters=[
-            LikeFilter(
-                field="original_filename", pattern="%test%", case_sensitive=False
-            )
+            Like(field="original_filename", pattern="%test%", case_sensitive=False)
         ]
     )
     assert len(result.items) == 3
@@ -346,7 +341,7 @@ def test_in_filter(test_db: Session, create_upload: Callable[..., Upload]):
     repo = Repository(test_db, Upload)
 
     result = repo.get_filtered(
-        filters=[InFilter(field="original_filename", values=["alpha.gpx", "gamma.gpx"])]
+        filters=[In(field="original_filename", values=["alpha.gpx", "gamma.gpx"])]
     )
     assert len(result.items) == 2
     assert {u.original_filename for u in result.items} == {"alpha.gpx", "gamma.gpx"}
@@ -355,7 +350,7 @@ def test_in_filter(test_db: Session, create_upload: Callable[..., Upload]):
 def test_relation_filter_matches_outer_rows_with_any_inner_match(
     test_db: Session, create_upload: Callable[..., Upload]
 ):
-    """`RelationFilter` should match outer rows whose named relationship
+    """`Related` should match outer rows whose named relationship
     contains at least one related row satisfying the inner filter.
 
     Uses the existing `Upload.statuses` one-to-many relationship: each
@@ -374,11 +369,9 @@ def test_relation_filter_matches_outer_rows_with_any_inner_match(
     repo = Repository(test_db, Upload)
     result = repo.get_filtered(
         filters=[
-            RelationFilter(
+            Related(
                 field="statuses",
-                inner=EqualsFilter(
-                    field="status", value=UploadStatusValue.UPLOAD_SUCCESS
-                ),
+                inner=Equals(field="status", value=UploadStatusValue.UPLOAD_SUCCESS),
             ),
         ],
     )
@@ -390,7 +383,7 @@ def test_relation_filter_matches_outer_rows_with_any_inner_match(
 def test_or_filter_returns_rows_matching_any_inner_filter(
     test_db: Session, create_upload: Callable[..., Upload]
 ):
-    """`OrFilter` should match rows that satisfy any of its inner filters."""
+    """`Or` should match rows that satisfy any of its inner filters."""
     create_upload("alpha.gpx", file_size_bytes=100)
     create_upload("beta.gpx", file_size_bytes=200)
     create_upload("gamma.gpx", file_size_bytes=300)
@@ -399,10 +392,10 @@ def test_or_filter_returns_rows_matching_any_inner_filter(
     repo = Repository(test_db, Upload)
     result = repo.get_filtered(
         filters=[
-            OrFilter(
-                filters=[
-                    EqualsFilter(field="original_filename", value="alpha.gpx"),
-                    EqualsFilter(field="file_size_bytes", value=300),
+            Or(
+                predicates=[
+                    Equals(field="original_filename", value="alpha.gpx"),
+                    Equals(field="file_size_bytes", value=300),
                 ]
             ),
         ],
@@ -420,9 +413,7 @@ def test_not_in_filter(test_db: Session, create_upload: Callable[..., Upload]):
     repo = Repository(test_db, Upload)
 
     result = repo.get_filtered(
-        filters=[
-            NotInFilter(field="original_filename", values=["alpha.gpx", "gamma.gpx"])
-        ]
+        filters=[NotIn(field="original_filename", values=["alpha.gpx", "gamma.gpx"])]
     )
     assert len(result.items) == 2
     assert {u.original_filename for u in result.items} == {"beta.gpx", "delta.gpx"}
@@ -438,7 +429,7 @@ def test_range_filter_both_bounds(
     repo = Repository(test_db, Upload)
 
     result = repo.get_filtered(
-        filters=[RangeFilter(field="file_size_bytes", min_value=50, max_value=100)]
+        filters=[Range(field="file_size_bytes", min_value=50, max_value=100)]
     )
     assert len(result.items) == 2
     assert {u.original_filename for u in result.items} == {"b.gpx", "c.gpx"}
@@ -451,7 +442,7 @@ def test_range_filter_min_only(test_db: Session, create_upload: Callable[..., Up
     repo = Repository(test_db, Upload)
 
     result = repo.get_filtered(
-        filters=[RangeFilter(field="file_size_bytes", min_value=50, max_value=None)]
+        filters=[Range(field="file_size_bytes", min_value=50, max_value=None)]
     )
     assert len(result.items) == 2
     assert {u.original_filename for u in result.items} == {"medium.gpx", "large.gpx"}
@@ -464,14 +455,14 @@ def test_range_filter_max_only(test_db: Session, create_upload: Callable[..., Up
     repo = Repository(test_db, Upload)
 
     result = repo.get_filtered(
-        filters=[RangeFilter(field="file_size_bytes", min_value=None, max_value=50)]
+        filters=[Range(field="file_size_bytes", min_value=None, max_value=50)]
     )
     assert len(result.items) == 2
     assert {u.original_filename for u in result.items} == {"small.gpx", "medium.gpx"}
 
 
 def test_is_null_filter(test_db: Session, create_upload: Callable[..., Upload]):
-    """Test IsNullFilter using UploadStatus.detail which is nullable."""
+    """Test IsNull using UploadStatus.detail which is nullable."""
     upload = create_upload("test.gpx", status_values=[])
 
     status_repo = Repository(test_db, UploadStatus)
@@ -492,13 +483,13 @@ def test_is_null_filter(test_db: Session, create_upload: Callable[..., Upload]):
     test_db.commit()
 
     null_result = status_repo.get_filtered(
-        filters=[IsNullFilter(field="detail", is_null=True)]
+        filters=[IsNull(field="detail", is_null=True)]
     )
     assert len(null_result.items) == 1
     assert null_result.items[0].status == UploadStatusValue.UPLOAD_PENDING
 
     not_null_result = status_repo.get_filtered(
-        filters=[IsNullFilter(field="detail", is_null=False)]
+        filters=[IsNull(field="detail", is_null=False)]
     )
     assert len(not_null_result.items) == 1
     assert not_null_result.items[0].detail == "Missing coordinates"
@@ -515,10 +506,8 @@ def test_multiple_filters_combined(
 
     result = repo.get_filtered(
         filters=[
-            LikeFilter(
-                field="original_filename", pattern="%test%", case_sensitive=False
-            ),
-            GreaterThanOrEqualFilter(field="file_size_bytes", value=100),
+            Like(field="original_filename", pattern="%test%", case_sensitive=False),
+            GreaterThanOrEqual(field="file_size_bytes", value=100),
         ]
     )
     assert len(result.items) == 1
@@ -531,9 +520,7 @@ def test_filter_with_pagination(test_db: Session, create_upload: Callable[..., U
         create_upload(f"prod_{i}.gpx")
     repo = Repository(test_db, Upload)
 
-    filters = [
-        LikeFilter(field="original_filename", pattern="%test%", case_sensitive=False)
-    ]
+    filters = [Like(field="original_filename", pattern="%test%", case_sensitive=False)]
 
     page1 = repo.get_filtered(filters=filters, page_size=2)
     assert len(page1.items) == 2
@@ -561,9 +548,7 @@ def test_invalid_field_name_raises_error(
     repo = Repository(test_db, Upload)
 
     with pytest.raises(AttributeError):
-        repo.get_filtered(
-            filters=[EqualsFilter(field="nonexistent_field", value="test")]
-        )
+        repo.get_filtered(filters=[Equals(field="nonexistent_field", value="test")])
 
 
 def test_get_filtered_with_no_filters(
@@ -612,7 +597,7 @@ def test_in_filter_on_current_status_matches(
     repo = Repository(test_db, Upload)
     result = repo.get_filtered(
         filters=[
-            InFilter(field="current_status", values=[UploadStatusValue.UPLOAD_RECEIVED])
+            In(field="current_status", values=[UploadStatusValue.UPLOAD_RECEIVED])
         ],
     )
     assert len(result.items) == 1
@@ -634,7 +619,7 @@ def test_in_filter_on_current_status_uses_latest(
     repo = Repository(test_db, Upload)
     result = repo.get_filtered(
         filters=[
-            InFilter(field="current_status", values=[UploadStatusValue.UPLOAD_RECEIVED])
+            In(field="current_status", values=[UploadStatusValue.UPLOAD_RECEIVED])
         ],
     )
     assert len(result.items) == 0
@@ -647,9 +632,7 @@ def test_in_filter_on_current_status_excludes_non_matching(
 
     repo = Repository(test_db, Upload)
     result = repo.get_filtered(
-        filters=[
-            InFilter(field="current_status", values=[UploadStatusValue.UPLOAD_SUCCESS])
-        ],
+        filters=[In(field="current_status", values=[UploadStatusValue.UPLOAD_SUCCESS])],
     )
     assert len(result.items) == 0
 
@@ -662,7 +645,7 @@ def test_in_filter_on_current_status_no_statuses(
     repo = Repository(test_db, Upload)
     result = repo.get_filtered(
         filters=[
-            InFilter(field="current_status", values=[UploadStatusValue.UPLOAD_RECEIVED])
+            In(field="current_status", values=[UploadStatusValue.UPLOAD_RECEIVED])
         ],
     )
     assert len(result.items) == 0
@@ -689,7 +672,7 @@ def test_in_filter_on_current_status_multiple_values(
     repo = Repository(test_db, Upload)
     result = repo.get_filtered(
         filters=[
-            InFilter(
+            In(
                 field="current_status",
                 values=[
                     UploadStatusValue.UPLOAD_RECEIVED,
@@ -731,11 +714,93 @@ def test_in_filter_on_current_status_composes_with_equals(
     repo = Repository(test_db, Upload)
     result = repo.get_filtered(
         filters=[
-            InFilter(
-                field="current_status", values=[UploadStatusValue.UPLOAD_RECEIVED]
-            ),
-            EqualsFilter(field="user_uid", value=test_user.uid),
+            In(field="current_status", values=[UploadStatusValue.UPLOAD_RECEIVED]),
+            Equals(field="user_uid", value=test_user.uid),
         ],
     )
     assert len(result.items) == 1
     assert result.items[0].user_uid == test_user.uid
+
+
+# Guarded write tests (atomic update + in-memory create guards)
+
+
+def test_update_applies_guard_and_returns_updated_row(
+    test_db: Session, test_user: User, create_upload: Callable[..., Upload]
+):
+    upload = create_upload("orig.gpx")
+    repo = Repository(test_db, Upload)
+
+    updated = repo.update(
+        upload.uid,
+        {"original_filename": "renamed.gpx"},
+        guards=[Equals(field="user_uid", value=test_user.uid)],
+    )
+
+    assert updated is not None
+    assert updated.original_filename == "renamed.gpx"
+
+
+def test_update_failing_guard_raises_and_leaves_row(
+    test_db: Session, create_upload: Callable[..., Upload]
+):
+    upload = create_upload("orig.gpx")
+    repo = Repository(test_db, Upload)
+
+    with pytest.raises(NotAuthorisedError):
+        repo.update(
+            upload.uid,
+            {"original_filename": "renamed.gpx"},
+            guards=[Equals(field="user_uid", value="someone-else")],
+        )
+
+    # The row is untouched — the guard was part of the UPDATE's WHERE.
+    test_db.expire_all()
+    assert repo.get_by_uid(upload.uid).original_filename == "orig.gpx"
+
+
+def test_update_missing_uid_raises(test_db: Session):
+    repo = Repository(test_db, Upload)
+    with pytest.raises(NotAuthorisedError):
+        repo.update("does-not-exist", {"original_filename": "x.gpx"})
+
+
+def test_create_runs_guard_and_inserts(test_db: Session, test_user: User):
+    repo = Repository(test_db, Upload)
+
+    created = repo.create(
+        Upload(
+            user_uid=test_user.uid,
+            original_filename="g.gpx",
+            file_size_bytes=10,
+            s3_bucket_name="bucket",
+            s3_key="key-ok",
+        ),
+        guards=[Equals(field="user_uid", value=test_user.uid)],
+    )
+
+    assert created.uid is not None
+    assert repo.get_by_uid(created.uid).s3_key == "key-ok"
+
+
+def test_create_failing_guard_raises_and_does_not_insert(
+    test_db: Session, test_user: User
+):
+    repo = Repository(test_db, Upload)
+
+    with pytest.raises(NotAuthorisedError):
+        repo.create(
+            Upload(
+                user_uid=test_user.uid,
+                original_filename="g.gpx",
+                file_size_bytes=10,
+                s3_bucket_name="bucket",
+                s3_key="key-blocked",
+            ),
+            guards=[Equals(field="user_uid", value="someone-else")],
+        )
+
+    assert (
+        repo.get_filtered(filters=[Equals(field="s3_key", value="key-blocked")]).items
+        == []
+    )

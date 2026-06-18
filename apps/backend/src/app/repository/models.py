@@ -44,9 +44,9 @@ class User(BaseModel):
         user_groups: Read-only many-to-many traversal to UserGroup through
             ``user_group_membership``. Mirror of ``UserGroup.members``,
             exposed so filters can ask "is this user a member of this
-            group?" via the standard Filter pattern (e.g.
-            ``RelationFilter(field="user_groups",
-            inner=EqualsFilter(field="uid", value=group_uid))``).
+            group?" via the standard predicate pattern (e.g.
+            ``Related(field="user_groups",
+            inner=Equals(field="uid", value=group_uid))``).
     """
 
     __tablename__ = "user"
@@ -204,8 +204,8 @@ class UserGroup(BaseModel):
         members: Read-only many-to-many traversal to User through
             ``user_group_membership``. Exposed so that filters can
             ask "is this user a member of this group?" via the
-            standard Filter pattern (e.g. ``RelationFilter(
-            field="members", inner=EqualsFilter(field="uid", value=X)
+            standard predicate pattern (e.g. ``Related(
+            field="members", inner=Equals(field="uid", value=X)
             )``).
     """
 

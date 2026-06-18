@@ -7,12 +7,12 @@ import typing
 from types import ModuleType
 
 import src.app.services as services_pkg
-from src.app.repository.filters import Filter
+from src.app.repository.predicates import Predicate
 from src.app.utils.pagination import PaginatedResult
 from src.app.utils.schemas import BaseSchema
 
 # BaseSchema subclasses that are internal infrastructure, not response schemas.
-ALLOWED_TYPES: set[type] = {PaginatedResult, Filter}
+ALLOWED_TYPES: set[type] = {PaginatedResult, Predicate}
 
 
 def _get_all_service_modules() -> list[ModuleType]:
