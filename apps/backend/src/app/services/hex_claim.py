@@ -2,9 +2,9 @@
 
 from sqlalchemy.orm import Session as DBSession
 
-from src.app.repository import HexClaim, HexClaimByCell, InFilter, Repository
+from src.app.repository import HexClaim, HexClaimByCell, In, Repository
 from src.app.repository.models import User
-from src.app.services.permissions import permission_filters
+from src.app.services.permissions import permissions_predicates
 from src.app.settings import settings
 from src.app.utils import PaginatedResult, SortOrder
 
@@ -33,9 +33,9 @@ def list_hex_claims(  # noqa: PLR0913
     Returns:
         Paginated list of HexClaim ORM instances.
     """
-    filters = permission_filters(user, HexClaim)
+    filters = permissions_predicates(user, HexClaim)
     if upload_uids:
-        filters.append(InFilter(field="upload_uid", values=upload_uids))
+        filters.append(In(field="upload_uid", values=upload_uids))
 
     repo = Repository(db, HexClaim)
     return repo.get_filtered(
@@ -63,7 +63,7 @@ def aggregate_hex_claims_by_cell(
     """
     repo = Repository(db, HexClaimByCell)
     return repo.get_filtered(
-        filters=permission_filters(user, HexClaimByCell),
+        filters=permissions_predicates(user, HexClaimByCell),
         page_size=page_size,
         cursor=cursor,
         sort_field=HexClaimByCell.h3_cell,

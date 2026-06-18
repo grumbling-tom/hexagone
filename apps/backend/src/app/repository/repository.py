@@ -1,17 +1,22 @@
 from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import asc, desc, select
+from sqlalchemy import update as sa_update
 
 from ..settings import settings
 from ..utils import Cursor, PaginatedResult, SortOrder
 from .database import BaseModel
-from .filters import EqualsFilter, Filter, RangeFilter
+from .predicates import Equals, Filter, Guard, Range
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
+    from collections.abc import Mapping, Sequence
     from datetime import datetime
 
     from sqlalchemy.orm import InstrumentedAttribute, Session
+
+
+class NotAuthorisedError(Exception):
+    """A write guard rejected an in-memory instance before it was persisted."""
 
 
 class Repository[T: BaseModel]:
@@ -78,8 +83,8 @@ class Repository[T: BaseModel]:
 
         # Apply filters
         if filters:
-            for filter_obj in filters:
-                stmt = filter_obj.apply(stmt, self.entity)
+            for predicate in filters:
+                stmt = stmt.where(predicate.to_sql(self.entity))
 
         decoded_cursor = None
 
@@ -245,7 +250,7 @@ class Repository[T: BaseModel]:
             ValueError: If cursor is malformed.
         """
         return self.get_filtered(
-            filters=[EqualsFilter(field="archived", value=False)],
+            filters=[Equals(field="archived", value=False)],
             page_size=page_size,
             cursor=cursor,
             sort_field=sort_field,
@@ -284,7 +289,7 @@ class Repository[T: BaseModel]:
         """
         return self.get_filtered(
             filters=[
-                RangeFilter(
+                Range(
                     field="created_at",
                     min_value=from_datetime,
                     max_value=to_datetime,
@@ -310,18 +315,80 @@ class Repository[T: BaseModel]:
             entity.created_by = created_by_user_id  # pyright: ignore
         self.db.add(entity)
 
-    def update(self, entity: T, updated_by_user_id: int | None = None) -> None:
-        """Update an existing entity.
+    def create(self, obj: T, guards: Sequence[Guard] = ()) -> T:
+        """Insert a new entity after checking in-memory write guards.
 
-        If the entity has an updated_by field, it will be set to updated_by_user_id.
-        Does not commit the transaction.
+        Each guard is a `Guard` predicate evaluated against the instance being
+        inserted (there is no persisted row yet to attach a WHERE to). The first
+        guard that the instance does not satisfy raises `NotAuthorisedError`.
+        Flushes so an `IntegrityError` surfaces here; does not commit.
 
         Args:
-            entity: The entity instance to update
-            updated_by_user_id: Optional user ID who updated this entity
+            obj: The entity instance to insert.
+            guards: In-memory predicates the instance must satisfy.
+
+        Returns:
+            The inserted (flushed) entity.
+
+        Raises:
+            NotAuthorisedError: If any guard rejects the instance.
         """
-        if updated_by_user_id is not None and hasattr(entity, "updated_by"):
-            entity.updated_by = updated_by_user_id  # pyright: ignore
+        for guard in guards:
+            if not guard.is_satisfied_by(obj):
+                msg = (
+                    f"{type(obj).__name__} instance rejected by write guard "
+                    f"{type(guard).__name__}"
+                )
+                raise NotAuthorisedError(msg)
+        self.db.add(obj)
+        self.db.flush()
+        return obj
+
+    def update(
+        self,
+        uid: str,
+        values: Mapping[str, Any],
+        guards: Sequence[Filter] = (),
+    ) -> T:
+        """Atomically update the row with `uid`, gated by SQL write guards.
+
+        Each guard is a `Filter` predicate rendered into the UPDATE's WHERE
+        clause, so the permission/invariant check and the mutation happen in a
+        single statement (no check-then-act race). Raises `NotAuthorisedError`
+        if no row matched `uid` AND every guard — the caller cannot tell
+        "not found" from "guard failed" (403-vs-404 collapse, by design).
+        Does not commit.
+
+        Args:
+            uid: UID of the row to update.
+            values: Column/value mapping to set.
+            guards: SQL predicates that must hold for the update to apply.
+
+        Returns:
+            The updated entity.
+
+        Raises:
+            NotAuthorisedError: If no row matched `uid` and every guard.
+        """
+        stmt = sa_update(self.entity).where(self.entity.uid == uid)
+        for guard in guards:
+            stmt = stmt.where(guard.to_sql(self.entity))
+        # `populate_existing` so the RETURNING row overwrites any already-loaded
+        # identity-map instance; otherwise the returned object would carry stale
+        # pre-update attribute values until the next expire/commit.
+        stmt = (
+            stmt.values(dict(values))
+            .returning(self.entity)
+            .execution_options(synchronize_session=False, populate_existing=True)
+        )
+        result = self.db.execute(stmt).scalars().one_or_none()
+        if result is None:
+            msg = (
+                f"No {self.entity.__name__} with uid {uid!r} satisfied the "
+                "update guards"
+            )
+            raise NotAuthorisedError(msg)
+        return result
 
     def delete(self, entity: T, deleted_by_user_id: int | None = None) -> None:
         """Soft delete an entity by setting archived to True.
@@ -335,7 +402,8 @@ class Repository[T: BaseModel]:
         """
         if hasattr(entity, "archived"):
             entity.archived = True  # pyright: ignore
-        self.update(entity, updated_by_user_id=deleted_by_user_id)
+        if deleted_by_user_id is not None and hasattr(entity, "updated_by"):
+            entity.updated_by = deleted_by_user_id  # pyright: ignore
 
     def permanent_delete(self, entity: T) -> None:
         """Permanently delete an entity from the database.

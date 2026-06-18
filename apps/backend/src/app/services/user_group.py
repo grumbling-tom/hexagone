@@ -4,14 +4,15 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session as DBSession
 
 from src.app.repository import (
-    EqualsFilter,
+    Equals,
+    NotAuthorisedError,
     Repository,
     User,
     UserGroup,
     UserGroupMembership,
 )
-from src.app.repository.filters import Filter
-from src.app.services.permissions import permission_filters
+from src.app.repository.predicates import Filter
+from src.app.services.permissions import Operation, permissions_predicates
 from src.app.settings import settings
 from src.app.utils import PaginatedResult, SortOrder, get_logger
 
@@ -56,15 +57,20 @@ def get_group(
     db: DBSession,
     user: User,
     group_uid: str,
-    owner_only: bool = False,
+    operation: Operation = Operation.READ,
 ) -> UserGroup | None:
-    """Return a group if the caller is a member; else None"""
+    """Return a group the caller can access for `operation`; else None.
+
+    `operation=WRITE` narrows visibility to groups the caller owns — useful as a
+    relational authorization gate (e.g. "actor owns the group" before inserting
+    a membership row).
+    """
     try:
         return list_groups(
             db,
             user,
             group_uid=group_uid,
-            owner_only=owner_only,
+            operation=operation,
         ).items[0]
     except IndexError:
         return None
@@ -76,27 +82,20 @@ def list_groups(  # noqa: PLR0913
     page_size: int = settings.DEFAULT_PAGE_SIZE,
     cursor: str | None = None,
     group_uid: str | None = None,
-    owner_only: bool = False,
+    operation: Operation = Operation.READ,
     sort_field: str = "created_at",
     sort_order: SortOrder = SortOrder.DESC,
 ) -> PaginatedResult[UserGroup]:
-    """Return non-archived groups the caller can see."""
+    """Return non-archived groups the caller can access for `operation`."""
     repo = Repository(db, UserGroup)
 
     filters: list[Filter] = [
-        *permission_filters(user, UserGroup),
-        EqualsFilter(field="archived", value=False),
+        *permissions_predicates(user, UserGroup, operation),
+        Equals(field="archived", value=False),
     ]
 
-    # FIXME: The below is a permisssion filter, but we can't distinguish
-    # between READ permissions and WRITE permissions at the moment.
-    # Ideally, we'll have some kind of "operation-aware" permissions system:
-    # *permission_filters(user, UserGroup, "UPDATE|DELETE")
-    if owner_only:
-        filters.append(EqualsFilter(field="owner_uid", value=user.uid))
-
     if group_uid is not None:
-        filters.append(EqualsFilter(field="uid", value=group_uid))
+        filters.append(Equals(field="uid", value=group_uid))
 
     return repo.get_filtered(
         filters=filters,
@@ -108,30 +107,46 @@ def list_groups(  # noqa: PLR0913
 
 
 def update_group(db: DBSession, user: User, group_uid: str, *, name: str) -> UserGroup:
-    """Rename a group. Owner-only."""
-    group = get_group(db, user, group_uid, owner_only=True)
+    """Rename a group. Owner-only.
 
-    if group is None:
-        raise UserGroupNotFoundError(group_uid)
+    The owner check rides as a SQL guard on the UPDATE itself, so authorization
+    and mutation are one atomic statement (no read-then-write race).
+    """
+    repo = Repository(db, UserGroup)
+    try:
+        group = repo.update(
+            group_uid,
+            {"name": name},
+            guards=permissions_predicates(user, UserGroup, Operation.WRITE),
+        )
+    except NotAuthorisedError:
+        raise UserGroupNotFoundError(group_uid) from None
 
-    group.name = name
     db.commit()
-    db.refresh(group)
     return group
 
 
 def archive_group(db: DBSession, user: User, group_uid: str) -> UserGroup:
-    """Soft-delete a group. Owner-only."""
-    group = get_group(db, user, group_uid, owner_only=True)
+    """Soft-delete a group. Owner-only, atomic, and idempotent.
 
-    if group is None:
-        raise UserGroupNotFoundError(group_uid)
-
+    The guards reproduce every WHERE the old gating read applied: the WRITE
+    permission predicates plus `archived == False` so re-archiving an
+    already-archived group is a no-op that surfaces as "not found".
+    """
     repo = Repository(db, UserGroup)
-    repo.delete(group)
-    db.commit()
-    db.refresh(group)
+    try:
+        group = repo.update(
+            group_uid,
+            {"archived": True},
+            guards=[
+                *permissions_predicates(user, UserGroup, Operation.WRITE),
+                Equals(field="archived", value=False),
+            ],
+        )
+    except NotAuthorisedError:
+        raise UserGroupNotFoundError(group_uid) from None
 
+    db.commit()
     logger.info("user_group_archived", user_group_uid=group.uid)
     return group
 
@@ -152,7 +167,7 @@ def list_members(
 
     repo = Repository(db, UserGroupMembership)
     return repo.get_filtered(
-        filters=[EqualsFilter(field="user_group_uid", value=group.uid)],
+        filters=[Equals(field="user_group_uid", value=group.uid)],
         sort_field=UserGroupMembership.created_at,
         sort_order=SortOrder.ASC,
         page_size=page_size,
@@ -167,27 +182,44 @@ def remove_membership(db: DBSession, user: User, membership_uid: str) -> None:
 
 def add_member(
     db: DBSession,
-    *,
-    group: UserGroup,
-    user_to_add: User,
+    actor: User,
+    group_uid: str,
+    member_uid: str,
 ) -> UserGroupMembership:
-    """Internal helper: add an existing user to a group.
+    """Add `member_uid` to a group. Owner-only.
 
-    Not exposed via HTTP — the public flow for adding members will
-    arrive with the invitation feature. Kept here as the single point
-    at which non-owner membership rows are created so the uniqueness
-    handling has one home.
+    Authorization is of two kinds, exercising the two enforcement mechanisms:
+
+      * RELATIONAL ("actor owns the group") — a fact about the PARENT group, not
+        the membership row. It can't be a create `Guard`: on the read side it is
+        a `Related`/EXISTS predicate, which is a `Filter`, and a `Filter` is not
+        a `Guard`. So it's enforced by a permissioned READ of the group.
+
+      * SAME-ROW INVARIANT ("the new membership is scoped to the authorized
+        group") — expressible as a `Guard`, so it rides as a `create` guard.
+        Defense-in-depth for this server-built row; substantive when the row
+        comes from untrusted input.
     """
-    membership = UserGroupMembership(
-        user_uid=user_to_add.uid,
-        user_group_uid=group.uid,
-    )
-    db.add(membership)
+    group = get_group(db, actor, group_uid, operation=Operation.WRITE)
+    if group is None:
+        raise UserGroupNotFoundError(group_uid)
+
+    memberships = Repository(db, UserGroupMembership)
     try:
-        db.commit()
+        membership = memberships.create(
+            UserGroupMembership(user_uid=member_uid, user_group_uid=group.uid),
+            guards=[Equals(field="user_group_uid", value=group.uid)],
+        )
+        db.commit()  # create() already flushed; IntegrityError surfaces there
     except IntegrityError:
         db.rollback()
-        msg = f"User {user_to_add.uid} already a member of {group.uid}"
+        msg = f"User {member_uid} already a member of {group.uid}"
         raise DuplicateMembershipError(msg) from None
+
     db.refresh(membership)
+    logger.info(
+        "user_group_member_added",
+        user_group_uid=group.uid,
+        user_uid=member_uid,
+    )
     return membership

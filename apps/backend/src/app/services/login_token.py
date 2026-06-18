@@ -19,7 +19,7 @@ from datetime import UTC, datetime, timedelta
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy.orm import Session as DBSession
 
-from src.app.repository import EqualsFilter, IsNullFilter, LoginToken, Repository
+from src.app.repository import Equals, IsNull, LoginToken, Repository
 from src.app.settings import settings
 from src.app.utils import get_logger, mask_email
 
@@ -87,8 +87,8 @@ def issue_login_token(db: DBSession, email: str) -> IssuedLoginToken:
     # history of already-revoked/used rows.
     live = repo.get_filtered(
         filters=[
-            EqualsFilter(field="email", value=email),
-            IsNullFilter(field="revoked_at"),
+            Equals(field="email", value=email),
+            IsNull(field="revoked_at"),
         ],
         page_size=100,
     )
@@ -127,7 +127,7 @@ def _find_spendable_token(db: DBSession, token: str, nonce: str) -> LoginToken |
     """
     token_hash = _hash_secret(token)
     matches = Repository(db, LoginToken).get_filtered(
-        filters=[EqualsFilter(field="token_hash", value=token_hash)],
+        filters=[Equals(field="token_hash", value=token_hash)],
         page_size=1,
     )
     if not matches.items:
