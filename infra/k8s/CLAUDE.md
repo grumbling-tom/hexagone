@@ -44,3 +44,12 @@ kind: Cluster
 metadata:
   name: hexagone-db
 ```
+
+**Argo CD follows the same rule.** It's a controller, so it's installed
+out-of-band into its own `argocd` namespace (never `default`, never the overlay) —
+exactly like CNPG. Its one app-level CR, the `Application`, is kept **out of the
+production overlay too**: the `Application` points *at* `infra/k8s/production`, so
+bundling it inside the thing it reconciles would be circular. It lives at
+`infra/k8s/argocd/application.yaml` and is applied out-of-band by
+`scripts/prod-stack.sh up`. The overlay stays a plain Kustomize tree that Argo (or a
+bare `kubectl apply -k`) can render — no Argo-specific resources leak into it.

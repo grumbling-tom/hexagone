@@ -5,17 +5,20 @@
 # infra/k8s/README.md + infra/terraform/README.md.
 #
 # Usage:
-#   scripts/prod-stack.sh up [--build]              bring the whole stack up (idempotent)
-#   scripts/prod-stack.sh down [--skip-backup]      back up the DB, then stop the VM
-#   scripts/prod-stack.sh status                    show what's running
-#   scripts/prod-stack.sh backup                    take an on-demand Postgres dump now
+#   scripts/prod-stack.sh up                         bring the whole stack up (idempotent)
+#   scripts/prod-stack.sh down [--skip-backup]       back up the DB, then stop the VM
+#   scripts/prod-stack.sh status                     show what's running
+#   scripts/prod-stack.sh backup                     take an on-demand Postgres dump now
 #   scripts/prod-stack.sh restore [--yes] [--restore-from <key>]
-#                                                   restore the DB (latest, or a specific dump)
+#                                                    restore the DB (latest, or a specific dump)
+#   scripts/prod-stack.sh dashboard [port]           launch the Argo CD UI (on-demand)
 #
-# `up` folds in the one-time bootstrap (CNPG operator, Cloudflare tunnel) and is
-# safe to re-run. `--build` forces both images to rebuild; without it they're
-# built only when missing. `down` deliberately leaves the CNPG database Cluster
-# (and its PVC) and the Cloudflare tunnel in place, so `up` restores all data.
+# `up` folds in the one-time bootstrap (CNPG + Argo CD operators, Cloudflare
+# tunnel, all out-of-band Secrets) and is safe to re-run. It does NOT build images
+# or apply the app overlay any more: CI builds and pushes images to GHCR, and Argo
+# CD syncs the overlay from main — a merge to main is what deploys. `down`
+# deliberately leaves the CNPG database Cluster (and its PVC) and the Cloudflare
+# tunnel in place, so `up` restores all data.
 #
 # The stack runs in a DEDICATED Colima profile (COLIMA_PROFILE below), separate
 # from the `default` docker VM used by docker-compose dev. Colima names that
@@ -45,18 +48,30 @@ CNPG_VERSION="1.29.0"
 CNPG_BRANCH="release-1.29"
 CNPG_MANIFEST="https://raw.githubusercontent.com/cloudnative-pg/cloudnative-pg/${CNPG_BRANCH}/releases/cnpg-${CNPG_VERSION}.yaml"
 
+# Argo CD in Core mode — headless: controller + repo-server + a single-pod redis
+# cache, no UI server, no Dex (the UI is launched on demand, see `dashboard`).
+# Installed out-of-band into its own `argocd` namespace, like CNPG. Confirm/bump
+# the latest stable tag at github.com/argoproj/argo-cd/releases.
+ARGOCD_VERSION="v2.13.3"
+ARGOCD_MANIFEST="https://raw.githubusercontent.com/argoproj/argo-cd/${ARGOCD_VERSION}/manifests/core-install.yaml"
+ARGOCD_APP_MANIFEST="infra/k8s/argocd/application.yaml"
+
+# Private GHCR access. k3s pulls the SHA-tagged images using a read:packages PAT
+# (Keychain: hexagone-ghcr-pull-token) wired in as the `ghcr-pull` Secret; Argo's
+# repo-server clones the repo over SSH with a read-only deploy key (Keychain:
+# hexagone-argocd-deploy-key). See infra/k8s/README.md, "GitOps auto-deploy".
+GHCR_USER="grumbling-tom"
+GHCR_PULL_SECRET="ghcr-pull"
+REPO_SSH_URL="git@github.com:grumbling-tom/hexagone.git"
+
 TIGRIS_ENDPOINT="https://t3.storage.dev"
 TF_STATE_BUCKET="hexagone-tfstate"
 TF_DIR="infra/terraform"
-K8S_OVERLAY="infra/k8s/production"
 
 # Postgres backups: dedicated Tigris bucket (created in infra/terraform/storage.tf
 # with a 7-day expiry rule) + the on-demand restore Job (kept out of the overlay).
 BACKUP_BUCKET="hexagone-db-backups"
 RESTORE_MANIFEST="infra/k8s/jobs/db-restore.yaml"
-
-BACKEND_IMAGE="hexagone-backend:latest"
-WEB_IMAGE="hexagone-web:latest"
 
 # Stateless deployments `down` tears down. The CNPG Cluster (hexagone-db) is
 # excluded on purpose: deleting it garbage-collects its PVC and destroys the DB.
@@ -111,23 +126,25 @@ ensure_vm() {
 # --- up ---------------------------------------------------------------------
 
 cmd_up() {
-  local force_build=0
   for arg in "$@"; do
     case "$arg" in
-      --build) force_build=1 ;;
-      *) die "unknown option for up: $arg (use --build)" ;;
+      # No --build any more: CI builds and pushes images to GHCR. For an emergency
+      # local image override, see the "escape hatch" note in infra/k8s/README.md.
+      *) die "unknown option for up: $arg (up takes none — CI builds images, Argo deploys)" ;;
     esac
   done
 
   # 1. Preflight ------------------------------------------------------------
   log "Preflight: checking tools and Keychain entries"
   for c in colima kubectl docker terraform aws security; do need_cmd "$c"; done
-  # Verify all four Keychain entries up front so we fail fast, not mid-apply.
-  local cf_token tigris_id tigris_secret resend_key
+  # Verify every Keychain entry up front so we fail fast, not mid-apply.
+  local cf_token tigris_id tigris_secret resend_key ghcr_pull_token argocd_deploy_key
   cf_token="$(kc cloudflare-api-token)"
   tigris_id="$(kc hexagone-tigris-access-key-id)"
   tigris_secret="$(kc hexagone-tigris-secret-access-key)"
   resend_key="$(kc hexagone-resend-api-key)"
+  ghcr_pull_token="$(kc hexagone-ghcr-pull-token)"     # read:packages PAT — k3s pulls from GHCR
+  argocd_deploy_key="$(kc hexagone-argocd-deploy-key)" # read-only deploy key — Argo clones the repo
 
   # 2. Colima + k3s ---------------------------------------------------------
   ensure_vm
@@ -144,7 +161,10 @@ cmd_up() {
       aws s3 mb "s3://${TF_STATE_BUCKET}" --endpoint-url "$TIGRIS_ENDPOINT"
   fi
 
-  # 4. CNPG operator (idempotent) -------------------------------------------
+  # 4. Operators (idempotent) — CNPG + Argo CD Core. Both installed out-of-band,
+  # each in its own namespace (infra/k8s/CLAUDE.md), and both must exist before
+  # the Argo Application syncs the overlay: CNPG owns the Cluster CR, Argo owns
+  # the app rollout.
   if k get deploy cnpg-controller-manager -n cnpg-system >/dev/null 2>&1; then
     log "CNPG operator already installed"
   else
@@ -153,22 +173,16 @@ cmd_up() {
     k -n cnpg-system rollout status deploy/cnpg-controller-manager --timeout=180s
   fi
 
-  # 5. Images (build-if-missing; --build forces) ----------------------------
-  # Build against the prod profile's docker daemon so k3s sees the image in its
-  # own store (imagePullPolicy: IfNotPresent) with no registry/import step.
-  build_image() {
-    local image="$1" context="$2"
-    if [ "$force_build" -eq 1 ] || ! dkr image inspect "$image" >/dev/null 2>&1; then
-      log "Building $image"
-      dkr build -t "$image" "$context"
-    else
-      log "$image present (use --build to rebuild)"
-    fi
-  }
-  build_image "$BACKEND_IMAGE" apps/backend
-  build_image "$WEB_IMAGE" apps/web
+  if k get deploy argocd-repo-server -n argocd >/dev/null 2>&1; then
+    log "Argo CD (Core) already installed"
+  else
+    log "Installing Argo CD (Core) ${ARGOCD_VERSION}"
+    k create namespace argocd --dry-run=client -o yaml | k apply -f -
+    k -n argocd apply -f "$ARGOCD_MANIFEST"
+    k -n argocd rollout status deploy/argocd-repo-server --timeout=180s
+  fi
 
-  # 6. Terraform (idempotent apply) -----------------------------------------
+  # 5. Terraform (idempotent apply) -----------------------------------------
   log "Applying Cloudflare tunnel via Terraform"
   AWS_ACCESS_KEY_ID="$tigris_id" AWS_SECRET_ACCESS_KEY="$tigris_secret" \
   TF_VAR_cloudflare_api_token="$cf_token" \
@@ -177,7 +191,7 @@ cmd_up() {
   TF_VAR_cloudflare_api_token="$cf_token" \
     terraform -chdir="$TF_DIR" apply -auto-approve -input=false
 
-  # 6b. Backups bucket lifecycle (7-day expiry) -----------------------------
+  # 5b. Backups bucket lifecycle (7-day expiry) -----------------------------
   # Set out-of-band rather than via Terraform: the aws provider's
   # aws_s3_bucket_lifecycle_configuration does a post-write read-back wait that
   # times out against Tigris (terraform-provider-aws#25939), so apply always
@@ -190,7 +204,7 @@ cmd_up() {
       --endpoint-url "$TIGRIS_ENDPOINT" \
       --lifecycle-configuration '{"Rules":[{"ID":"expire-after-7-days","Status":"Enabled","Filter":{},"Expiration":{"Days":7}}]}'
 
-  # 7. Secrets (idempotent upsert) ------------------------------------------
+  # 6. Secrets (idempotent upsert) ------------------------------------------
   log "Upserting cloudflared-token secret"
   local tunnel_token
   tunnel_token="$(AWS_ACCESS_KEY_ID="$tigris_id" AWS_SECRET_ACCESS_KEY="$tigris_secret" \
@@ -206,11 +220,70 @@ cmd_up() {
     --from-literal=RESEND_API_KEY="$resend_key" \
     --dry-run=client -o yaml | k apply -f -
 
-  # 8. Apply overlay --------------------------------------------------------
-  log "Applying app overlay ($K8S_OVERLAY)"
-  k apply -k "$K8S_OVERLAY"
+  # GHCR image-pull Secret (default ns): the deployments reference it via
+  # imagePullSecrets to pull the private SHA-tagged images.
+  log "Upserting ${GHCR_PULL_SECRET} image-pull secret"
+  k create secret docker-registry "$GHCR_PULL_SECRET" \
+    --docker-server=ghcr.io \
+    --docker-username="$GHCR_USER" \
+    --docker-password="$ghcr_pull_token" \
+    --dry-run=client -o yaml | k apply -f -
 
-  # 9. Wait for readiness ---------------------------------------------------
+  # Argo CD repository Secret (argocd ns): the read-only deploy key the repo-server
+  # uses to clone the private repo over SSH. The argocd.argoproj.io/secret-type
+  # label is what makes Argo treat it as a repo credential.
+  #
+  # Two macOS-Keychain gotchas to defuse, both of which yield Argo's "ssh: no key
+  # found":
+  #   1. `security -w` returns a MULTI-LINE secret (an SSH key is multi-line) as a
+  #      HEX string, not the raw bytes — so kc() hands us hex, which is not a key.
+  #   2. Go's SSH parser rejects a key without a trailing newline.
+  # Handle both: if kc() gave us a real PEM, pass it through with exactly one
+  # trailing newline; otherwise hex-decode what `security` dumped (xxd restores the
+  # original bytes, trailing newline and all). --from-file avoids the newline-
+  # stripping of --from-literal/`$()`.
+  log "Upserting Argo CD repository secret"
+  local tmpkey
+  tmpkey="$(mktemp)"
+  if printf '%s' "$argocd_deploy_key" | grep -q 'BEGIN OPENSSH'; then
+    printf '%s\n' "$argocd_deploy_key" >"$tmpkey"
+  else
+    printf '%s' "$argocd_deploy_key" | xxd -r -p >"$tmpkey"
+  fi
+  k create secret generic hexagone-repo -n argocd \
+    --from-literal=type=git \
+    --from-literal=url="$REPO_SSH_URL" \
+    --from-file=sshPrivateKey="$tmpkey" \
+    --dry-run=client -o yaml \
+    | k label --local -f - argocd.argoproj.io/secret-type=repository -o yaml \
+    | k apply -f -
+  rm -f "$tmpkey"
+
+  # 7. Hand the app to Argo CD ----------------------------------------------
+  # Argo owns the production overlay from here: it syncs it now and re-syncs on
+  # every merge to main (CI bumps the image SHA). We apply only the Application CR
+  # out-of-band; we do NOT `kubectl apply -k` the overlay ourselves.
+  log "Applying Argo CD Application (Argo syncs the overlay from main)"
+  k apply -f "$ARGOCD_APP_MANIFEST"
+
+  # 8. Wait for readiness ---------------------------------------------------
+  # Argo owns the app now: it creates the DB Cluster, backend, web and cloudflared.
+  # Its app health aggregates all of them, so that's the real readiness signal —
+  # wait on it first. If it never goes Healthy, the workloads may not exist yet, so
+  # DON'T fall through to per-resource waits (they'd error NotFound on a Deployment
+  # Argo hasn't synced) — surface the state and stop with a pointer to the sync.
+  log "Waiting for Argo CD to sync the app Healthy (it creates the DB, backend, web, cloudflared)"
+  if ! k -n argocd wait --for=jsonpath='{.status.health.status}'=Healthy \
+       application/hexagone --timeout=420s; then
+    warn "Argo app did not reach Healthy. The app workloads are created by Argo, so"
+    warn "they may be missing or still progressing. Inspect the sync:"
+    warn "    scripts/prod-stack.sh dashboard"
+    warn "    kubectl --context $KUBE_CONTEXT -n argocd get application hexagone"
+    k get pods 2>/dev/null || true
+    return 1
+  fi
+
+  # Healthy ⇒ the resources exist; these waits are now race-free confirmation.
   log "Waiting for the database cluster"
   k wait --for=condition=Ready cluster/hexagone-db --timeout=300s
   for d in "${STATELESS_DEPLOYMENTS[@]}"; do
@@ -218,7 +291,7 @@ cmd_up() {
     k rollout status "deploy/$d" --timeout=300s
   done
 
-  # 10. Summary -------------------------------------------------------------
+  # 9. Summary --------------------------------------------------------------
   log "Stack is up:"
   k get pods
   printf '\n'
@@ -376,27 +449,60 @@ cmd_restore() {
   log "Restore complete."
 }
 
+# --- dashboard --------------------------------------------------------------
+
+# Launch the Argo CD web UI ON DEMAND. In Core mode there's no always-on UI server
+# pod: `argocd admin dashboard` runs the API+UI as a local process that reads the
+# cluster straight from the kubeconfig (no login, no Dex). Quit it (Ctrl-C) and the
+# cluster is back to the 3 headless Argo pods.
+cmd_dashboard() {
+  need_cmd kubectl
+  command -v argocd >/dev/null 2>&1 || die "argocd CLI not found — install with: brew install argocd"
+  profile_running || die "stack is down — run 'scripts/prod-stack.sh up' first"
+
+  local port="${1:-8080}"
+
+  # `argocd admin dashboard` reads the kubeconfig's CURRENT context — unlike
+  # kubectl it does NOT honour a --kube-context flag — and we deliberately never
+  # make the prod context active (the VM starts with --activate=false so it can't
+  # hijack your kubectl). So hand argocd a throwaway, self-contained kubeconfig
+  # whose current-context IS the prod context, leaving ~/.kube/config untouched.
+  local tmpkc
+  tmpkc="$(mktemp)"
+  trap 'rm -f "$tmpkc"' EXIT
+  kubectl config view --raw --minify --context "$KUBE_CONTEXT" >"$tmpkc"
+
+  # Bind to 127.0.0.1 explicitly: the default `localhost` can resolve to the IPv6
+  # loopback only, which then refuses IPv4 (127.0.0.1) connections.
+  log "Argo CD UI → http://127.0.0.1:${port}  (Ctrl-C to stop)"
+  log "From your laptop over Tailscale, tunnel first:"
+  log "    ssh -L ${port}:127.0.0.1:${port} <hexagone-mini-tailnet-ip>   # then open the URL above"
+  KUBECONFIG="$tmpkc" argocd admin dashboard -n argocd --port "$port" --address 127.0.0.1
+}
+
 # --- Dispatch ---------------------------------------------------------------
 
 cd "$(git rev-parse --show-toplevel 2>/dev/null || echo .)"
 
 case "${1:-}" in
-  up)      shift; cmd_up "$@" ;;
-  down)    shift; cmd_down "$@" ;;
-  status)  shift; cmd_status "$@" ;;
-  backup)  shift; cmd_backup "$@" ;;
-  restore) shift; cmd_restore "$@" ;;
+  up)        shift; cmd_up "$@" ;;
+  down)      shift; cmd_down "$@" ;;
+  status)    shift; cmd_status "$@" ;;
+  backup)    shift; cmd_backup "$@" ;;
+  restore)   shift; cmd_restore "$@" ;;
+  dashboard) shift; cmd_dashboard "$@" ;;
   *)
     cat >&2 <<EOF
 Usage: scripts/prod-stack.sh <command>
 
-  up [--build]            Bring the whole stack up (idempotent). --build forces image rebuild.
+  up                      Bring the whole stack up (idempotent). CI builds images; Argo deploys.
   down [--skip-backup]    Back up the DB off-box, then delete app workloads and stop the VM.
   status                  Show what's currently running.
   backup                  Take an on-demand Postgres dump now (e.g. before a risky migration).
   restore [--yes] [--restore-from <key>]
                           Restore the database (latest backup by default, or a specific
                           object key). Destructive; prompts unless --yes.
+  dashboard [port]        Launch the Argo CD UI on demand (default port 8080; reach over Tailscale).
 EOF
     exit 1
     ;;

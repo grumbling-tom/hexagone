@@ -20,10 +20,14 @@ spec:
       labels:
         app: hexagone-web
     spec:
+      # Pull the image from private GHCR via the out-of-band `ghcr-pull` Secret
+      # (see infra/k8s/README.md, "GitOps auto-deploy").
+      imagePullSecrets:
+        - name: ghcr-pull
       containers:
         - name: web
-          image: hexagone-web:latest
-          imagePullPolicy: IfNotPresent # use the locally-built image, don't pull
+          image: hexagone-web:latest # rewritten to ghcr.io/…:<sha> by the overlay
+          imagePullPolicy: IfNotPresent # SHA tags are immutable: pull once, then cache
           ports:
             - name: http
               containerPort: 3000

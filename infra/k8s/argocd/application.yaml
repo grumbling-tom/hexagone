@@ -1,0 +1,36 @@
+# Argo CD Application — tells Argo CD (Core) to reconcile the production overlay.
+#
+# Kept OUT of infra/k8s/production on purpose: this object points *at* that
+# overlay, so bundling it inside would be circular. It's applied out-of-band by
+# `scripts/prod-stack.sh up` (the same way the CNPG operator is installed out of
+# band — see infra/k8s/CLAUDE.md), and lives in the `argocd` namespace alongside
+# the controller, never in `default`.
+#
+# Argo's repo-server clones the PRIVATE repo over SSH using the read-only deploy
+# key wired in as an `argocd` repository Secret by prod-stack.sh. github.com's
+# host key ships in Argo's default argocd-ssh-known-hosts-cm.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: hexagone
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: git@github.com:grumbling-tom/hexagone.git
+    targetRevision: main
+    path: infra/k8s/production # the existing Kustomize overlay, unchanged
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: default
+  syncPolicy:
+    # Pull-based auto-deploy: Argo applies whatever main says. CI bumps the image
+    # tag in the overlay on every merge (see .github/workflows/deploy.yml), so a
+    # merge to main is what rolls the cluster — no manual kubectl.
+    automated:
+      prune: true # delete resources removed from git
+      selfHeal: true # revert out-of-band drift back to git
+    syncOptions:
+      # CNPG/cloudflared etc. land in `default`; the namespace already exists, but
+      # this keeps first-sync robust if anything declares its own.
+      - CreateNamespace=true
