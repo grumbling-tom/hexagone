@@ -2,7 +2,7 @@
 name: raise-pr
 description: Open a GitHub pull request with a title and body that match this project's established style (One-liner / Context / Technical Decisions / Testing). Use this whenever the user asks to raise, open, ship, or put up a PR — even if they don't mention the skill explicitly. Announce that you're invoking this skill before proceeding. Defaults to draft PRs.
 user-invocable: true
-allowed-tools: Bash(git status:*) Bash(git branch:*) Bash(git log:*) Bash(git diff:*) Bash(git rev-parse:*) Bash(gh pr list:*) Bash(gh pr create:*) Bash(gh pr view:*) Read Grep Glob mcp__backlog__task_list mcp__backlog__task_search mcp__backlog__task_view
+allowed-tools: Bash(git status:*) Bash(git branch:*) Bash(git log:*) Bash(git diff:*) Bash(git rev-parse:*) Bash(gh pr list:*) Bash(gh pr create:*) Bash(gh pr view:*) Read Grep Glob mcp__plane__list_work_items mcp__plane__search_work_items mcp__plane__retrieve_work_item
 argument-hint: "[optional notes to include]"
 ---
 
@@ -26,13 +26,13 @@ Run these in parallel:
 - `git diff main...HEAD` — full diff against main (use `...` not `..`)
 - `git rev-parse --abbrev-ref --symbolic-full-name @{u}` (or similar) — does the branch have an upstream?
 - `gh pr list --state merged --limit 3 --json title,body` — recent merged PRs as a style reference
-- `mcp__backlog__task_list` (or `task_search` with keywords from the branch name / diff) — find the Backlog task this work belongs to
+- `mcp__plane__search_work_items` (with keywords from the branch name / diff, or `list_work_items` to browse) — find the Plane work item this work belongs to
 
 If there are uncommitted changes, stop and ask the user whether to commit them first or leave them out.
 
 If the branch has no upstream, stop and ask the user to push it first (e.g. `git push -u origin <branch>`). This skill does not push branches itself.
 
-**Check for the Backlog task.** Identify the task this PR delivers (match the diff against open tasks; `task_view` the likely candidate to confirm). The PR body must link it (see the body structure). If no task fits, tell the user and ask whether to proceed without one or create a task first — don't invent a task ID, and don't create the task yourself from this skill. This skill only reads Backlog; moving the task to Done once the PR is open is covered by the `/manage-backlog` skill.
+**Check for the Plane work item.** Identify the item this PR delivers (match the diff against open items; `retrieve_work_item` the likely candidate to confirm). The PR body must reference it (see the body structure). If no item fits, tell the user and ask whether to proceed without one or create one first — don't invent an item ID, and don't create the item yourself from this skill. This skill only reads Plane; moving the item to Done once the PR is open is covered by the `/manage-plane` skill.
 
 ### 2. Understand the change
 
@@ -62,7 +62,7 @@ This PR <one-sentence summary of what the PR does>.
 
 - <Why this PR exists — backstory, motivation>
 - <Bullet points; link to related PRs with #N>
-- Backlog: `task-NNNN` <short task title> (omit this line only if the user confirmed there's no task)
+- Plane: <work-item-id> <short item title> (omit this line only if the user confirmed there's no item)
 
 ## Technical Decisions
 

@@ -152,33 +152,12 @@ export default function Dialog() {
 
 ## Task Lifecycle (run at session start)
 
-At the **start of each session**, run the start-of-session step of the `manage-backlog` skill: find the Backlog task this session's work maps to and move it to **In Progress** (ask if no task clearly fits; never create one autonomously). Then keep that task's description in sync if the scope changes during implementation, and move it to **Done** when you open a PR. The `manage-backlog` skill is the full procedure — invoke it (`/manage-backlog`) for the details.
+At the **start of each session**, run the start-of-session step of the `manage-plane` skill: find the Plane work item this session's work maps to and move it to **In Progress** (ask if no item clearly fits; never create one autonomously). Then keep its description in sync if the scope changes during implementation, and move it to **Done** when you open a PR. The `manage-plane` skill is the full procedure — invoke it (`/manage-plane`) for the details.
 
-<!-- BACKLOG.MD MCP GUIDELINES START -->
+## Task & Project Tracking (Plane)
 
-<CRITICAL_INSTRUCTION>
+This project tracks tasks and milestones in **Plane** (free tier), reached through the Plane MCP server configured in `.mcp.json` (its tools are prefixed `mcp__plane__`). The model maps as: a **Module** is a milestone/epic; a **Work Item** is a task, associated to its module. Statuses are Plane states (Todo / In Progress / Done).
 
-## BACKLOG WORKFLOW INSTRUCTIONS
-
-This project uses Backlog.md MCP for all task and project management activities.
-
-**CRITICAL GUIDANCE**
-
-- If your client supports MCP resources, read `backlog://workflow/overview` to understand when and how to use Backlog for this project.
-- If your client only supports tools or the above request fails, call `backlog.get_backlog_instructions()` to load the tool-oriented overview. Use the `instruction` selector when you need `task-creation`, `task-execution`, or `task-finalization`.
-
-- **First time working here?** Read the overview resource IMMEDIATELY to learn the workflow
-- **Already familiar?** You should have the overview cached ("## Backlog.md Overview (MCP)")
-- **When to read it**: BEFORE creating tasks, or when you're unsure whether to track work
-
-These guides cover:
-- Decision framework for when to create tasks
-- Search-first workflow to avoid duplicates
-- Links to detailed guides for task creation, execution, and finalization
-- MCP tools reference
-
-You MUST read the overview resource to understand the complete workflow. The information is NOT summarized here.
-
-</CRITICAL_INSTRUCTION>
-
-<!-- BACKLOG.MD MCP GUIDELINES END -->
+- Read or author work items with the `mcp__plane__*` tools — e.g. `list_work_items`, `search_work_items`, `retrieve_work_item`, `create_work_item`, `update_work_item`; modules via `list_modules` / `create_module` / `manage_module_work_items`.
+- The MCP server authenticates with a personal access token from the `PLANE_API_KEY` env var (plus `PLANE_WORKSPACE_SLUG`); these are supplied by the environment and never committed.
+- Don't create work items or modules autonomously — propose, then let the user decide. Day-to-day task state is handled by the `manage-plane` skill (see above).
