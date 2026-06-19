@@ -2,7 +2,6 @@
 
 import { createLoginToken } from "@/__generated__/backend-client/login-tokens";
 import type { AuthFormState } from "@/features/auth/types";
-import { ApiError, HttpStatus } from "@/lib/fetch-client";
 
 export async function requestLink(
   _prevState: AuthFormState,
@@ -15,12 +14,12 @@ export async function requestLink(
     // allow-listed (the backend never reveals membership). fetchClient
     // propagates the nonce cookie to the browser for the later verify step.
     await createLoginToken({ email });
-  } catch (err) {
-    if (err instanceof ApiError && err.httpStatus === HttpStatus.BAD_GATEWAY) {
-      // The address was allow-listed but the email provider failed.
-      return { error: "We couldn't send your sign-in link. Please try again." };
-    }
-    return { error: "Something went wrong. Please try again." };
+  } catch {
+    // Any failure (the backend couldn't send the link, a bad address, the
+    // backend being unreachable) means we must NOT claim "check your email" —
+    // tell the user to retry. We deliberately don't branch on HTTP status: a
+    // 502 from a dead backend is indistinguishable from one the app raised.
+    return { error: "We couldn't send your sign-in link. Please try again." };
   }
 
   return { sent: true };

@@ -12,7 +12,6 @@ import { env } from "@/config/env";
 export enum HttpStatus {
   UNAUTHORIZED = 401,
   CONFLICT = 409,
-  BAD_GATEWAY = 502,
 }
 
 export class ApiError<T> extends Error {

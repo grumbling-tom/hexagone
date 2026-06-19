@@ -73,4 +73,4 @@ def test_request_link_surfaces_email_send_failure(
 
     # The failure is surfaced (not swallowed) so the frontend can tell the user
     # the link couldn't be sent.
-    assert response.status_code == 502
+    assert response.status_code == 503
