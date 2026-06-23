@@ -87,13 +87,13 @@ spec:
             # is Resend's shared dev sender: no domain/DNS to verify, but it can
             # ONLY deliver to the Resend account owner's own email address — fine
             # for this invite-only app whose allowlist is that same address. Swap
-            # to a verified domain (e.g. noreply@hexagone.app) to email anyone.
+            # to a verified domain (e.g. noreply@hexagone.one) to email anyone.
             - name: RESEND_FROM_EMAIL
               value: "onboarding@resend.dev"
             # Public base URL for links in email bodies (default localhost is
             # DEV-only). Set to the apex served via cloudflared.
             - name: APP_BASE_URL
-              value: "https://hexagone.app" # adjust to your public apex
+              value: "https://hexagone.one" # adjust to your public apex
           envFrom:
             # Secrets out of band: AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY
             # (Tigris keys) and RESEND_API_KEY (Resend). Non-secret config is
