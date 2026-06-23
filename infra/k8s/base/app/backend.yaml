@@ -83,10 +83,13 @@ spec:
             - name: HEXAGONE_S3_BUCKET
               value: "hexagone-gpx-uploads" # adjust to your Tigris bucket
             # Transactional email (Resend). The sender is non-secret; the API key
-            # is in hexagone-backend-secrets (envFrom below). Must be a verified
-            # sender/domain in Resend.
+            # is in hexagone-backend-secrets (envFrom below). onboarding@resend.dev
+            # is Resend's shared dev sender: no domain/DNS to verify, but it can
+            # ONLY deliver to the Resend account owner's own email address — fine
+            # for this invite-only app whose allowlist is that same address. Swap
+            # to a verified domain (e.g. noreply@hexagone.app) to email anyone.
             - name: RESEND_FROM_EMAIL
-              value: "noreply@hexagone.app"
+              value: "onboarding@resend.dev"
             # Public base URL for links in email bodies (default localhost is
             # DEV-only). Set to the apex served via cloudflared.
             - name: APP_BASE_URL
