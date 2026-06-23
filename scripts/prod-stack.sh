@@ -73,6 +73,11 @@ TF_DIR="infra/terraform"
 BACKUP_BUCKET="hexagone-db-backups"
 RESTORE_MANIFEST="infra/k8s/jobs/db-restore.yaml"
 
+# GPX uploads bucket (created in infra/terraform/storage.tf). The Tigris object
+# notification on this bucket POSTs to the backend's upload-processing-jobs
+# webhook; objects land under the v1/uploads/ prefix.
+UPLOADS_BUCKET="hexagone-gpx-uploads"
+
 # Stateless deployments `down` tears down. The CNPG Cluster (hexagone-db) is
 # excluded on purpose: deleting it garbage-collects its PVC and destroys the DB.
 STATELESS_DEPLOYMENTS=(hexagone-backend hexagone-web cloudflared)
@@ -136,15 +141,19 @@ cmd_up() {
 
   # 1. Preflight ------------------------------------------------------------
   log "Preflight: checking tools and Keychain entries"
-  for c in colima kubectl docker terraform aws security; do need_cmd "$c"; done
+  for c in colima kubectl docker terraform aws security tigris; do need_cmd "$c"; done
   # Verify every Keychain entry up front so we fail fast, not mid-apply.
-  local cf_token tigris_id tigris_secret resend_key ghcr_pull_token argocd_deploy_key
+  local cf_token tigris_id tigris_secret resend_key ghcr_pull_token argocd_deploy_key upload_notification_secret
   cf_token="$(kc cloudflare-api-token)"
   tigris_id="$(kc hexagone-tigris-access-key-id)"
   tigris_secret="$(kc hexagone-tigris-secret-access-key)"
   resend_key="$(kc hexagone-resend-api-key)"
   ghcr_pull_token="$(kc hexagone-ghcr-pull-token)"     # read:packages PAT — k3s pulls from GHCR
   argocd_deploy_key="$(kc hexagone-argocd-deploy-key)" # read-only deploy key — Argo clones the repo
+  # Shared secret for the upload-processing-jobs webhook. The SAME value seeds the
+  # backend Secret (so it validates the Bearer token) and the Tigris notification
+  # --token below, so the two can never drift.
+  upload_notification_secret="$(kc hexagone-upload-notification-secret)"
 
   # 2. Colima + k3s ---------------------------------------------------------
   ensure_vm
@@ -204,6 +213,26 @@ cmd_up() {
       --endpoint-url "$TIGRIS_ENDPOINT" \
       --lifecycle-configuration '{"Rules":[{"ID":"expire-after-7-days","Status":"Enabled","Filter":{},"Expiration":{"Days":7}}]}'
 
+  # 5c. Tigris upload notification (webhook) --------------------------------
+  # Point the uploads bucket at the backend's upload-processing-jobs webhook.
+  # Out-of-band like 5b: a Tigris webhook (HTTP URL + Bearer token) is a
+  # proprietary Tigris extension, not standard S3 — neither the tigris_bucket
+  # Terraform resource nor `aws s3api put-bucket-notification-configuration`
+  # (SNS/SQS/Lambda only) can express it, so we use the tigris CLI.
+  # `set-notifications` writes the full config, so it's idempotent. --token is
+  # the SAME secret seeded into hexagone-backend-secrets below, so what Tigris
+  # sends (Authorization: Bearer …) matches what the backend validates. The
+  # filter scopes it to the upload prefix so backups/other writes don't fire it.
+  local app_hostname
+  app_hostname="$(AWS_ACCESS_KEY_ID="$tigris_id" AWS_SECRET_ACCESS_KEY="$tigris_secret" \
+    terraform -chdir="$TF_DIR" output -raw app_hostname)"
+  log "Configuring Tigris notification on s3://${UPLOADS_BUCKET} -> https://${app_hostname}/api/upload-processing-jobs"
+  tigris buckets set-notifications "$UPLOADS_BUCKET" \
+    --access-key "$tigris_id" --access-secret "$tigris_secret" \
+    --url "https://${app_hostname}/api/upload-processing-jobs" \
+    --token "$upload_notification_secret" \
+    --filter "WHERE \`key\` REGEXP \"^v1/uploads/\""
+
   # 6. Secrets (idempotent upsert) ------------------------------------------
   log "Upserting cloudflared-token secret"
   local tunnel_token
@@ -218,6 +247,7 @@ cmd_up() {
     --from-literal=AWS_ACCESS_KEY_ID="$tigris_id" \
     --from-literal=AWS_SECRET_ACCESS_KEY="$tigris_secret" \
     --from-literal=RESEND_API_KEY="$resend_key" \
+    --from-literal=UPLOAD_NOTIFICATION_SECRET="$upload_notification_secret" \
     --dry-run=client -o yaml | k apply -f -
 
   # GHCR image-pull Secret (default ns): the deployments reference it via
