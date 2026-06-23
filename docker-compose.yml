@@ -104,6 +104,9 @@ services:
       - --port
       - "8000"
       - --reload
+      # Access logging is handled by AccessLogMiddleware (through structlog, with
+      # trace ids, skipping the health probe), so disable uvicorn's own.
+      - --no-access-log
     environment:
       ENV: DEV
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres

@@ -3,7 +3,7 @@
 from fastapi import APIRouter, FastAPI, Request
 from fastapi.responses import JSONResponse
 
-from src.app.middleware import RequestThrottlerMiddleware
+from src.app.middleware import AccessLogMiddleware, RequestThrottlerMiddleware
 from src.app.repository import NotAuthorisedError
 from src.app.routers.health import router as health_router
 from src.app.routers.hex_claims import (
@@ -37,6 +37,11 @@ def create_app(settings: Settings = settings) -> FastAPI:
 
     # No CORS: the browser never calls the backend directly (Next.js reaches it
     # server-side via RSC / Server Actions), so cross-origin requests don't occur.
+
+    # Our own access log, replacing uvicorn's (disabled with --no-access-log).
+    # Added before setup_tracing so the OTel middleware wraps it and each request
+    # line is stamped with the active span's trace_id/span_id.
+    app.add_middleware(AccessLogMiddleware)
 
     if settings.THROTTLE_DELAY_SECONDS is not None:
         app.add_middleware(
