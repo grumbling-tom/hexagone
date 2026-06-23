@@ -6,8 +6,12 @@ pre-commit:
         ENV: TEST # Used by the backend for Settings instantiation.
       priority: 0
       glob: "*.{py,ts,json}"
-      run: pnpm -C apps/web api:gen
-      stage_fixed: true
+      # api:gen regenerates files OUTSIDE the staged set (the OpenAPI spec and
+      # the orval client — a route docstring alone changes them, since FastAPI
+      # uses it as the operation description). `stage_fixed` only re-stages
+      # already-staged files, so it misses these; stage them explicitly,
+      # otherwise a stale client gets committed and CI's regen-and-diff fails.
+      run: pnpm -C apps/web api:gen && git add apps/backend/__generated__/openapi.json apps/web/src/__generated__/backend-client
     biome:
       root: apps/web/
       glob: "*.{js,ts,jsx,tsx,json,mjs}"

@@ -1,16 +1,7 @@
-import Link from "next/link";
-import LoginForm from "@/features/auth/components/LoginForm";
-import { login } from "@/features/auth/server/login";
+import RequestLinkForm from "@/features/auth/components/RequestLinkForm";
+import { requestLink } from "@/features/auth/server/requestLink";
 
+// Passwordless: sign-in and sign-up have converged into one email-only flow.
 export default function LoginPage() {
-  return (
-    <LoginForm
-      action={login}
-      footer={
-        <>
-          Don&apos;t have an account? <Link href="/signup">Sign up</Link>
-        </>
-      }
-    />
-  );
+  return <RequestLinkForm action={requestLink} />;
 }

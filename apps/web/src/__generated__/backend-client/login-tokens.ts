@@ -22,10 +22,11 @@ allow-listed addresses; the nonce is a harmless throwaway otherwise. How (or
 whether) to message the user is left to the frontend.
 
 If sending the email fails for an allow-listed address, the request fails
-with 502 so the frontend can surface the problem rather than leave the user
-waiting for a link that never arrives. This means a provider outage is a
-theoretical allow-status signal, but such failures aren't
-attacker-controllable per address, so the UX win wins.
+with 503 (the email provider is temporarily unavailable) so the frontend can
+surface the problem rather than leave the user waiting for a link that never
+arrives. This means a provider outage is a theoretical allow-status signal,
+but such failures aren't attacker-controllable per address, so the UX win
+wins.
  * @summary Create Login Token
  */
 export const createLoginToken = (

@@ -11,7 +11,7 @@ session layer — no third-party auth vendor.
 > |------|--------|-------|
 > | Token domain (model, issue/verify/peek, allowlist, email) | ✅ implemented | `TASK-0018` / PR #56 |
 > | HTTP endpoints (`POST /login-tokens`, `POST /user-sessions {token}`) + nonce cookie | ✅ implemented | `TASK-0019` |
-> | Frontend (email-only forms, verify route, auto-redirect) | ⏳ planned | `TASK-0020` |
+> | Frontend (email-only form, verify route, auto-redirect) | ✅ implemented | `TASK-0020` |
 > | Remove password auth | ⏳ planned | `TASK-0021` |
 > | Centralised email masking in logs | ⏳ planned | `TASK-0022` |
 
@@ -41,7 +41,8 @@ useless without the browser that asked for it.
 | Session minting (reused) | `apps/backend/src/app/services/user_session.py` (`create_session`) |
 | Settings | `apps/backend/src/app/settings.py` (`ALLOWED_EMAILS`, `LOGIN_TOKEN_*`) |
 | Endpoints | `routers/login_tokens.py` (`POST /login-tokens`); `routers/user_sessions.py` (`POST /user-sessions` token mode) |
-| Frontend forms + verify route (planned) | `apps/web/src/features/auth/`, `apps/web/app/auth/verify/` |
+| Frontend email form + actions | `features/auth/components/RequestLinkForm.tsx`, `features/auth/server/requestLink.ts`; route `app/login/page.tsx` (`/signup` redirects here) |
+| Frontend verify route | `app/auth/verify/page.tsx` + `features/auth/components/VerifyStatus.tsx` + `features/auth/server/verifyLogin.ts` |
 
 ## Flow 1 — request a link (issue)
 
@@ -100,7 +101,7 @@ The browser never calls the backend directly — only Next.js does
         │                  │                   │                      │  stamp used_at ◀ CONSUME
         │                  │                   │                      │  create_session()
         │                  │                   │◀─────────────────────│ Set-Cookie sessionid
-        │                  │  Set-Cookie sessionid; 303 → /map (clean URL)
+        │                  │  Set-Cookie sessionid; 303 → /welcome (clean URL)
         │                  │◀──────────────────│                      │
         │                  │  authenticated ✓ — token spent, no replay │
 ```
@@ -110,9 +111,13 @@ Key points:
 - **The `GET` never consumes.** The RSC render is side-effect-free; it may call
   the read-only `peek_login_token` to show *"Link valid! Redirecting…"* or
   *"expired — request a new link"*.
-- **Consume is automatic, not a button.** A client component fires the verify
-  Server Action **on mount**; on success the backend stamps `used_at`, calls
-  `create_session`, and the user is redirected to a clean URL (token stripped).
+- **Consume is automatic, with a manual fallback.** A client component runs a
+  short countdown then fires the verify Server Action (a "Sign in now" button is
+  the manual fallback). Either way consumption happens client-side, after the GET
+  render. On success the backend stamps `used_at`, calls `create_session`, and
+  the user is redirected to a clean URL (token stripped) — `/welcome`, the
+  onboarding gate, which shows onboarding for a new account and bounces to `/map`
+  for a returning one.
 - **Why auto-redirect is safe** (see the threat table below): the always-on
   nonce is the real gate, not the click.
 
@@ -146,7 +151,7 @@ Key points:
   an empty body, and a nonce cookie is always set) regardless of whether the
   email exists or is allow-listed. The backend returns no message; how to inform
   the user is the frontend's call. The one exception: if the email provider fails
-  for an allow-listed address the request returns 502 (so the frontend can
+  for an allow-listed address the request returns 503 (so the frontend can
   surface it) — a theoretical allow-status signal, accepted because provider
   failures aren't attacker-controllable per address.
 - **No secrets in logs.** The plaintext token and nonce are never logged; emails
