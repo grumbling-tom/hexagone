@@ -12,6 +12,13 @@ pre-commit:
       # already-staged files, so it misses these; stage them explicitly,
       # otherwise a stale client gets committed and CI's regen-and-diff fails.
       run: pnpm -C apps/web api:gen && git add apps/backend/__generated__/openapi.json apps/web/src/__generated__/backend-client
+    gen-email-theme:
+      priority: 0
+      # The email token module mirrors apps/web/src/styles/theme.css. Regenerate
+      # it (and re-stage, like gen-api-client above) whenever theme.css changes,
+      # so the committed copy the backend image ships never drifts from source.
+      glob: "apps/web/src/styles/theme.css"
+      run: uv run --project apps/backend python apps/backend/src/scripts/gen_email_theme.py && git add apps/backend/src/app/services/email_theme.py
     biome:
       root: apps/web/
       glob: "*.{js,ts,jsx,tsx,json,mjs}"

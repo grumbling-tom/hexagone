@@ -7,6 +7,7 @@ from urllib.parse import quote_plus
 import resend
 
 from src.app.repository.models import User
+from src.app.services.email_render import render_login_link, render_welcome
 from src.app.settings import settings
 from src.app.utils import get_logger, mask_email
 
@@ -108,11 +109,7 @@ def send_welcome_email(email: EmailClient, *, user: User) -> str:
         The provider message id.
     """
     subject = "Welcome to Hexagone"
-    html = (
-        f"<h1>Welcome!</h1>"
-        f"<p>Your account ({user.email}) is ready. "
-        f'<a href="{settings.APP_BASE_URL}/map">Open the map</a>.</p>'
-    )
+    html = render_welcome(user_email=user.email)
     return email.send(
         to=user.email,
         subject=subject,
@@ -140,10 +137,5 @@ def send_login_link_email(email: EmailClient, *, to_email: str, token: str) -> s
     verify_url = f"{settings.APP_BASE_URL}/auth/verify?token={quote_plus(token)}"
     minutes = settings.LOGIN_TOKEN_EXPIRY_MINUTES
     subject = "Your Hexagone sign-in link"
-    html = (
-        f"<h1>Sign in to Hexagone</h1>"
-        f'<p><a href="{verify_url}">Click here to sign in</a>.</p>'
-        f"<p>This link expires in {minutes} minutes and can only be used once. "
-        f"Open it in the same browser you requested it from.</p>"
-    )
+    html = render_login_link(verify_url=verify_url, minutes=minutes)
     return email.send(to=to_email, subject=subject, html=html)

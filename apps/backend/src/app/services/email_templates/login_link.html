@@ -1,0 +1,9 @@
+{% extends "_base.html" %}
+{% from "_macros.html" import heading, button with context %}
+{% block content %}
+{{ heading("Sign in to Hexagone") }}
+<p style="margin: 0 0 {{ theme['space-sm'] }};">Use the button below to sign in to your account.</p>
+{{ button(verify_url, "Sign in to Hexagone") }}
+<p style="margin: {{ theme['space-sm'] }} 0 0; font-size: 14px; color: {{ theme['color-text-muted'] }};">This link expires in {{ minutes }} minutes and can only be used once. Open it in the same browser you requested it from.</p>
+<p style="margin: {{ theme['space-xs'] }} 0 0; font-size: 14px; color: {{ theme['color-text-muted'] }};">If you didn't request this, you can safely ignore this email.</p>
+{% endblock %}
