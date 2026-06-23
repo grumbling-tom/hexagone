@@ -23,7 +23,7 @@ resources:
 images:
 - name: hexagone-backend
   newName: ghcr.io/grumbling-tom/hexagone-backend
-  newTag: 8651ac8
+  newTag: 17ac068
 - name: hexagone-web
   newName: ghcr.io/grumbling-tom/hexagone-web
-  newTag: 8651ac8
+  newTag: 17ac068
