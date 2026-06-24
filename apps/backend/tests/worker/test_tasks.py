@@ -14,7 +14,8 @@ from src.worker.main import app as worker_app
 
 
 def test_process_upload_task_is_registered() -> None:
-    assert tasks.PROCESS_UPLOAD in worker_app.tasks  # pyright: ignore[reportUnknownMemberType]
+    registered_name = f"{tasks.NAMESPACE}:process_upload"
+    assert registered_name in worker_app.tasks  # pyright: ignore[reportUnknownMemberType]
 
 
 def test_process_upload_task_delegates_to_process_upload(
@@ -36,7 +37,7 @@ def test_process_upload_task_delegates_to_process_upload(
     monkeypatch.setattr(tasks, "S3StorageBackend", lambda: "storage-backend")
     monkeypatch.setattr(tasks, "process_upload", fake_process_upload)
 
-    tasks.process_upload_task(key="v1/uploads/abc")
+    tasks.defer_process_upload(key="v1/uploads/abc")
 
     assert captured == {
         "db": "db-session",

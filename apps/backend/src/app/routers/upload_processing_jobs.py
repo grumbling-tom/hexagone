@@ -21,7 +21,7 @@ from pydantic import Field
 
 from src.app.settings import settings
 from src.app.utils import BaseSchema
-from src.worker.defer import defer_process_upload
+from src.worker.tasks import defer_process_upload
 
 router = APIRouter()
 

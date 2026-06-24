@@ -5,9 +5,12 @@ from contextlib import asynccontextmanager
 
 from fastapi import APIRouter, FastAPI, Request
 from fastapi.responses import JSONResponse
+from procrastinate import App
+from procrastinate.contrib.sqlalchemy import SQLAlchemyPsycopg2Connector
 
 from src.app.middleware import RequestThrottlerMiddleware
 from src.app.repository import NotAuthorisedError
+from src.app.repository.database import engine
 from src.app.routers.health import router as health_router
 from src.app.routers.hex_claims import (
     aggregated_hex_claims_router,
@@ -24,7 +27,7 @@ from src.app.routers.users import router as users_router
 from src.app.settings import Settings, settings
 from src.app.telemetry import setup_tracing
 from src.app.utils import configure_logging
-from src.worker.defer import close_defer_app, open_defer_app
+from src.worker.tasks import NAMESPACE, blueprint
 
 configure_logging()
 
@@ -41,11 +44,14 @@ def _handle_not_authorised(request: Request, exc: Exception) -> JSONResponse:  #
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None]:  # noqa: ARG001
     """Open the defer-only Procrastinate app for the lifetime of the server."""
-    open_defer_app()
+    procrastinate_app = App(connector=SQLAlchemyPsycopg2Connector())
+    procrastinate_app.open(engine)
+    procrastinate_app.add_tasks_from(blueprint, namespace=NAMESPACE)
+
     try:
         yield
     finally:
-        close_defer_app()
+        procrastinate_app.close()
 
 
 def create_app(settings: Settings = settings) -> FastAPI:

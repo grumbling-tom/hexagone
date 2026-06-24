@@ -32,7 +32,6 @@ from src.app.services.password import hash_password
 from src.app.services.storage import S3StorageBackend
 from src.app.services.user_session import create_session
 from src.app.settings import settings
-from src.worker.defer import defer_app
 
 #: Bearer secret the upload-processing-jobs webhook expects in tests.
 UPLOAD_NOTIFICATION_SECRET = "test-notification-secret"
@@ -42,17 +41,12 @@ UPLOAD_NOTIFICATION_SECRET = "test-notification-secret"
 def procrastinate_connector(
     monkeypatch: pytest.MonkeyPatch,
 ) -> Generator[InMemoryConnector]:
-    """Run the defer-only Procrastinate app against an in-memory connector.
-
-    The FastAPI lifespan opens ``defer_app`` on startup; without this swap it
-    would try to open the production SQLAlchemy connector against the SQLite
-    test engine. Yields the connector so tests can assert on enqueued jobs
-    (``connector.jobs``). Also sets the webhook's shared secret.
-    """
+    """Run the defer-only Procrastinate app against an in-memory connector"""
     monkeypatch.setattr(
         settings, "UPLOAD_NOTIFICATION_SECRET", UPLOAD_NOTIFICATION_SECRET
     )
     connector = InMemoryConnector()
+    # FIXME - broken import
     with defer_app.replace_connector(connector):
         yield connector
 

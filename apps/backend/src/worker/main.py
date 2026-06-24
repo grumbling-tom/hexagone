@@ -12,11 +12,7 @@ psycopg3's async machinery stays out of the request-serving import graph.
 from procrastinate import App, PsycopgConnector
 
 from src.app.settings import settings
-from src.worker.tasks import PROCESS_UPLOAD, process_upload_task
+from src.worker.tasks import NAMESPACE, blueprint
 
 app = App(connector=PsycopgConnector(conninfo=settings.psycopg_conninfo))
-
-# Bind the task body (a plain function in tasks.py) onto this app. Registered
-# here rather than with an inline @app.task so the body stays importable without
-# this module's async connector.
-app.task(name=PROCESS_UPLOAD)(process_upload_task)
+app.add_tasks_from(blueprint, namespace=NAMESPACE)
