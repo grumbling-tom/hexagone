@@ -10,10 +10,11 @@ from src.app.services.email import (
     ConsoleEmailClient,
     EmailClient,
     ResendEmailClient,
+    render_login_link,
+    render_welcome,
     send_login_link_email,
     send_welcome_email,
 )
-from src.app.services.email_render import render_login_link, render_welcome
 from src.app.services.email_theme import EMAIL_THEME
 from src.app.services.password import hash_password
 from src.app.settings import settings
