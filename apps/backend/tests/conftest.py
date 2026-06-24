@@ -7,6 +7,7 @@ from typing import Any
 
 import boto3
 import pytest
+from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from moto import mock_aws
 from mypy_boto3_s3 import S3Client
@@ -15,7 +16,7 @@ from sqlalchemy import StaticPool, create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
 from src.app.dependencies import db_session, email_client, file_storage
-from src.app.main import app
+from src.app.main import create_app
 from src.app.repository import (
     BaseModel,
     HexClaim,
@@ -38,17 +39,30 @@ UPLOAD_NOTIFICATION_SECRET = "test-notification-secret"
 
 
 @pytest.fixture(autouse=True)
-def procrastinate_connector(
+def _notification_secret(  # pyright: ignore[reportUnusedFunction]
     monkeypatch: pytest.MonkeyPatch,
-) -> Generator[InMemoryConnector]:
-    """Run the defer-only Procrastinate app against an in-memory connector"""
+) -> None:
+    """Set the upload-processing-jobs webhook's shared secret for all tests."""
     monkeypatch.setattr(
         settings, "UPLOAD_NOTIFICATION_SECRET", UPLOAD_NOTIFICATION_SECRET
     )
-    connector = InMemoryConnector()
-    # FIXME - broken import
-    with defer_app.replace_connector(connector):
-        yield connector
+
+
+@pytest.fixture
+def procrastinate_connector() -> InMemoryConnector:
+    """In-memory Procrastinate connector; tests assert on enqueued jobs (.jobs)."""
+    return InMemoryConnector()
+
+
+@pytest.fixture
+def app(procrastinate_connector: InMemoryConnector) -> FastAPI:
+    """FastAPI app whose defer-only Procrastinate app runs on the in-memory connector.
+
+    Injecting the connector into create_app keeps the swap out of the test body
+    (no monkeypatching): the app's lifespan opens it, so jobs the webhook defers
+    land in ``procrastinate_connector.jobs``.
+    """
+    return create_app(procrastinate_connector=procrastinate_connector)
 
 
 @pytest.fixture(autouse=True)
@@ -302,10 +316,10 @@ def sent_emails() -> list[dict[str, Any]]:
 
 @pytest.fixture
 def client(
+    app: FastAPI,
     test_db: Session,
     test_user: User,
     sent_emails: list[dict[str, Any]],
-    procrastinate_connector: InMemoryConnector,
 ) -> Generator[TestClient]:
     """Yield an authenticated FastAPI test client."""
 
@@ -345,9 +359,9 @@ def authenticate_as(
 
 @pytest.fixture
 def unauthenticated_client(
+    app: FastAPI,
     test_db: Session,
     sent_emails: list[dict[str, Any]],
-    procrastinate_connector: InMemoryConnector,
 ) -> Generator[TestClient]:
     """Yield an unauthenticated FastAPI test client."""
 

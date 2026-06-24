@@ -6,5 +6,12 @@
   "python.analysis.include": [
     "${workspaceFolder}/apps/backend/src",
     "${workspaceFolder}/apps/backend/tests"
-  ]
+  ],
+  "python.testing.pytestArgs": [
+    "apps"
+  ],
+  "python.testing.unittestEnabled": false,
+  "python.testing.pytestEnabled": true,
+  "python.terminal.useEnvFile": true,
+  "python.envFile": "${workspaceFolder}/apps/backend/.env"
 }

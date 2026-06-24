@@ -71,4 +71,4 @@ def create_upload_processing_job(body: UploadNotification) -> None:
     for event in body.events:
         # OBJECT_CREATED_PUT: object created/updated via PUT (see module docstring).
         if event.event_name == "OBJECT_CREATED_PUT":
-            defer_process_upload(event.obj.key)
+            defer_process_upload.defer(key=event.obj.key)

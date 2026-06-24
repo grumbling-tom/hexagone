@@ -2,20 +2,27 @@
 
 The processing logic itself (``process_upload``) is covered in
 ``tests/app/services/test_upload.py``; here we only check the thin task wrapper
-delegates to it and that the worker app registers it under the expected name.
+delegates to it and that the defer app registers it under the expected name.
+
+The defer app is built inside the lifespan, so we enter the ``TestClient`` to
+run startup and read it back off ``app.state``.
 """
 
 from typing import Any
 
 import pytest
+from fastapi import FastAPI
+from fastapi.testclient import TestClient
 
 from src.worker import tasks
-from src.worker.main import app as worker_app
 
 
-def test_process_upload_task_is_registered() -> None:
+def test_process_upload_task_is_registered(app: FastAPI) -> None:
     registered_name = f"{tasks.NAMESPACE}:process_upload"
-    assert registered_name in worker_app.tasks  # pyright: ignore[reportUnknownMemberType]
+
+    with TestClient(app):  # startup runs the lifespan, which registers the task
+        procrastinate_app = app.state.procrastinate_app
+        assert registered_name in procrastinate_app.tasks  # pyright: ignore[reportUnknownMemberType]
 
 
 def test_process_upload_task_delegates_to_process_upload(
