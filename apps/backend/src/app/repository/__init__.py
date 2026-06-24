@@ -47,6 +47,7 @@ from .predicates import (
     Related,
 )
 from .repository import NotAuthorisedError, Repository
+from .resources import ResourceType
 from .views import HexClaimByCell, View
 
 __all__ = [
@@ -72,6 +73,7 @@ __all__ = [
     "Range",
     "Related",
     "Repository",
+    "ResourceType",
     "SessionLocal",
     "Upload",
     "UploadStatus",

@@ -66,3 +66,12 @@ def test_create_user_duplicate_email(test_db: Session):
     create_user(test_db, "dupe@example.com", "password123")
     with pytest.raises(DuplicateEmailError):
         create_user(test_db, "dupe@example.com", "password456")
+
+
+def test_first_user_bootstraps_to_admin(test_db: Session):
+    """The first user to sign up becomes admin; everyone after is not."""
+    first = create_user(test_db, "first@example.com", "password123")
+    second = create_user(test_db, "second@example.com", "password123")
+
+    assert first.is_admin is True
+    assert second.is_admin is False

@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from pydantic import EmailStr, Field
 from sqlalchemy.orm import Session
 
+from src.app.authz import Resource, with_capabilities
 from src.app.dependencies import authenticated_user, db_session, email_client
 from src.app.repository import User
 from src.app.services import user as user_service
@@ -14,6 +15,7 @@ from src.app.services.email import EmailClient, send_welcome_email
 from src.app.services.user import DuplicateEmailError
 from src.app.services.user import create_user as create_user_service
 from src.app.services.user_session import create_session
+from src.app.services.workspace import WORKSPACE
 from src.app.settings import settings
 from src.app.utils import BaseSchema, PaginatedResult, get_client_ip, get_logger
 
@@ -46,6 +48,17 @@ class UserResponse(BaseSchema):
     """Response body for user endpoints."""
 
     uid: str
+    email: str
+
+
+class CurrentUserResponse(Resource):
+    """The authenticated user, plus the capabilities they hold on the workspace.
+
+    The ``capabilities`` here are collection-level (what the caller may
+    *create*) — e.g. ``(create, user)`` only for an admin — so the FE can gate
+    create affordances on the current user rather than on any one resource.
+    """
+
     email: str
 
 
@@ -118,6 +131,13 @@ def list_users(
 @router.get("/users/current", operation_id="getCurrentUser")
 def get_current_user(
     user: Annotated[User, Depends(authenticated_user)],
-) -> UserResponse:
-    """Return the currently authenticated user."""
-    return UserResponse(uid=user.uid, email=user.email)
+    db: Annotated[Session, Depends(db_session)],
+) -> CurrentUserResponse:
+    """Return the current user with the capabilities they may exercise.
+
+    Capabilities are reported against the ``WORKSPACE`` handle (collection-level
+    creates), not the user row itself.
+    """
+    return with_capabilities(
+        CurrentUserResponse, user, user=user, db=db, target=WORKSPACE
+    )

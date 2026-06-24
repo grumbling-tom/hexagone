@@ -2,7 +2,7 @@
 
 import enum
 from datetime import datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar
 
 from sqlalchemy import (
     Boolean,
@@ -20,6 +20,7 @@ from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import Mapped, mapped_column, object_session, relationship
 
 from .database import BaseModel
+from .resources import ResourceType
 
 if TYPE_CHECKING:
     from sqlalchemy import ScalarSelect
@@ -50,10 +51,16 @@ class User(BaseModel):
     """
 
     __tablename__ = "user"
+    __resource__: ClassVar[ResourceType] = ResourceType.USER
 
     email: Mapped[str] = mapped_column(String, unique=True, nullable=False, index=True)
     password_hash: Mapped[str] = mapped_column(String, nullable=False)
     archived: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+    # Admin grant. Bootstrapped to True for the first user to sign up (see
+    # services/user.py); read in memory by Workspace.permits_create.
+    is_admin: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default="false", nullable=False, index=True
+    )
 
     # viewonly=True so this side never tries to manage writes; membership
     # rows are managed via UserGroupMembership directly. lazy="raise" so
@@ -80,6 +87,7 @@ class Upload(BaseModel):
     """
 
     __tablename__ = "upload"
+    __resource__: ClassVar[ResourceType] = ResourceType.UPLOAD
 
     user_uid: Mapped[str] = mapped_column(
         String(36), ForeignKey("user.uid"), nullable=False, index=True
@@ -210,6 +218,7 @@ class UserGroup(BaseModel):
     """
 
     __tablename__ = "user_group"
+    __resource__: ClassVar[ResourceType] = ResourceType.USER_GROUP
 
     name: Mapped[str] = mapped_column(String(80), nullable=False)
     owner_uid: Mapped[str] = mapped_column(

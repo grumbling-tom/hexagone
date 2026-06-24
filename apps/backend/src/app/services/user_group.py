@@ -11,7 +11,7 @@ from src.app.repository import (
     UserGroupMembership,
 )
 from src.app.repository.predicates import Filter
-from src.app.services.permissions import Operation, permissions_predicates
+from src.app.services.permissions import Operation, required_predicates
 from src.app.settings import settings
 from src.app.utils import PaginatedResult, SortOrder, get_logger
 
@@ -60,7 +60,7 @@ def get_group(
 ) -> UserGroup | None:
     """Return a group the caller can access for `operation`; else None.
 
-    `operation=WRITE` narrows visibility to groups the caller owns — useful as a
+    `operation=UPDATE` narrows visibility to groups the caller owns — useful as a
     relational authorization gate (e.g. "actor owns the group" before inserting
     a membership row).
     """
@@ -89,7 +89,7 @@ def list_groups(  # noqa: PLR0913
     repo = Repository(db, UserGroup)
 
     filters: list[Filter] = [
-        *permissions_predicates(user, UserGroup, operation),
+        *required_predicates(user, UserGroup, operation),
         Equals(field="archived", value=False),
     ]
 
@@ -115,7 +115,7 @@ def update_group(db: DBSession, user: User, group_uid: str, *, name: str) -> Use
     group = repo.update(
         group_uid,
         {"name": name},
-        guards=permissions_predicates(user, UserGroup, Operation.WRITE),
+        guards=required_predicates(user, UserGroup, Operation.UPDATE),
     )
 
     db.commit()
@@ -125,7 +125,7 @@ def update_group(db: DBSession, user: User, group_uid: str, *, name: str) -> Use
 def archive_group(db: DBSession, user: User, group_uid: str) -> UserGroup:
     """Soft-delete a group. Owner-only, atomic, and idempotent.
 
-    The guards reproduce every WHERE the old gating read applied: the WRITE
+    The guards reproduce every WHERE the old gating read applied: the UPDATE
     permission predicates plus `archived == False`. A non-owner, a missing
     group, or an already-archived group all match no row, so `repo.update`
     raises `NotAuthorisedError` (handled app-wide as a 403).
@@ -135,7 +135,7 @@ def archive_group(db: DBSession, user: User, group_uid: str) -> UserGroup:
         group_uid,
         {"archived": True},
         guards=[
-            *permissions_predicates(user, UserGroup, Operation.WRITE),
+            *required_predicates(user, UserGroup, Operation.UPDATE),
             Equals(field="archived", value=False),
         ],
     )
@@ -193,7 +193,7 @@ def add_member(
         Defense-in-depth for this server-built row; substantive when the row
         comes from untrusted input.
     """
-    group = get_group(db, actor, group_uid, operation=Operation.WRITE)
+    group = get_group(db, actor, group_uid, operation=Operation.UPDATE)
     if group is None:
         raise UserGroupNotFoundError(group_uid)
 

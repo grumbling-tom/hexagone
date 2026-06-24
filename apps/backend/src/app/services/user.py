@@ -63,6 +63,10 @@ def create_user(db: DBSession, email: str, password: str) -> User:
         email: User email address.
         password: Plaintext password to hash and store.
 
+    The very first user to sign up bootstraps to admin (there is no admin to
+    grant it otherwise, and no admin-management UI in this prototype); everyone
+    after is a regular user.
+
     Returns:
         The newly created User.
 
@@ -71,9 +75,14 @@ def create_user(db: DBSession, email: str, password: str) -> User:
     """
     user_repo = Repository(db, User)
 
+    existing_admin = user_repo.get_filtered(
+        filters=[Equals(field="is_admin", value=True)],
+        page_size=1,
+    )
     user = User(
         email=email,
         password_hash=hash_password(password),
+        is_admin=not existing_admin.items,
     )
 
     user_repo.add(user)

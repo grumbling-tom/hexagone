@@ -9,6 +9,7 @@ from fastapi import APIRouter, Depends, Query
 from pydantic import Field, ValidationInfo, model_validator
 from sqlalchemy.orm import Session
 
+from src.app.authz import Resource, with_capabilities
 from src.app.dependencies import (
     authenticated_user,
     db_session,
@@ -25,10 +26,9 @@ from src.app.utils import BaseSchema, PaginatedResult, SortOrder
 router = APIRouter()
 
 
-class UploadResponse(BaseSchema):
+class UploadResponse(Resource):
     """Response body for upload endpoints."""
 
-    uid: str
     original_filename: str
     file_size_bytes: int
     created_at: datetime
@@ -96,7 +96,9 @@ def create_upload(
         original_filename=body.original_filename,
         file_size_bytes=body.file_size_bytes,
     )
-    return UploadResponse.model_validate(upload, context={"storage": storage})
+    return with_capabilities(
+        UploadResponse, upload, user=user, db=db, context={"storage": storage}
+    )
 
 
 @router.get("/uploads", operation_id="listUploads")
@@ -119,7 +121,9 @@ def list_uploads(
 
     return PaginatedResult(
         items=[
-            UploadResponse.model_validate(u, context={"storage": storage})
+            with_capabilities(
+                UploadResponse, u, user=user, db=db, context={"storage": storage}
+            )
             for u in result.items
         ],
         previous_cursor=result.previous_cursor,

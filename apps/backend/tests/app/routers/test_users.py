@@ -5,6 +5,7 @@ from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy.orm import Session
 
 from src.app.repository import User, UserGroup
 
@@ -68,6 +69,25 @@ def test_get_current_user_authenticated(client: TestClient):
 def test_get_current_user_unauthenticated(unauthenticated_client: TestClient):
     response = unauthenticated_client.get("/api/v1/users/current")
     assert response.status_code == 401
+
+
+def test_current_user_capabilities_non_admin(client: TestClient):
+    """A non-admin may create groups and uploads, but not users."""
+    caps = client.get("/api/v1/users/current").json()["capabilities"]
+    assert {"operation": "create", "resource": "user_group"} in caps
+    assert {"operation": "create", "resource": "upload"} in caps
+    assert {"operation": "create", "resource": "user"} not in caps
+
+
+def test_current_user_capabilities_admin(
+    client: TestClient, test_db: Session, test_user: User
+):
+    """An admin additionally advertises the create-user capability."""
+    test_user.is_admin = True
+    test_db.commit()
+
+    caps = client.get("/api/v1/users/current").json()["capabilities"]
+    assert {"operation": "create", "resource": "user"} in caps
 
 
 def test_list_users_by_group_returns_members(

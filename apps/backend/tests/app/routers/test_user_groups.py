@@ -153,3 +153,31 @@ def test_member_count_reflects_membership_changes(
 
     response = client.get(f"/api/v1/user-groups/{group.uid}")
     assert response.json()["member_count"] == 2
+
+
+def test_owner_capabilities_include_update(
+    client: TestClient, create_group: Callable[..., UserGroup]
+):
+    """An owner's group response advertises both read and update."""
+    group = create_group(name="Mine")
+    caps = client.get(f"/api/v1/user-groups/{group.uid}").json()["capabilities"]
+    assert {"operation": "read", "resource": "user_group"} in caps
+    assert {"operation": "update", "resource": "user_group"} in caps
+
+
+def test_member_capabilities_are_read_only(
+    authenticate_as: Callable[[User], TestClient],
+    create_user: Callable[..., User],
+    create_group: Callable[..., UserGroup],
+    create_membership: Callable[..., None],
+):
+    """A member who is not the owner can read the group but not update it."""
+    owner = create_user(email="owner@example.com")
+    member = create_user(email="member@example.com")
+    group = create_group(name="Theirs", owner=owner)
+    create_membership(group=group, user=member)
+
+    client = authenticate_as(member)
+    caps = client.get(f"/api/v1/user-groups/{group.uid}").json()["capabilities"]
+    assert {"operation": "read", "resource": "user_group"} in caps
+    assert {"operation": "update", "resource": "user_group"} not in caps
