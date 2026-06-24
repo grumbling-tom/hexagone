@@ -10,7 +10,7 @@ from typing import Any
 import pytest
 
 from src.worker import tasks
-from src.worker.app import app as worker_app
+from src.worker.main import app as worker_app
 
 
 def test_process_upload_task_is_registered() -> None:

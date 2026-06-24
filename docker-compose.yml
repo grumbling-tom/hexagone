@@ -138,7 +138,7 @@ services:
       dockerfile: Dockerfile
     container_name: hexagone-worker
     network_mode: host
-    command: ["procrastinate", "--app=src.worker.app.app", "worker"]
+    command: ["procrastinate", "--app=src.worker.main.app", "worker"]
     environment:
       ENV: DEV
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
