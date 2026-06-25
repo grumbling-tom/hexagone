@@ -8,9 +8,8 @@ from pydantic import Field
 from sqlalchemy.orm import Session
 
 from src.app.dependencies import authenticated_user, db_session
-from src.app.repository import ResourceType, User
+from src.app.repository import User
 from src.app.services import user_group as user_group_service
-from src.app.services.permissions import CapabilityResource
 from src.app.settings import settings
 from src.app.utils import BaseSchema, PaginatedResult
 
@@ -36,9 +35,10 @@ class ListUserGroupsParams(BaseSchema):
     cursor: str | None = Field(default=None)
 
 
-class UserGroupResponse(CapabilityResource[ResourceType]):
+class UserGroupResponse(BaseSchema):
     """Response body for user group endpoints."""
 
+    uid: str
     name: str
     owner_uid: str
     created_at: datetime
@@ -53,7 +53,7 @@ def create_user_group(
 ) -> UserGroupResponse:
     """Create a new group with the caller as owner and sole initial member."""
     group = user_group_service.create_group(db, user, name=body.name)
-    return with_capabilities(UserGroupResponse, group, user=user)
+    return UserGroupResponse.model_validate(group)
 
 
 @router.get("/user-groups", operation_id="listUserGroups")
@@ -70,10 +70,7 @@ def list_user_groups(
         cursor=params.cursor,
     )
     return PaginatedResult(
-        items=[
-            with_capabilities(UserGroupResponse, g, user=user)
-            for g in result.items
-        ],
+        items=[UserGroupResponse.model_validate(g) for g in result.items],
         previous_cursor=result.previous_cursor,
         next_cursor=result.next_cursor,
         has_previous=result.has_previous,
@@ -91,7 +88,7 @@ def get_user_group(
     group = user_group_service.get_group(db, user, group_uid)
     if group is None:
         raise HTTPException(status_code=404, detail="Group not found")
-    return with_capabilities(UserGroupResponse, group, user=user)
+    return UserGroupResponse.model_validate(group)
 
 
 @router.patch("/user-groups/{group_uid}", operation_id="updateUserGroup")
@@ -103,7 +100,7 @@ def update_user_group(
 ) -> UserGroupResponse:
     """Rename a group. Owner only."""
     group = user_group_service.update_group(db, user, group_uid, name=body.name)
-    return with_capabilities(UserGroupResponse, group, user=user)
+    return UserGroupResponse.model_validate(group)
 
 
 @router.delete(

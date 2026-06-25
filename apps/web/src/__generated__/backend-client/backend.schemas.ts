@@ -5,48 +5,48 @@
  * OpenAPI spec version: 0.1.0
  */
 export type ListUserGroupsParams = {
-page_size?: number;
-cursor?: string | null;
+  page_size?: number;
+  cursor?: string | null;
 };
 
 export type ListAggregatedHexClaimsParams = {
-/**
- * Dimension to aggregate by. Required — the URL is meaningless without it.
- */
-by: AggregateHexClaimBy;
-/**
- * Cap raised to 10k so the map can fetch a full user territory in a handful of round-trips.
- */
-page_size?: number;
-cursor?: string | null;
+  /**
+   * Dimension to aggregate by. Required — the URL is meaningless without it.
+   */
+  by: AggregateHexClaimBy;
+  /**
+   * Cap raised to 10k so the map can fetch a full user territory in a handful of round-trips.
+   */
+  page_size?: number;
+  cursor?: string | null;
 };
 
 export type ListHexClaimsParams = {
-page_size?: number;
-cursor?: string | null;
-/**
- * Restrict results to claims belonging to these uploads.
- */
-upload_uid?: string[] | null;
-sort_field?: HexClaimSortField;
-sort_order?: SortOrder;
+  page_size?: number;
+  cursor?: string | null;
+  /**
+   * Restrict results to claims belonging to these uploads.
+   */
+  upload_uid?: string[] | null;
+  sort_field?: HexClaimSortField;
+  sort_order?: SortOrder;
 };
 
 export type ListUploadsParams = {
-page_size?: number;
-cursor?: string | null;
-statuses?: UploadStatusValue[] | null;
-sort_field?: UploadSortField;
-sort_order?: SortOrder;
+  page_size?: number;
+  cursor?: string | null;
+  statuses?: UploadStatusValue[] | null;
+  sort_field?: UploadSortField;
+  sort_order?: SortOrder;
 };
 
 export type ListUsersParams = {
-group_uid: string;
-page_size?: number;
-cursor?: string | null;
+  group_uid: string;
+  page_size?: number;
+  cursor?: string | null;
 };
 
-export type GetHealth200 = {[key: string]: string};
+export type GetHealth200 = { [key: string]: string };
 
 export type ValidationErrorLocItem = string | number;
 
@@ -80,7 +80,6 @@ export interface UserResponse {
  * Response body for user group endpoints.
  */
 export interface UserGroupResponse {
-  capabilities?: CapabilityTypeVar[];
   created_at: string;
   member_count: number;
   name: string;
@@ -91,32 +90,33 @@ export interface UserGroupResponse {
 /**
  * Allowed status values for upload processing.
  */
-export type UploadStatusValue = typeof UploadStatusValue[keyof typeof UploadStatusValue];
-
+export type UploadStatusValue =
+  (typeof UploadStatusValue)[keyof typeof UploadStatusValue];
 
 // eslint-disable-next-line @typescript-eslint/no-redeclare
 export const UploadStatusValue = {
-  UPLOAD_PENDING: 'UPLOAD_PENDING',
-  UPLOAD_RECEIVED: 'UPLOAD_RECEIVED',
-  UPLOAD_SUCCESS: 'UPLOAD_SUCCESS',
-  UPLOAD_INVALID: 'UPLOAD_INVALID',
+  UPLOAD_PENDING: "UPLOAD_PENDING",
+  UPLOAD_RECEIVED: "UPLOAD_RECEIVED",
+  UPLOAD_SUCCESS: "UPLOAD_SUCCESS",
+  UPLOAD_INVALID: "UPLOAD_INVALID",
 } as const;
 
 /**
  * Allowed sort fields for upload listing.
  */
-export type UploadSortField = typeof UploadSortField[keyof typeof UploadSortField];
-
+export type UploadSortField =
+  (typeof UploadSortField)[keyof typeof UploadSortField];
 
 // eslint-disable-next-line @typescript-eslint/no-redeclare
 export const UploadSortField = {
-  created_at: 'created_at',
-  original_filename: 'original_filename',
+  created_at: "created_at",
+  original_filename: "original_filename",
 } as const;
 
-export type UploadResponseRequiredHeadersAnyOf = {[key: string]: string};
+export type UploadResponseRequiredHeadersAnyOf = { [key: string]: string };
 
-export type UploadResponseRequiredHeaders = UploadResponseRequiredHeadersAnyOf | null;
+export type UploadResponseRequiredHeaders =
+  UploadResponseRequiredHeadersAnyOf | null;
 
 export type UploadResponsePresignedUrl = string | null;
 
@@ -124,7 +124,6 @@ export type UploadResponsePresignedUrl = string | null;
  * Response body for upload endpoints.
  */
 export interface UploadResponse {
-  capabilities?: CapabilityResourceType[];
   created_at: string;
   current_status: string;
   file_size_bytes: number;
@@ -155,26 +154,12 @@ Attributes:
     ASC: Ascending sort order.
     DESC: Descending sort order.
  */
-export type SortOrder = typeof SortOrder[keyof typeof SortOrder];
-
+export type SortOrder = (typeof SortOrder)[keyof typeof SortOrder];
 
 // eslint-disable-next-line @typescript-eslint/no-redeclare
 export const SortOrder = {
-  asc: 'asc',
-  desc: 'desc',
-} as const;
-
-/**
- * A kind of resource the system authorizes against.
- */
-export type ResourceType = typeof ResourceType[keyof typeof ResourceType];
-
-
-// eslint-disable-next-line @typescript-eslint/no-redeclare
-export const ResourceType = {
-  user: 'user',
-  user_group: 'user_group',
-  upload: 'upload',
+  asc: "asc",
+  desc: "desc",
 } as const;
 
 export type PaginatedResultUserResponsePreviousCursor = string | null;
@@ -245,7 +230,9 @@ Returns:
   previous_cursor: PaginatedResultHexClaimResponsePreviousCursor;
 }
 
-export type PaginatedResultAggregatedHexClaimByCellPreviousCursor = string | null;
+export type PaginatedResultAggregatedHexClaimByCellPreviousCursor =
+  | string
+  | null;
 
 export type PaginatedResultAggregatedHexClaimByCellNextCursor = string | null;
 
@@ -263,29 +250,15 @@ Returns:
 }
 
 /**
- * The verb half of a capability — the kind of access being authorized.
- */
-export type Operation = typeof Operation[keyof typeof Operation];
-
-
-// eslint-disable-next-line @typescript-eslint/no-redeclare
-export const Operation = {
-  read: 'read',
-  update: 'update',
-  create: 'create',
-  delete: 'delete',
-} as const;
-
-/**
  * Allowed sort fields for raw hex-claim listing.
  */
-export type HexClaimSortField = typeof HexClaimSortField[keyof typeof HexClaimSortField];
-
+export type HexClaimSortField =
+  (typeof HexClaimSortField)[keyof typeof HexClaimSortField];
 
 // eslint-disable-next-line @typescript-eslint/no-redeclare
 export const HexClaimSortField = {
-  created_at: 'created_at',
-  completed_at: 'completed_at',
+  created_at: "created_at",
+  completed_at: "completed_at",
 } as const;
 
 export type HexClaimResponseCompletedAt = string | null;
@@ -305,19 +278,6 @@ export interface HexClaimResponse {
 
 export interface HTTPValidationError {
   detail?: ValidationError[];
-}
-
-/**
- * The authenticated user, plus the capabilities they hold on the workspace.
-
-The ``capabilities`` here are collection-level (what the caller may
-*create*) — e.g. ``(create, user)`` only for an admin — so the FE can gate
-create affordances on the current user rather than on any one resource.
- */
-export interface CurrentUserResponse {
-  capabilities?: CapabilityTypeVar[];
-  email: string;
-  uid: string;
 }
 
 export type CreateUserSessionRequestToken = string | null;
@@ -374,16 +334,6 @@ export interface CreateLoginTokenRequest {
   email: string;
 }
 
-export interface CapabilityTypeVar {
-  operation: Operation;
-  resource: unknown;
-}
-
-export interface CapabilityResourceType {
-  operation: Operation;
-  resource: ResourceType;
-}
-
 /**
  * One aggregated row when ``by=hex_cell``.
  */
@@ -398,11 +348,10 @@ export interface AggregatedHexClaimByCell {
 /**
  * Dimensions the aggregated-hex-claims endpoint can roll up over.
  */
-export type AggregateHexClaimBy = typeof AggregateHexClaimBy[keyof typeof AggregateHexClaimBy];
-
+export type AggregateHexClaimBy =
+  (typeof AggregateHexClaimBy)[keyof typeof AggregateHexClaimBy];
 
 // eslint-disable-next-line @typescript-eslint/no-redeclare
 export const AggregateHexClaimBy = {
-  hex_cell: 'hex_cell',
+  hex_cell: "hex_cell",
 } as const;
-

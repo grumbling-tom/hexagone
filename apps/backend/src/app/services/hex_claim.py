@@ -34,7 +34,6 @@ def list_hex_claims(  # noqa: PLR0913
         Paginated list of HexClaim ORM instances.
     """
     filters = permissions_predicates(user, HexClaim)
-
     if upload_uids:
         filters.append(In(field="upload_uid", values=upload_uids))
 

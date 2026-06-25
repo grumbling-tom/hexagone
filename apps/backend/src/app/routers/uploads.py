@@ -14,47 +14,27 @@ from src.app.dependencies import (
     db_session,
     file_storage,
 )
-from src.app.repository.models import ResourceType, Upload, UploadStatusValue, User
-from src.app.services.permissions import CapabilityResource, capabilities_for
+from src.app.repository.models import Upload, UploadStatusValue, User
 from src.app.services.storage import StorageBackend
 from src.app.services.upload import create_upload as create_upload_service
 from src.app.services.upload import list_uploads as list_uploads_service
 from src.app.services.upload import maybe_presigned_url
 from src.app.settings import settings
-from src.app.utils import BaseSchema, PaginatedResult, Resource, SortOrder
+from src.app.utils import BaseSchema, PaginatedResult, SortOrder
 
 router = APIRouter()
 
 
-class UploadResponse(Resource[Upload]):
+class UploadResponse(BaseSchema):
     """Response body for upload endpoints."""
 
+    uid: str
     original_filename: str
     file_size_bytes: int
     created_at: datetime
     current_status: str
     presigned_url: str | None = None
     required_headers: dict[str, str] | None = None
-
-    @model_validator(mode="wrap")
-    @classmethod
-    def attach_capabilities(
-        cls,
-        upload: Upload,
-        handler: Callable[..., UploadResponse],
-        info: ValidationInfo,
-    ) -> UploadResponse:
-        instance = handler(upload)
-
-        context: dict[str, Any] = info.context or {}
-        user: User | None = context.get("user")
-
-        if user is None:
-            msg = "UploadResponse.model_validate requires a 'user' in context"
-            raise ValueError(msg)
-
-        instance.capabilities = sorted(capabilities_for(user, upload))
-        return instance
 
     @model_validator(mode="wrap")
     @classmethod
@@ -116,9 +96,7 @@ def create_upload(
         original_filename=body.original_filename,
         file_size_bytes=body.file_size_bytes,
     )
-    return UploadResponse.model_validate(
-        upload, context={"user": user, "storage": storage}
-    )
+    return UploadResponse.model_validate(upload, context={"storage": storage})
 
 
 @router.get("/uploads", operation_id="listUploads")
@@ -141,9 +119,7 @@ def list_uploads(
 
     return PaginatedResult(
         items=[
-            UploadResponse.model_validate(
-                u, context={"user": user, "storage": storage}
-            )
+            UploadResponse.model_validate(u, context={"storage": storage})
             for u in result.items
         ],
         previous_cursor=result.previous_cursor,

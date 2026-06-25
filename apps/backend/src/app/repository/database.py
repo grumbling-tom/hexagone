@@ -2,7 +2,6 @@ import uuid
 from collections.abc import Generator
 from contextlib import contextmanager
 from datetime import UTC, datetime
-from typing import ClassVar
 
 from sqlalchemy import DateTime, String, create_engine, make_url, text
 from sqlalchemy.exc import OperationalError
@@ -10,7 +9,6 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sess
 
 from ..settings import settings
 from ..utils import get_logger
-from .resources import ResourceType
 
 logger = get_logger(__name__)
 
@@ -52,11 +50,6 @@ class BaseModel(DeclarativeBase):
     """
 
     __abstract__ = True
-
-    # The resource type this model authorizes against — the noun half of a
-    # ``Capability``. Annotation-only and ``ClassVar``, so it maps to no column;
-    # each addressable/creatable model sets it, others simply have none.
-    __resource__: ClassVar[ResourceType]
 
     uid: Mapped[str] = mapped_column(
         String(36), primary_key=True, default=lambda: str(uuid.uuid7()), index=True
