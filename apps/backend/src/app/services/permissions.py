@@ -15,7 +15,10 @@ singleton, get back a ``set[Capability]`` either way. A ``Capability`` is the
 honest ``(Operation, ResourceType)`` product — the verb *and* the real noun.
 """
 
-from typing import Any
+from collections.abc import Callable
+from typing import Any, Self
+
+from pydantic import ValidationInfo, model_validator
 
 from src.app.repository import (
     Equals,
@@ -73,7 +76,7 @@ def permissions_predicates(
 def capabilities_for(
     user: User,
     target: BaseModel,
-) -> set[Capability[ResourceType]]:
+) -> set[Capability[Resource]]:
     """The capabilities ``user`` holds on ``target``.
 
     ``target`` is either an entity instance (object-level READ/UPDATE/DELETE) or
@@ -96,7 +99,7 @@ def capabilities_for(
 
     entity = type(target)
     resource = entity.__resource__
-    caps: set[Capability[ResourceType]] = set()
+    caps: set[Capability[Resource]] = set()
 
     # Object-level operations a capability is computed for. CREATE is excluded — it
     # is collection-level (the ``Workspace`` handle), not a property of a row.
@@ -134,31 +137,45 @@ def predicates_hold(target: BaseModel, predicates: list[Filter]) -> bool:
     return all(guard.is_satisfied_by(target) for guard in guards)
 
 
-def with_capabilities[S: Resource](
-    schema: type[S],
-    obj: BaseModel,
-    *,
-    user: User,
-    target: BaseModel | None = None,
-    context: dict[str, Any] | None = None,
-) -> S:
-    """Serialize ``obj`` into ``schema`` and attach the caller's capabilities.
+class CapabilityResource[T](Resource[T]):
+    """A ``Resource`` whose ``capabilities`` are derived during validation.
 
-    Args:
-        schema: The response schema to build (a ``Resource`` subclass).
-        obj: The ORM instance to read the response fields from.
-        user: The authenticated caller.
-        target: The object whose capabilities to report, when it differs from
-            ``obj`` — e.g. ``/users/current`` serializes the ``User`` but reports
-            collection-level capabilities against the ``WORKSPACE`` handle.
-            Defaults to ``obj`` (the common object-level case).
-        context: Optional pydantic validation context (e.g. ``{"storage": ...}``
-            for ``UploadResponse``'s presigned-URL resolution).
+    Subclasses get the capability product for free — serialize the ORM object
+    with a ``user`` in the pydantic validation context::
 
-    Returns:
-        The populated response with its ``capabilities`` sorted for a stable
-        wire order.
+        SomeResponse.model_validate(obj, context={"user": user})
+
+    and the wrap validator below fills ``capabilities`` from that object (or from
+    ``context["target"]`` when capabilities are reported against a different
+    handle than the serialized row — e.g. the ``WORKSPACE`` singleton for
+    collection-level creates).
+
+    This base deliberately lives in the services layer, not in ``utils`` beside
+    ``Resource``: deriving capabilities needs ``capabilities_for`` (and, through
+    it, repository code), so housing the validator here keeps that dependency
+    out of ``utils``. The plain ``Resource`` base stays free of service and
+    repository imports.
     """
-    resp = schema.model_validate(obj, context=context)
-    resp.capabilities = sorted(capabilities_for(user, target or obj))
-    return resp
+
+    @model_validator(mode="wrap")
+    @classmethod
+    def _attach_capabilities(
+        cls,
+        data: Any,
+        handler: Callable[[Any], Self],
+        info: ValidationInfo,
+    ) -> Self:
+        # ``data`` is the raw input to model_validate — i.e. the ORM object,
+        # which is exactly what ``capabilities_for`` needs. Build the instance
+        # first, then layer capabilities onto it.
+        instance = handler(data)
+        context: dict[str, Any] = info.context or {}
+        user: User | None = context.get("user")
+        if user is None:
+            msg = f"{cls.__name__}.model_validate requires a 'user' in context"
+            raise ValueError(msg)
+        # ``target`` lets a caller report capabilities for something other than
+        # the serialized row (e.g. the WORKSPACE handle); defaults to the row.
+        target = context.get("target") or data
+        instance.capabilities = sorted(capabilities_for(user, target))
+        return instance

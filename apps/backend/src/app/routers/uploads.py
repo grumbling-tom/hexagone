@@ -15,7 +15,7 @@ from src.app.dependencies import (
     file_storage,
 )
 from src.app.repository.models import ResourceType, Upload, UploadStatusValue, User
-from src.app.services.permissions import capabilities_for
+from src.app.services.permissions import CapabilityResource, capabilities_for
 from src.app.services.storage import StorageBackend
 from src.app.services.upload import create_upload as create_upload_service
 from src.app.services.upload import list_uploads as list_uploads_service
@@ -26,7 +26,7 @@ from src.app.utils import BaseSchema, PaginatedResult, Resource, SortOrder
 router = APIRouter()
 
 
-class UploadResponse(Resource[ResourceType]):
+class UploadResponse(Resource[Upload]):
     """Response body for upload endpoints."""
 
     original_filename: str

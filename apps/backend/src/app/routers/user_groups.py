@@ -8,10 +8,11 @@ from pydantic import Field
 from sqlalchemy.orm import Session
 
 from src.app.dependencies import authenticated_user, db_session
-from src.app.repository import User
+from src.app.repository import ResourceType, User
 from src.app.services import user_group as user_group_service
+from src.app.services.permissions import CapabilityResource
 from src.app.settings import settings
-from src.app.utils import BaseSchema, PaginatedResult, Resource
+from src.app.utils import BaseSchema, PaginatedResult
 
 router = APIRouter()
 
@@ -35,7 +36,7 @@ class ListUserGroupsParams(BaseSchema):
     cursor: str | None = Field(default=None)
 
 
-class UserGroupResponse(Resource):
+class UserGroupResponse(CapabilityResource[ResourceType]):
     """Response body for user group endpoints."""
 
     name: str

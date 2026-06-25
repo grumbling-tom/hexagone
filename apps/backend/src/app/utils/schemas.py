@@ -1,8 +1,5 @@
-from abc import abstractmethod
 from dataclasses import dataclass
 from enum import StrEnum
-from typing import Any
-from typing_extensions import Self
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -25,9 +22,9 @@ class Operation(StrEnum):
     """The verb half of a capability — the kind of access being authorized."""
 
     READ = "read"
-    UPDATE = "update"  # update-in-place of an existing row (was WRITE)
+    UPDATE = "update"
     CREATE = "create"
-    DELETE = "delete"  # not yet enforced; here so capabilities can report it
+    DELETE = "delete"
 
 
 @dataclass(frozen=True, slots=True, order=True)
@@ -40,7 +37,12 @@ class Capability[T]:
     """
 
     operation: Operation
-    resource: T
+
+    # FIXME: Is this an operation on some type of Resource, as exposed through the
+    # API (as an addressable resource), or is it an operation on some type of
+    # database object?
+    # i.e. should this instead be resource: T, or resource: BaseModel?
+    resource: type[Resource[T]]
 
 
 class Resource[T](BaseSchema):
