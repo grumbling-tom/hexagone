@@ -15,7 +15,7 @@ singleton, get back a ``set[Capability]`` either way. A ``Capability`` is the
 honest ``(Operation, ResourceType)`` product — the verb *and* the real noun.
 """
 
-from sqlalchemy.orm import Session as DBSession
+from typing import Any
 
 from src.app.repository import (
     Equals,
@@ -24,7 +24,6 @@ from src.app.repository import (
     HexClaimByCell,
     Or,
     Related,
-    Repository,
     ResourceType,
     Upload,
     UserGroup,
@@ -72,7 +71,6 @@ def permissions_predicates(
 
 
 def capabilities_for(
-    db: DBSession,
     user: User,
     target: BaseModel,
 ) -> set[Capability[ResourceType]]:
@@ -81,6 +79,13 @@ def capabilities_for(
     ``target`` is either an entity instance (object-level READ/UPDATE/DELETE) or
     the ``WORKSPACE`` handle (collection-level CREATE). Returns the same
     ``set[Capability]`` shape for both, so callers (and the FE) need one type.
+
+    Computed purely in memory, no DB session required. This rests on a single
+    load-bearing assumption: **if we hold an ORM object in memory, we have read
+    access to it.** We assume every ``target`` came from a permission-filtered
+    query, so its mere presence proves READ — there is nothing to re-check. The
+    remaining (write) operations are gated by owner-style ``Guard`` predicates,
+    which are field comparisons on the row itself, so they too need no query.
     """
     if isinstance(target, Workspace):
         return {
@@ -97,41 +102,43 @@ def capabilities_for(
     # is collection-level (the ``Workspace`` handle), not a property of a row.
     for operation in (Operation.READ, Operation.UPDATE, Operation.DELETE):
         predicates = permissions_predicates(user, entity, operation)
-        # READ is implied by presence: ``target`` was returned by a permissioned
-        # query, so the user can read it — no need to re-check.
+        # READ is implied by presence (see the assumption above): ``target`` was
+        # returned by a permission-filtered query, so the user can read it.
         if operation is Operation.READ:
             caps.add(Capability(operation, resource))
             continue
-        if predicates_hold(db, target, predicates):
+        if predicates_hold(target, predicates):
             caps.add(Capability(operation, resource))
+
     return caps
 
 
-def predicates_hold(db: DBSession, target: BaseModel, predicates: list[Filter]) -> bool:
-    """Whether ``predicates`` hold for ``target``.
+def predicates_hold(target: BaseModel, predicates: list[Filter]) -> bool:
+    """Whether ``predicates`` hold for ``target``, evaluated in memory.
 
-    In-memory when every predicate is a ``Guard`` (the common case — owner
-    checks are a single ``Equals``, so a list page evaluates with no query).
-    Falls back to one ``SELECT ... LIMIT 1`` re-query for relational predicates
-    (``Or``/``Related``), whose truth depends on other rows.
+    Write-side capabilities are gated by owner-style ``Guard`` predicates (a
+    single ``Equals`` against a column already loaded on ``target``), so they
+    evaluate with no query. Relational predicates (``Or``/``Related``) only ever
+    gate READ, which is answered by presence and never reaches here — so a
+    non-``Guard`` predicate at this point breaks the invariant and we fail loud
+    rather than silently mis-grant a capability.
     """
     guards = [p for p in predicates if isinstance(p, Guard)]
-    if len(guards) == len(predicates):
-        return all(guard.is_satisfied_by(target) for guard in guards)
+    if len(guards) != len(predicates):
+        msg = (
+            "Capability predicates must be in-memory Guards; got a relational "
+            f"predicate for {type(target).__name__}. Relational rules can gate "
+            "reads (answered by presence) but not writes."
+        )
+        raise ValueError(msg)
+    return all(guard.is_satisfied_by(target) for guard in guards)
 
-    result = Repository(db, type(target)).get_filtered(
-        filters=[*predicates, Equals(field="uid", value=target.uid)],
-        page_size=1,
-    )
-    return bool(result.items)
 
-
-def with_capabilities[S: Resource](  # noqa: PLR0913
+def with_capabilities[S: Resource](
     schema: type[S],
     obj: BaseModel,
     *,
     user: User,
-    db: DBSession,
     target: BaseModel | None = None,
     context: dict[str, Any] | None = None,
 ) -> S:
@@ -141,7 +148,6 @@ def with_capabilities[S: Resource](  # noqa: PLR0913
         schema: The response schema to build (a ``Resource`` subclass).
         obj: The ORM instance to read the response fields from.
         user: The authenticated caller.
-        db: Database session (for relational capability checks).
         target: The object whose capabilities to report, when it differs from
             ``obj`` — e.g. ``/users/current`` serializes the ``User`` but reports
             collection-level capabilities against the ``WORKSPACE`` handle.
@@ -154,5 +160,5 @@ def with_capabilities[S: Resource](  # noqa: PLR0913
         wire order.
     """
     resp = schema.model_validate(obj, context=context)
-    resp.capabilities = sorted(capabilities_for(db, user, target or obj))
+    resp.capabilities = sorted(capabilities_for(user, target or obj))
     return resp

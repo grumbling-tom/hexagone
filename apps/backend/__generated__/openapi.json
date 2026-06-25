@@ -1092,6 +1092,22 @@
         "title": "AggregatedHexClaimByCell",
         "description": "One aggregated row when ``by=hex_cell``."
       },
+      "Capability_ResourceType_": {
+        "properties": {
+          "operation": {
+            "$ref": "#/components/schemas/Operation"
+          },
+          "resource": {
+            "$ref": "#/components/schemas/ResourceType"
+          }
+        },
+        "type": "object",
+        "required": [
+          "operation",
+          "resource"
+        ],
+        "title": "Capability"
+      },
       "Capability_TypeVar_": {
         "properties": {
           "operation": {
@@ -1617,6 +1633,16 @@
         ],
         "title": "PaginatedResult[UserResponse]"
       },
+      "ResourceType": {
+        "type": "string",
+        "enum": [
+          "user",
+          "user_group",
+          "upload"
+        ],
+        "title": "ResourceType",
+        "description": "A kind of resource the system authorizes against."
+      },
       "SortOrder": {
         "type": "string",
         "enum": [
@@ -1650,7 +1676,7 @@
           },
           "capabilities": {
             "items": {
-              "$ref": "#/components/schemas/Capability_TypeVar_"
+              "$ref": "#/components/schemas/Capability_ResourceType_"
             },
             "type": "array",
             "title": "Capabilities",

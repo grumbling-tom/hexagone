@@ -14,7 +14,8 @@ from src.app.dependencies import (
     db_session,
     file_storage,
 )
-from src.app.repository.models import Upload, UploadStatusValue, User
+from src.app.repository.models import ResourceType, Upload, UploadStatusValue, User
+from src.app.services.permissions import capabilities_for
 from src.app.services.storage import StorageBackend
 from src.app.services.upload import create_upload as create_upload_service
 from src.app.services.upload import list_uploads as list_uploads_service
@@ -25,7 +26,7 @@ from src.app.utils import BaseSchema, PaginatedResult, Resource, SortOrder
 router = APIRouter()
 
 
-class UploadResponse(Resource):
+class UploadResponse(Resource[ResourceType]):
     """Response body for upload endpoints."""
 
     original_filename: str
@@ -34,6 +35,26 @@ class UploadResponse(Resource):
     current_status: str
     presigned_url: str | None = None
     required_headers: dict[str, str] | None = None
+
+    @model_validator(mode="wrap")
+    @classmethod
+    def attach_capabilities(
+        cls,
+        upload: Upload,
+        handler: Callable[..., UploadResponse],
+        info: ValidationInfo,
+    ) -> UploadResponse:
+        instance = handler(upload)
+
+        context: dict[str, Any] = info.context or {}
+        user: User | None = context.get("user")
+
+        if user is None:
+            msg = "UploadResponse.model_validate requires a 'user' in context"
+            raise ValueError(msg)
+
+        instance.capabilities = sorted(capabilities_for(user, upload))
+        return instance
 
     @model_validator(mode="wrap")
     @classmethod
@@ -95,8 +116,8 @@ def create_upload(
         original_filename=body.original_filename,
         file_size_bytes=body.file_size_bytes,
     )
-    return with_capabilities(
-        UploadResponse, upload, user=user, db=db, context={"storage": storage}
+    return UploadResponse.model_validate(
+        upload, context={"user": user, "storage": storage}
     )
 
 
@@ -120,8 +141,8 @@ def list_uploads(
 
     return PaginatedResult(
         items=[
-            with_capabilities(
-                UploadResponse, u, user=user, db=db, context={"storage": storage}
+            UploadResponse.model_validate(
+                u, context={"user": user, "storage": storage}
             )
             for u in result.items
         ],

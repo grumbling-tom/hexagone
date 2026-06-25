@@ -1,5 +1,8 @@
+from abc import abstractmethod
 from dataclasses import dataclass
 from enum import StrEnum
+from typing import Any
+from typing_extensions import Self
 
 from pydantic import BaseModel, ConfigDict, Field
 

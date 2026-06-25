@@ -143,6 +143,4 @@ def get_current_user(
     Capabilities are reported against the ``WORKSPACE`` handle (collection-level
     creates), not the user row itself.
     """
-    return with_capabilities(
-        CurrentUserResponse, user, user=user, db=db, target=WORKSPACE
-    )
+    return with_capabilities(CurrentUserResponse, user, user=user, target=WORKSPACE)

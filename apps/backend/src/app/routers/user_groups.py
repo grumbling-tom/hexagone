@@ -52,7 +52,7 @@ def create_user_group(
 ) -> UserGroupResponse:
     """Create a new group with the caller as owner and sole initial member."""
     group = user_group_service.create_group(db, user, name=body.name)
-    return with_capabilities(UserGroupResponse, group, user=user, db=db)
+    return with_capabilities(UserGroupResponse, group, user=user)
 
 
 @router.get("/user-groups", operation_id="listUserGroups")
@@ -70,7 +70,7 @@ def list_user_groups(
     )
     return PaginatedResult(
         items=[
-            with_capabilities(UserGroupResponse, g, user=user, db=db)
+            with_capabilities(UserGroupResponse, g, user=user)
             for g in result.items
         ],
         previous_cursor=result.previous_cursor,
@@ -90,7 +90,7 @@ def get_user_group(
     group = user_group_service.get_group(db, user, group_uid)
     if group is None:
         raise HTTPException(status_code=404, detail="Group not found")
-    return with_capabilities(UserGroupResponse, group, user=user, db=db)
+    return with_capabilities(UserGroupResponse, group, user=user)
 
 
 @router.patch("/user-groups/{group_uid}", operation_id="updateUserGroup")
@@ -102,7 +102,7 @@ def update_user_group(
 ) -> UserGroupResponse:
     """Rename a group. Owner only."""
     group = user_group_service.update_group(db, user, group_uid, name=body.name)
-    return with_capabilities(UserGroupResponse, group, user=user, db=db)
+    return with_capabilities(UserGroupResponse, group, user=user)
 
 
 @router.delete(

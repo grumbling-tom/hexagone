@@ -124,7 +124,7 @@ export type UploadResponsePresignedUrl = string | null;
  * Response body for upload endpoints.
  */
 export interface UploadResponse {
-  capabilities?: CapabilityTypeVar[];
+  capabilities?: CapabilityResourceType[];
   created_at: string;
   current_status: string;
   file_size_bytes: number;
@@ -162,6 +162,19 @@ export type SortOrder = typeof SortOrder[keyof typeof SortOrder];
 export const SortOrder = {
   asc: 'asc',
   desc: 'desc',
+} as const;
+
+/**
+ * A kind of resource the system authorizes against.
+ */
+export type ResourceType = typeof ResourceType[keyof typeof ResourceType];
+
+
+// eslint-disable-next-line @typescript-eslint/no-redeclare
+export const ResourceType = {
+  user: 'user',
+  user_group: 'user_group',
+  upload: 'upload',
 } as const;
 
 export type PaginatedResultUserResponsePreviousCursor = string | null;
@@ -364,6 +377,11 @@ export interface CreateLoginTokenRequest {
 export interface CapabilityTypeVar {
   operation: Operation;
   resource: unknown;
+}
+
+export interface CapabilityResourceType {
+  operation: Operation;
+  resource: ResourceType;
 }
 
 /**
