@@ -166,7 +166,7 @@
           "users"
         ],
         "summary": "Get Current User",
-        "description": "Return the currently authenticated user.",
+        "description": "Return the current user with the capabilities they may exercise.\n\nCapabilities are reported against the ``WORKSPACE`` handle (collection-level\ncreates), not the user row itself.",
         "operationId": "getCurrentUser",
         "parameters": [
           {
@@ -192,7 +192,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/UserResponse"
+                  "$ref": "#/components/schemas/CurrentUserResponse"
                 }
               }
             }
@@ -1092,6 +1092,22 @@
         "title": "AggregatedHexClaimByCell",
         "description": "One aggregated row when ``by=hex_cell``."
       },
+      "Capability": {
+        "properties": {
+          "operation": {
+            "$ref": "#/components/schemas/Operation"
+          },
+          "resource": {
+            "$ref": "#/components/schemas/ResourceType"
+          }
+        },
+        "type": "object",
+        "required": [
+          "operation",
+          "resource"
+        ],
+        "title": "Capability"
+      },
       "CreateLoginTokenRequest": {
         "properties": {
           "email": {
@@ -1203,6 +1219,32 @@
         "title": "CreateUserSessionRequest",
         "description": "Credentials for creating a session \u2014 password mode OR magic-link mode.\n\nExactly one mode must be supplied: ``email`` + ``password`` (legacy password\nlogin) or ``token`` (magic link; the browser-binding nonce is read from the\ncookie, not the body). The password mode is removed in TASK-0021, after\nwhich this collapses to just ``token``."
       },
+      "CurrentUserResponse": {
+        "properties": {
+          "uid": {
+            "type": "string",
+            "title": "Uid"
+          },
+          "capabilities": {
+            "items": {
+              "$ref": "#/components/schemas/Capability"
+            },
+            "type": "array",
+            "title": "Capabilities"
+          },
+          "email": {
+            "type": "string",
+            "title": "Email"
+          }
+        },
+        "type": "object",
+        "required": [
+          "uid",
+          "email"
+        ],
+        "title": "CurrentUserResponse",
+        "description": "The authenticated user, plus the capabilities they hold on the workspace.\n\nThe ``capabilities`` here are collection-level (what the caller may\n*create*) \u2014 e.g. ``(create, user)`` only for an admin \u2014 so the FE can gate\ncreate affordances on the current user rather than on any one resource."
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -1277,6 +1319,17 @@
         ],
         "title": "HexClaimSortField",
         "description": "Allowed sort fields for raw hex-claim listing."
+      },
+      "Operation": {
+        "type": "string",
+        "enum": [
+          "read",
+          "update",
+          "create",
+          "delete"
+        ],
+        "title": "Operation",
+        "description": "The verb half of a capability \u2014 the kind of access being authorized."
       },
       "PaginatedResult_AggregatedHexClaimByCell_": {
         "properties": {
@@ -1563,6 +1616,16 @@
         ],
         "title": "PaginatedResult[UserResponse]"
       },
+      "ResourceType": {
+        "type": "string",
+        "enum": [
+          "user",
+          "user_group",
+          "upload"
+        ],
+        "title": "ResourceType",
+        "description": "A kind of resource the system authorizes against."
+      },
       "SortOrder": {
         "type": "string",
         "enum": [
@@ -1593,6 +1656,13 @@
           "uid": {
             "type": "string",
             "title": "Uid"
+          },
+          "capabilities": {
+            "items": {
+              "$ref": "#/components/schemas/Capability"
+            },
+            "type": "array",
+            "title": "Capabilities"
           },
           "original_filename": {
             "type": "string",
@@ -1673,6 +1743,13 @@
           "uid": {
             "type": "string",
             "title": "Uid"
+          },
+          "capabilities": {
+            "items": {
+              "$ref": "#/components/schemas/Capability"
+            },
+            "type": "array",
+            "title": "Capabilities"
           },
           "name": {
             "type": "string",

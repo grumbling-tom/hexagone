@@ -69,26 +69,19 @@ def permissions_predicates(
     user: User,
     entity: type[BaseModel],
     operation: Operation = Operation.READ,
-) -> list[Filter] | None:
-    """Predicates that authorize ``operation`` on ``entity`` for ``user``.
-
-    Return values:
-        * ``None`` — the operation is not defined for this entity (e.g. DELETE),
-          i.e. nobody holds it. Distinct from ``[]`` (unconditionally allowed).
-        * ``[p, ...]`` — allowed where every predicate holds. Each renders to SQL
-          (the ``Filter`` protocol), so the list feeds ``get_filtered`` and the
-          atomic ``Repository.update``.
-
-    Raises:
-        ValueError: If no permission policy is defined for the entity at all.
-    """
-    if entity is Upload or entity is HexClaim or entity is HexClaimByCell:
-        if operation in (Operation.READ, Operation.UPDATE):
-            return [Equals(field="user_uid", value=user.uid)]
-        return None
+) -> list[Filter]:
+    if entity in (Upload, HexClaim, HexClaimByCell) and operation in (
+        Operation.READ,
+        Operation.UPDATE,
+    ):
+        return [Equals(field="user_uid", value=user.uid)]
 
     if entity is UserGroup:
         is_owner = Equals(field="owner_uid", value=user.uid)
+
+        if operation is Operation.UPDATE:
+            return [is_owner]
+
         if operation is Operation.READ:
             # Readable if the user owns the group or is a member of it.
             return [
@@ -102,32 +95,9 @@ def permissions_predicates(
                     ]
                 )
             ]
-        if operation is Operation.UPDATE:
-            # Only the owner may mutate a group.
-            return [is_owner]
-        return None
 
-    msg = f"No permission predicates defined for {entity.__name__}"
+    msg = f"No permission predicates defined for {operation} on {entity.__name__}"
     raise ValueError(msg)
-
-
-def required_predicates(
-    user: User,
-    entity: type[BaseModel],
-    operation: Operation = Operation.READ,
-) -> list[Filter]:
-    """``permissions_predicates`` for callers that require the operation to exist.
-
-    Query filtering and update guards address a specific, known operation; a
-    ``None`` there is a programming error, not "no access". This narrows the
-    nullable policy to a concrete ``list[Filter]``, raising if the operation is
-    not defined for the entity.
-    """
-    predicates = permissions_predicates(user, entity, operation)
-    if predicates is None:
-        msg = f"{operation} is not a permitted operation on {entity.__name__}"
-        raise ValueError(msg)
-    return predicates
 
 
 def capabilities_for(
@@ -153,8 +123,6 @@ def capabilities_for(
     caps: set[Capability] = set()
     for operation in _OBJECT_OPERATIONS:
         predicates = permissions_predicates(user, entity, operation)
-        if predicates is None:
-            continue
         # READ is implied by presence: ``target`` was returned by a permissioned
         # query, so the user can read it — no need to re-check.
         if operation is Operation.READ:
@@ -165,9 +133,7 @@ def capabilities_for(
     return caps
 
 
-def predicates_hold(
-    db: DBSession, target: BaseModel, predicates: list[Filter]
-) -> bool:
+def predicates_hold(db: DBSession, target: BaseModel, predicates: list[Filter]) -> bool:
     """Whether ``predicates`` hold for ``target``.
 
     In-memory when every predicate is a ``Guard`` (the common case — owner

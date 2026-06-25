@@ -11,7 +11,7 @@ from src.app.repository import (
     UserGroupMembership,
 )
 from src.app.repository.predicates import Filter
-from src.app.services.permissions import Operation, required_predicates
+from src.app.services.permissions import Operation, permissions_predicates
 from src.app.settings import settings
 from src.app.utils import PaginatedResult, SortOrder, get_logger
 
@@ -89,7 +89,7 @@ def list_groups(  # noqa: PLR0913
     repo = Repository(db, UserGroup)
 
     filters: list[Filter] = [
-        *required_predicates(user, UserGroup, operation),
+        *permissions_predicates(user, UserGroup, operation),
         Equals(field="archived", value=False),
     ]
 
@@ -115,7 +115,7 @@ def update_group(db: DBSession, user: User, group_uid: str, *, name: str) -> Use
     group = repo.update(
         group_uid,
         {"name": name},
-        guards=required_predicates(user, UserGroup, Operation.UPDATE),
+        guards=permissions_predicates(user, UserGroup, Operation.UPDATE),
     )
 
     db.commit()
@@ -135,7 +135,7 @@ def archive_group(db: DBSession, user: User, group_uid: str) -> UserGroup:
         group_uid,
         {"archived": True},
         guards=[
-            *required_predicates(user, UserGroup, Operation.UPDATE),
+            *permissions_predicates(user, UserGroup, Operation.UPDATE),
             Equals(field="archived", value=False),
         ],
     )

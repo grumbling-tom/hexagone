@@ -6,6 +6,7 @@
  */
 import type {
   CreateUserRequest,
+  CurrentUserResponse,
   ListUsersParams,
   PaginatedResultUserResponse,
   UserResponse
@@ -45,13 +46,16 @@ export const listUsers = (
       );
     }
   /**
- * Return the currently authenticated user.
+ * Return the current user with the capabilities they may exercise.
+
+Capabilities are reported against the ``WORKSPACE`` handle (collection-level
+creates), not the user row itself.
  * @summary Get Current User
  */
 export const getCurrentUser = (
     
  ) => {
-      return fetchClient<UserResponse>(
+      return fetchClient<CurrentUserResponse>(
       {url: `/api/v1/users/current`, method: 'GET'
     },
       );

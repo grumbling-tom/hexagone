@@ -80,6 +80,7 @@ export interface UserResponse {
  * Response body for user group endpoints.
  */
 export interface UserGroupResponse {
+  capabilities?: Capability[];
   created_at: string;
   member_count: number;
   name: string;
@@ -123,6 +124,7 @@ export type UploadResponsePresignedUrl = string | null;
  * Response body for upload endpoints.
  */
 export interface UploadResponse {
+  capabilities?: Capability[];
   created_at: string;
   current_status: string;
   file_size_bytes: number;
@@ -160,6 +162,19 @@ export type SortOrder = typeof SortOrder[keyof typeof SortOrder];
 export const SortOrder = {
   asc: 'asc',
   desc: 'desc',
+} as const;
+
+/**
+ * A kind of resource the system authorizes against.
+ */
+export type ResourceType = typeof ResourceType[keyof typeof ResourceType];
+
+
+// eslint-disable-next-line @typescript-eslint/no-redeclare
+export const ResourceType = {
+  user: 'user',
+  user_group: 'user_group',
+  upload: 'upload',
 } as const;
 
 export type PaginatedResultUserResponsePreviousCursor = string | null;
@@ -248,6 +263,20 @@ Returns:
 }
 
 /**
+ * The verb half of a capability — the kind of access being authorized.
+ */
+export type Operation = typeof Operation[keyof typeof Operation];
+
+
+// eslint-disable-next-line @typescript-eslint/no-redeclare
+export const Operation = {
+  read: 'read',
+  update: 'update',
+  create: 'create',
+  delete: 'delete',
+} as const;
+
+/**
  * Allowed sort fields for raw hex-claim listing.
  */
 export type HexClaimSortField = typeof HexClaimSortField[keyof typeof HexClaimSortField];
@@ -276,6 +305,19 @@ export interface HexClaimResponse {
 
 export interface HTTPValidationError {
   detail?: ValidationError[];
+}
+
+/**
+ * The authenticated user, plus the capabilities they hold on the workspace.
+
+The ``capabilities`` here are collection-level (what the caller may
+*create*) — e.g. ``(create, user)`` only for an admin — so the FE can gate
+create affordances on the current user rather than on any one resource.
+ */
+export interface CurrentUserResponse {
+  capabilities?: Capability[];
+  email: string;
+  uid: string;
 }
 
 export type CreateUserSessionRequestToken = string | null;
@@ -330,6 +372,11 @@ export interface CreateUploadRequest {
  */
 export interface CreateLoginTokenRequest {
   email: string;
+}
+
+export interface Capability {
+  operation: Operation;
+  resource: ResourceType;
 }
 
 /**
