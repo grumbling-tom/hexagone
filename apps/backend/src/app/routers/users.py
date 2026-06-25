@@ -6,7 +6,6 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from pydantic import EmailStr, Field
 from sqlalchemy.orm import Session
 
-from src.app.authz import Resource, with_capabilities
 from src.app.dependencies import authenticated_user, db_session, email_client
 from src.app.repository import User
 from src.app.services import user as user_service
@@ -17,7 +16,13 @@ from src.app.services.user import create_user as create_user_service
 from src.app.services.user_session import create_session
 from src.app.services.workspace import WORKSPACE
 from src.app.settings import settings
-from src.app.utils import BaseSchema, PaginatedResult, get_client_ip, get_logger
+from src.app.utils import (
+    BaseSchema,
+    PaginatedResult,
+    Resource,
+    get_client_ip,
+    get_logger,
+)
 
 logger = get_logger(__name__)
 

@@ -15,9 +15,6 @@ singleton, get back a ``set[Capability]`` either way. A ``Capability`` is the
 honest ``(Operation, ResourceType)`` product — the verb *and* the real noun.
 """
 
-from dataclasses import dataclass
-from enum import StrEnum
-
 from sqlalchemy.orm import Session as DBSession
 
 from src.app.repository import (
@@ -36,33 +33,7 @@ from src.app.repository.database import BaseModel
 from src.app.repository.models import User
 from src.app.repository.predicates import Filter
 from src.app.services.workspace import Workspace
-
-
-class Operation(StrEnum):
-    """The verb half of a capability — the kind of access being authorized."""
-
-    READ = "read"
-    UPDATE = "update"  # update-in-place of an existing row (was WRITE)
-    CREATE = "create"
-    DELETE = "delete"  # not yet enforced; here so capabilities can report it
-
-
-# Object-level operations a capability is computed for. CREATE is excluded — it
-# is collection-level (the ``Workspace`` handle), not a property of a row.
-_OBJECT_OPERATIONS = (Operation.READ, Operation.UPDATE, Operation.DELETE)
-
-
-@dataclass(frozen=True, slots=True, order=True)
-class Capability:
-    """A permission the current user holds: the ``(Operation, ResourceType)`` product.
-
-    Frozen + ordered so capabilities can live in a ``set`` and be ``sorted`` for
-    a stable wire order. The verb (``operation``) names *what kind* of access;
-    the noun (``resource``) names *what it is about*.
-    """
-
-    operation: Operation
-    resource: ResourceType
+from src.app.utils import Capability, Operation, Resource
 
 
 def permissions_predicates(
@@ -104,7 +75,7 @@ def capabilities_for(
     db: DBSession,
     user: User,
     target: BaseModel,
-) -> set[Capability]:
+) -> set[Capability[ResourceType]]:
     """The capabilities ``user`` holds on ``target``.
 
     ``target`` is either an entity instance (object-level READ/UPDATE/DELETE) or
@@ -120,8 +91,11 @@ def capabilities_for(
 
     entity = type(target)
     resource = entity.__resource__
-    caps: set[Capability] = set()
-    for operation in _OBJECT_OPERATIONS:
+    caps: set[Capability[ResourceType]] = set()
+
+    # Object-level operations a capability is computed for. CREATE is excluded — it
+    # is collection-level (the ``Workspace`` handle), not a property of a row.
+    for operation in (Operation.READ, Operation.UPDATE, Operation.DELETE):
         predicates = permissions_predicates(user, entity, operation)
         # READ is implied by presence: ``target`` was returned by a permissioned
         # query, so the user can read it — no need to re-check.
@@ -150,3 +124,35 @@ def predicates_hold(db: DBSession, target: BaseModel, predicates: list[Filter]) 
         page_size=1,
     )
     return bool(result.items)
+
+
+def with_capabilities[S: Resource](  # noqa: PLR0913
+    schema: type[S],
+    obj: BaseModel,
+    *,
+    user: User,
+    db: DBSession,
+    target: BaseModel | None = None,
+    context: dict[str, Any] | None = None,
+) -> S:
+    """Serialize ``obj`` into ``schema`` and attach the caller's capabilities.
+
+    Args:
+        schema: The response schema to build (a ``Resource`` subclass).
+        obj: The ORM instance to read the response fields from.
+        user: The authenticated caller.
+        db: Database session (for relational capability checks).
+        target: The object whose capabilities to report, when it differs from
+            ``obj`` — e.g. ``/users/current`` serializes the ``User`` but reports
+            collection-level capabilities against the ``WORKSPACE`` handle.
+            Defaults to ``obj`` (the common object-level case).
+        context: Optional pydantic validation context (e.g. ``{"storage": ...}``
+            for ``UploadResponse``'s presigned-URL resolution).
+
+    Returns:
+        The populated response with its ``capabilities`` sorted for a stable
+        wire order.
+    """
+    resp = schema.model_validate(obj, context=context)
+    resp.capabilities = sorted(capabilities_for(db, user, target or obj))
+    return resp

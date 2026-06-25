@@ -1092,13 +1092,13 @@
         "title": "AggregatedHexClaimByCell",
         "description": "One aggregated row when ``by=hex_cell``."
       },
-      "Capability": {
+      "Capability_TypeVar_": {
         "properties": {
           "operation": {
             "$ref": "#/components/schemas/Operation"
           },
           "resource": {
-            "$ref": "#/components/schemas/ResourceType"
+            "title": "Resource"
           }
         },
         "type": "object",
@@ -1227,10 +1227,11 @@
           },
           "capabilities": {
             "items": {
-              "$ref": "#/components/schemas/Capability"
+              "$ref": "#/components/schemas/Capability_TypeVar_"
             },
             "type": "array",
-            "title": "Capabilities"
+            "title": "Capabilities",
+            "default": []
           },
           "email": {
             "type": "string",
@@ -1616,16 +1617,6 @@
         ],
         "title": "PaginatedResult[UserResponse]"
       },
-      "ResourceType": {
-        "type": "string",
-        "enum": [
-          "user",
-          "user_group",
-          "upload"
-        ],
-        "title": "ResourceType",
-        "description": "A kind of resource the system authorizes against."
-      },
       "SortOrder": {
         "type": "string",
         "enum": [
@@ -1659,10 +1650,11 @@
           },
           "capabilities": {
             "items": {
-              "$ref": "#/components/schemas/Capability"
+              "$ref": "#/components/schemas/Capability_TypeVar_"
             },
             "type": "array",
-            "title": "Capabilities"
+            "title": "Capabilities",
+            "default": []
           },
           "original_filename": {
             "type": "string",
@@ -1746,10 +1738,11 @@
           },
           "capabilities": {
             "items": {
-              "$ref": "#/components/schemas/Capability"
+              "$ref": "#/components/schemas/Capability_TypeVar_"
             },
             "type": "array",
-            "title": "Capabilities"
+            "title": "Capabilities",
+            "default": []
           },
           "name": {
             "type": "string",

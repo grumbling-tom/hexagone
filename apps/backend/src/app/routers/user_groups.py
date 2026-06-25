@@ -7,12 +7,11 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from pydantic import Field
 from sqlalchemy.orm import Session
 
-from src.app.authz import Resource, with_capabilities
 from src.app.dependencies import authenticated_user, db_session
 from src.app.repository import User
 from src.app.services import user_group as user_group_service
 from src.app.settings import settings
-from src.app.utils import BaseSchema, PaginatedResult
+from src.app.utils import BaseSchema, PaginatedResult, Resource
 
 router = APIRouter()
 
