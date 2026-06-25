@@ -1,5 +1,6 @@
 import "server-only";
 
+import { context, propagation } from "@opentelemetry/api";
 import { cookies } from "next/headers";
 import setCookieParser from "set-cookie-parser";
 import { env } from "@/config/env";
@@ -59,6 +60,17 @@ export async function fetchClient<T>(config: {
   const headers = new Headers(config.headers);
   const jar = cookieStore.toString();
   if (jar) headers.set("cookie", jar);
+
+  // Continue the same OpenTelemetry trace on the backend by injecting the active
+  // context as a W3C `traceparent` header. Next's fetch instrumentation is meant
+  // to do this automatically, but it doesn't reliably propagate to our backend
+  // origin in this setup, so we inject explicitly — this is what makes the
+  // backend's log lines share a trace_id with the `backend_request` line below
+  // (FastAPIInstrumentor extracts the header and continues the trace).
+  propagation.inject(context.active(), headers, {
+    set: (carrier: Headers, key: string, value: string) =>
+      carrier.set(key, value),
+  });
 
   // Log every backend call with the active trace id, so a web log line
   // correlates to the backend log lines for the same request (see lib/logger).
