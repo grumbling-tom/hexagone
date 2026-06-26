@@ -8,7 +8,7 @@ from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sessionmaker
 
 from ..settings import settings
-from ..utils import get_logger
+from ..utils import AuthZNoun, get_logger
 
 logger = get_logger(__name__)
 
@@ -50,6 +50,7 @@ class BaseModel(DeclarativeBase):
     """
 
     __abstract__ = True
+    __authz_noun__: AuthZNoun
 
     uid: Mapped[str] = mapped_column(
         String(36), primary_key=True, default=lambda: str(uuid.uuid7()), index=True

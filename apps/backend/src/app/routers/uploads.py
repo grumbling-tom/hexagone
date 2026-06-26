@@ -20,15 +20,14 @@ from src.app.services.upload import create_upload as create_upload_service
 from src.app.services.upload import list_uploads as list_uploads_service
 from src.app.services.upload import maybe_presigned_url
 from src.app.settings import settings
-from src.app.utils import BaseSchema, PaginatedResult, SortOrder
+from src.app.utils import BaseSchema, PaginatedResult, Resource, SortOrder
 
 router = APIRouter()
 
 
-class UploadResponse(BaseSchema):
+class UploadResponse(Resource):
     """Response body for upload endpoints."""
 
-    uid: str
     original_filename: str
     file_size_bytes: int
     created_at: datetime

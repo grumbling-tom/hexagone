@@ -4,56 +4,58 @@
  * Backend
  * OpenAPI spec version: 0.1.0
  */
-
-import { fetchClient } from "../../lib/fetch-client";
 import type {
   CreateUserRequest,
   ListUsersParams,
   PaginatedResultUserResponse,
-  UserResponse,
-} from "./backend.schemas";
+  UserResponse
+} from './backend.schemas'
+import { fetchClient } from '../../lib/fetch-client';
 
-/**
+
+
+
+  /**
  * Create a new user account and start a session.
  * @summary Create User
  */
-export const createUser = (createUserRequest: CreateUserRequest) => {
-  return fetchClient<UserResponse>({
-    url: `/api/v1/users`,
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    data: createUserRequest,
-  });
-};
-/**
+export const createUser = (
+    createUserRequest: CreateUserRequest,
+ ) => {
+      return fetchClient<UserResponse>(
+      {url: `/api/v1/users`, method: 'POST',
+      headers: {'Content-Type': 'application/json', },
+      data: createUserRequest
+    },
+      );
+    }
+  /**
  * List users filtered by group membership.
 
 Caller must be able to see the group (owner OR member); 404 otherwise.
  * @summary List Users
  */
-export const listUsers = (params: ListUsersParams) => {
-  return fetchClient<PaginatedResultUserResponse>({
-    url: `/api/v1/users`,
-    method: "GET",
-    params,
-  });
-};
-/**
+export const listUsers = (
+    params: ListUsersParams,
+ ) => {
+      return fetchClient<PaginatedResultUserResponse>(
+      {url: `/api/v1/users`, method: 'GET',
+        params
+    },
+      );
+    }
+  /**
  * Return the currently authenticated user.
  * @summary Get Current User
  */
-export const getCurrentUser = () => {
-  return fetchClient<UserResponse>({
-    url: `/api/v1/users/current`,
-    method: "GET",
-  });
-};
-export type CreateUserResult = NonNullable<
-  Awaited<ReturnType<typeof createUser>>
->;
-export type ListUsersResult = NonNullable<
-  Awaited<ReturnType<typeof listUsers>>
->;
-export type GetCurrentUserResult = NonNullable<
-  Awaited<ReturnType<typeof getCurrentUser>>
->;
+export const getCurrentUser = (
+    
+ ) => {
+      return fetchClient<UserResponse>(
+      {url: `/api/v1/users/current`, method: 'GET'
+    },
+      );
+    }
+  export type CreateUserResult = NonNullable<Awaited<ReturnType<typeof createUser>>>
+export type ListUsersResult = NonNullable<Awaited<ReturnType<typeof listUsers>>>
+export type GetCurrentUserResult = NonNullable<Awaited<ReturnType<typeof getCurrentUser>>>
