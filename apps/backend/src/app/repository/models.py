@@ -19,7 +19,7 @@ from sqlalchemy import (
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import Mapped, mapped_column, object_session, relationship
 
-from .database import BaseModel
+from .database import AuthZNoun, BaseModel
 
 if TYPE_CHECKING:
     from sqlalchemy import ScalarSelect
@@ -80,6 +80,7 @@ class Upload(BaseModel):
     """
 
     __tablename__ = "upload"
+    __authz_noun__ = AuthZNoun.UPLOAD
 
     user_uid: Mapped[str] = mapped_column(
         String(36), ForeignKey("user.uid"), nullable=False, index=True

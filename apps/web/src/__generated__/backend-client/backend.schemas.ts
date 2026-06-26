@@ -123,6 +123,7 @@ export type UploadResponsePresignedUrl = string | null;
  * Response body for upload endpoints.
  */
 export interface UploadResponse {
+  capabilities: Capability[];
   created_at: string;
   current_status: string;
   file_size_bytes: number;
@@ -247,6 +248,17 @@ Returns:
   previous_cursor: PaginatedResultAggregatedHexClaimByCellPreviousCursor;
 }
 
+export type Operation = typeof Operation[keyof typeof Operation];
+
+
+// eslint-disable-next-line @typescript-eslint/no-redeclare
+export const Operation = {
+  read: 'read',
+  update: 'update',
+  create: 'create',
+  delete: 'delete',
+} as const;
+
 /**
  * Allowed sort fields for raw hex-claim listing.
  */
@@ -330,6 +342,20 @@ export interface CreateUploadRequest {
  */
 export interface CreateLoginTokenRequest {
   email: string;
+}
+
+export type AuthZNoun = typeof AuthZNoun[keyof typeof AuthZNoun];
+
+
+// eslint-disable-next-line @typescript-eslint/no-redeclare
+export const AuthZNoun = {
+  upload: 'upload',
+  userGroup: 'userGroup',
+} as const;
+
+export interface Capability {
+  operation: Operation;
+  resource: AuthZNoun;
 }
 
 /**
