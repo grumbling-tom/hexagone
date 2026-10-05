@@ -102,7 +102,7 @@ def test_update_user_group_as_non_owner_returns_403(
     test_user: User,
     authenticate_as: Callable[[User], TestClient],
 ):
-    """A non-owner's WRITE guard matches no row, so the service raises
+    """A non-owner's UPDATE guard matches no row, so the service raises
     `NotAuthorisedError`, which the app-wide handler maps to 403."""
     owner = create_user()
     group = create_group(name="Theirs", owner=owner)
