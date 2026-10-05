@@ -279,7 +279,7 @@ Enforced by `test_services_do_not_return_pydantic_schemas` in
 When the response shape doesn't map 1:1 to a base table — typically
 aggregations, rollups, or projections — define a **view-backed ORM model**
 rather than hand-rolling `select(...).group_by(...)` in the service. The
-view becomes the canonical entity; `Repository`, `permission_filters`, and
+view becomes the canonical entity; `Repository`, `permissions_predicates`, and
 the cursor pipeline all work unchanged.
 
 All view-backed models live in `repository/views.py` and inherit from the
@@ -337,18 +337,18 @@ is a real bottleneck.
 When you need to filter a model based on values in a related model (e.g.
 filtering uploads by their latest status), use a `@hybrid_property` on the
 parent model with a `@expression` that returns a correlated subquery. Then
-use the standard filter classes (`InFilter`, `EqualsFilter`, etc.) against
+use the standard predicates (`In`, `Equals`, etc.) against
 that hybrid property.
 
 Push the join/subquery complexity into the model, not into custom filter
 classes. This keeps the filter layer simple and composable.
 
-## Service Layer — Use Repository + Filter Classes for Queries
+## Service Layer — Use Repository + Predicates for Queries and Writes
 
 Service queries access the database through `Repository(db, Model)` plus
-the type-safe `Filter` classes in `repository/filters.py`, composing with
-`permission_filters(user, entity)` from `services/permissions.py` where
-authorisation applies. Avoid raw `select(...)` for service queries — it
+the type-safe predicates in `repository/predicates.py`, composing with
+`permissions_predicates(user, entity, operation)` from
+`services/permissions.py` where authorisation applies. Avoid raw `select(...)` for service queries — it
 bypasses cursor pagination, the composable Filter contract, and the
 single central permissions layer.
 
@@ -358,8 +358,8 @@ single central permissions layer.
 def list_groups_for_user(db, user) -> list[UserGroup]:
     return Repository(db, UserGroup).get_filtered(
         filters=[
-            *permission_filters(user, UserGroup),
-            EqualsFilter(field="archived", value=False),
+            *permissions_predicates(user, UserGroup),
+            Equals(field="archived", value=False),
         ],
         sort_field=UserGroup.created_at,
         sort_order=SortOrder.DESC,
@@ -378,9 +378,12 @@ def list_groups_for_user(db, user) -> list[UserGroup]:
     return list(db.execute(stmt).scalars().all())
 ```
 
-If a filter you need doesn't exist yet, **add a new `Filter` subclass in
-`repository/filters.py`** rather than dropping to raw SQL. Filters are
-reusable, unit-testable, and compose with `Repository.get_filtered`.
+If a predicate you need doesn't exist yet, **add a new `Predicate`
+subclass in `repository/predicates.py`** rather than dropping to raw SQL.
+Predicates are reusable, unit-testable, and compose with
+`Repository.get_filtered`. Implement `is_satisfied_by` as well as `to_sql`
+only when the predicate can be judged against a single in-memory instance —
+that is what makes it usable as a create `Guard`.
 
 **Exceptions — raw `select(...)` is appropriate when:**
 - Aggregates `Repository` doesn't expose — `func.count(...)`,
@@ -390,15 +393,25 @@ reusable, unit-testable, and compose with `Repository.get_filtered`.
   round-trip (rare; prefer two `Repository.find_by_uid()` calls unless
   profiling shows a real cost).
 
-Note: this section is about *queries*. Writes (`db.add`, `db.delete`,
-attribute mutation followed by `db.commit`) go through the session
-directly — `Repository` is a query helper, not a unit-of-work wrapper.
+Permissioned writes go through `Repository` too, with the guards from
+`permissions_predicates` for the matching `Operation`:
+
+- **CREATE** → `Repository.create(obj, guards=permissions_predicates(user,
+  Entity, Operation.CREATE))`. The overloads type this as `list[Guard]`, so
+  relational predicates (`Related`, `Or`) can't be used to guard an insert.
+- **UPDATE** → `Repository.update(uid, values, guards=permissions_predicates(
+  user, Entity, Operation.UPDATE))`. The guards ride in the UPDATE's WHERE,
+  so the check and the write are one atomic statement.
+
+Both raise `NotAuthorisedError` (handled app-wide as a 403) and neither
+commits. Repository methods without guards (`add`, `delete`,
+`permanent_delete`) are not permission-checked.
 
 ## Service Layer — Workhorse `list_<things>` + Thin `get_<thing>` Wrapper
 
 When a service exposes both "list" and "fetch one of those things" for
 the same entity, write **one** `list_<things>` function that builds the
-filter list (including `permission_filters`, archived check, scoping
+filter list (including `permissions_predicates`, archived check, scoping
 flags) and returns `PaginatedResult[Thing]`. Then make `get_<thing>` a
 one-line wrapper that delegates to it with a `uid` filter and returns
 the first item — the filter logic, including any auth scoping, lives in
@@ -416,13 +429,13 @@ def list_groups(  # noqa: PLR0913
     sort_order=SortOrder.DESC,
 ) -> PaginatedResult[UserGroup]:
     filters = [
-        *permission_filters(user, UserGroup),
-        EqualsFilter(field="archived", value=False),
+        *permissions_predicates(user, UserGroup),
+        Equals(field="archived", value=False),
     ]
     if owner_only:
-        filters.append(EqualsFilter(field="owner_uid", value=user.uid))
+        filters.append(Equals(field="owner_uid", value=user.uid))
     if group_uid is not None:
-        filters.append(EqualsFilter(field="uid", value=group_uid))
+        filters.append(Equals(field="uid", value=group_uid))
     return Repository(db, UserGroup).get_filtered(filters=filters, ...)
 
 
@@ -440,24 +453,23 @@ def get_group(db, user, group_uid, *, owner_only=False) -> UserGroup | None:
 ```python
 def list_groups(db, user):
     return Repository(db, UserGroup).get_filtered(
-        filters=[*permission_filters(user, UserGroup),
-                 EqualsFilter(field="archived", value=False)],
+        filters=[*permissions_predicates(user, UserGroup),
+                 Equals(field="archived", value=False)],
     )
 
 def get_group(db, user, group_uid):
     # Same filter list, restated by hand — drifts the moment list_groups grows a clause:
     return Repository(db, UserGroup).get_filtered(
-        filters=[*permission_filters(user, UserGroup),
-                 EqualsFilter(field="archived", value=False),
-                 EqualsFilter(field="uid", value=group_uid)],
+        filters=[*permissions_predicates(user, UserGroup),
+                 Equals(field="archived", value=False),
+                 Equals(field="uid", value=group_uid)],
     ).items[0]
 ```
 
-Scoping flags like `owner_only=True` are how access modifiers get
-expressed today — they layer an extra filter onto the read permission
-set. When `permission_filters(user, entity, operation)` lands
-(operation ∈ {READ, UPDATE, DELETE, …}), these flags can move into the
-permissions layer.
+Prefer expressing access modifiers through the `operation` argument
+(e.g. `get_group(..., operation=Operation.UPDATE)` narrows to groups the
+caller owns) rather than ad-hoc scoping flags like `owner_only=True`, so
+the rule lives in the permissions layer.
 
 ## Service Layer — Return `None` for Absence; Routers Raise HTTP
 
