@@ -1,5 +1,7 @@
 """Service layer for user groups and their memberships."""
 
+from typing import Literal
+
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session as DBSession
 
@@ -30,11 +32,14 @@ def create_group(db: DBSession, owner: User, name: str) -> UserGroup:
     """Create a new group with `owner` as the sole initial member.
 
     The caller is recorded as the group's owner and automatically gets a
-    membership row.
+    membership row. The CREATE guards check the in-memory instance before the
+    INSERT: a group whose `owner_uid` isn't the caller is rejected with
+    `NotAuthorisedError`.
     """
-    group = UserGroup(name=name, owner_uid=owner.uid, archived=False)
-    db.add(group)
-    db.flush()
+    group = Repository(db, UserGroup).create(
+        UserGroup(name=name, owner_uid=owner.uid, archived=False),
+        guards=permissions_predicates(owner, UserGroup, Operation.CREATE),
+    )
 
     membership = UserGroupMembership(
         user_uid=owner.uid,
@@ -56,11 +61,11 @@ def get_group(
     db: DBSession,
     user: User,
     group_uid: str,
-    operation: Operation = Operation.READ,
+    operation: Literal[Operation.READ, Operation.UPDATE] = Operation.READ,
 ) -> UserGroup | None:
     """Return a group the caller can access for `operation`; else None.
 
-    `operation=WRITE` narrows visibility to groups the caller owns — useful as a
+    `operation=UPDATE` narrows visibility to groups the caller owns — useful as a
     relational authorization gate (e.g. "actor owns the group" before inserting
     a membership row).
     """
@@ -81,7 +86,7 @@ def list_groups(  # noqa: PLR0913
     page_size: int = settings.DEFAULT_PAGE_SIZE,
     cursor: str | None = None,
     group_uid: str | None = None,
-    operation: Operation = Operation.READ,
+    operation: Literal[Operation.READ, Operation.UPDATE] = Operation.READ,
     sort_field: str = "created_at",
     sort_order: SortOrder = SortOrder.DESC,
 ) -> PaginatedResult[UserGroup]:
@@ -115,7 +120,7 @@ def update_group(db: DBSession, user: User, group_uid: str, *, name: str) -> Use
     group = repo.update(
         group_uid,
         {"name": name},
-        guards=permissions_predicates(user, UserGroup, Operation.WRITE),
+        guards=permissions_predicates(user, UserGroup, Operation.UPDATE),
     )
 
     db.commit()
@@ -125,7 +130,7 @@ def update_group(db: DBSession, user: User, group_uid: str, *, name: str) -> Use
 def archive_group(db: DBSession, user: User, group_uid: str) -> UserGroup:
     """Soft-delete a group. Owner-only, atomic, and idempotent.
 
-    The guards reproduce every WHERE the old gating read applied: the WRITE
+    The guards reproduce every WHERE the old gating read applied: the UPDATE
     permission predicates plus `archived == False`. A non-owner, a missing
     group, or an already-archived group all match no row, so `repo.update`
     raises `NotAuthorisedError` (handled app-wide as a 403).
@@ -135,7 +140,7 @@ def archive_group(db: DBSession, user: User, group_uid: str) -> UserGroup:
         group_uid,
         {"archived": True},
         guards=[
-            *permissions_predicates(user, UserGroup, Operation.WRITE),
+            *permissions_predicates(user, UserGroup, Operation.UPDATE),
             Equals(field="archived", value=False),
         ],
     )
@@ -193,7 +198,7 @@ def add_member(
         Defense-in-depth for this server-built row; substantive when the row
         comes from untrusted input.
     """
-    group = get_group(db, actor, group_uid, operation=Operation.WRITE)
+    group = get_group(db, actor, group_uid, operation=Operation.UPDATE)
     if group is None:
         raise UserGroupNotFoundError(group_uid)
 

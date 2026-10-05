@@ -75,14 +75,46 @@ def test_user_group_read_predicate_returns_owned_and_member_groups(
     assert {g.name for g in result.items} == {"Owned", "MemberOf"}
 
 
-def test_user_group_write_predicate_is_owner_only(test_user: User):
-    """WRITE narrows to a single owner Equals — no membership leg."""
-    predicates = permissions_predicates(test_user, UserGroup, Operation.WRITE)
+def test_user_group_update_predicate_is_owner_only(test_user: User):
+    """UPDATE narrows to a single owner Equals — no membership leg."""
+    predicates = permissions_predicates(test_user, UserGroup, Operation.UPDATE)
     assert len(predicates) == 1
     p = predicates[0]
     assert isinstance(p, Equals)
     assert p.field == "owner_uid"
     assert p.value == test_user.uid  # pyright: ignore[reportUnknownMemberType]
+
+
+def test_user_group_create_guard_admits_only_own_groups(
+    test_user: User, create_user: Callable[..., User]
+):
+    """CREATE yields `Guard`s judged against the in-memory instance: a user may
+    create a group they own, but not one owned by somebody else."""
+    other = create_user(email="other@example.com")
+    guards = permissions_predicates(test_user, UserGroup, Operation.CREATE)
+
+    own = UserGroup(name="Mine", owner_uid=test_user.uid)
+    theirs = UserGroup(name="Theirs", owner_uid=other.uid)
+
+    assert all(isinstance(g, Guard) for g in guards)
+    assert all(g.is_satisfied_by(own) for g in guards)
+    assert not all(g.is_satisfied_by(theirs) for g in guards)
+
+
+def test_upload_create_guard_admits_only_own_uploads(test_user: User):
+    guards = permissions_predicates(test_user, Upload, Operation.CREATE)
+
+    own = Upload(user_uid=test_user.uid)
+    theirs = Upload(user_uid="someone-else")
+
+    assert all(g.is_satisfied_by(own) for g in guards)
+    assert not all(g.is_satisfied_by(theirs) for g in guards)
+
+
+@pytest.mark.parametrize("operation", [Operation.CREATE, Operation.UPDATE])
+def test_read_only_view_rejects_writes(test_user: User, operation: Operation):
+    with pytest.raises(ValueError, match=f"No {operation} permission predicates"):
+        permissions_predicates(test_user, HexClaimByCell, operation)  # pyright: ignore[reportCallIssue,reportArgumentType]
 
 
 def test_dual_mode_predicate_is_a_guard():
@@ -99,6 +131,6 @@ def test_relational_predicate_is_not_a_guard():
 
 def test_unknown_entity_raises(test_user: User):
     with pytest.raises(
-        ValueError, match="No permission predicates defined for UserSession"
+        ValueError, match="No read permission predicates defined for UserSession"
     ):
         permissions_predicates(test_user, UserSession)

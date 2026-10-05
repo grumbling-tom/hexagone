@@ -359,6 +359,6 @@ class Related(Predicate):
     # whose relationships aren't loaded, so the only sound way to evaluate a
     # relational predicate is a query — and a Guard is defined as the thing
     # that doesn't query. Relational authorization therefore belongs on the
-    # read side (which is exactly what add_member's get_group(..., WRITE)
+    # read side (which is exactly what add_member's get_group(..., UPDATE)
     # does), and the type system encoding "Related can't be a create guard"
     # matches that reality.
