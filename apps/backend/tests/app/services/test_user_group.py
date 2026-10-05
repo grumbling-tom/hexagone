@@ -5,8 +5,15 @@ from collections.abc import Callable
 import pytest
 from sqlalchemy.orm import Session
 
-from src.app.repository import NotAuthorisedError, User, UserGroup, UserGroupMembership
+from src.app.repository import (
+    NotAuthorisedError,
+    Repository,
+    User,
+    UserGroup,
+    UserGroupMembership,
+)
 from src.app.services import user_group as user_group_service
+from src.app.services.permissions import Operation, permissions_predicates
 
 
 def test_create_group_creates_owner_membership(test_db: Session, test_user: User):
@@ -18,6 +25,22 @@ def test_create_group_creates_owner_membership(test_db: Session, test_user: User
     members = user_group_service.list_members(test_db, test_user, group.uid).items
     assert len(members) == 1
     assert members[0].user_uid == test_user.uid
+
+
+def test_create_guard_rejects_group_owned_by_someone_else(
+    test_db: Session, test_user: User, create_user: Callable[..., User]
+):
+    """The CREATE guards `create_group` passes reject an instance whose owner
+    isn't the caller, before anything is inserted."""
+    other = create_user(email="other@example.com")
+
+    with pytest.raises(NotAuthorisedError):
+        Repository(test_db, UserGroup).create(
+            UserGroup(name="Forged", owner_uid=other.uid),
+            guards=permissions_predicates(test_user, UserGroup, Operation.CREATE),
+        )
+
+    assert Repository(test_db, UserGroup).get_all().items == []
 
 
 def test_add_member_as_owner_adds_membership(
@@ -47,7 +70,7 @@ def test_add_member_as_non_owner_raises_not_found(
     create_group: Callable[..., UserGroup],
 ):
     """A caller who doesn't own the group can't add members — the relational
-    WRITE read returns nothing, so it's a 404-shaped `UserGroupNotFoundError`."""
+    UPDATE read returns nothing, so it's a 404-shaped `UserGroupNotFoundError`."""
     owner = create_user(email="owner@example.com")
     outsider = create_user(email="outsider@example.com")
     group = create_group(name="Theirs", owner=owner)
@@ -126,7 +149,7 @@ def test_archive_group_for_non_owner_raises_not_authorised(
     create_group: Callable[..., UserGroup],
     create_membership: Callable[..., UserGroupMembership],
 ):
-    """A non-owner (even a member) matches no row under the WRITE guard, so
+    """A non-owner (even a member) matches no row under the UPDATE guard, so
     `archive_group` raises `NotAuthorisedError` — surfaced app-wide as 403."""
     owner = create_user(email="owner@example.com")
     group = create_group(name="Theirs", owner=owner)

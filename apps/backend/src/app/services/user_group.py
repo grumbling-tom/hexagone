@@ -32,11 +32,14 @@ def create_group(db: DBSession, owner: User, name: str) -> UserGroup:
     """Create a new group with `owner` as the sole initial member.
 
     The caller is recorded as the group's owner and automatically gets a
-    membership row.
+    membership row. The CREATE guards check the in-memory instance before the
+    INSERT: a group whose `owner_uid` isn't the caller is rejected with
+    `NotAuthorisedError`.
     """
-    group = UserGroup(name=name, owner_uid=owner.uid, archived=False)
-    db.add(group)
-    db.flush()
+    group = Repository(db, UserGroup).create(
+        UserGroup(name=name, owner_uid=owner.uid, archived=False),
+        guards=permissions_predicates(owner, UserGroup, Operation.CREATE),
+    )
 
     membership = UserGroupMembership(
         user_uid=owner.uid,
