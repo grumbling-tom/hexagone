@@ -111,22 +111,14 @@ def create_upload(
     return upload
 
 
-def set_upload_status(  # noqa: PLR0913
+def _append_status(
     statuses: ScopedRepository[UploadStatus],
-    tx: Transaction,
     upload: Upload,
     status: UploadStatusValue,
     *,
     detail: str | None = None,
-    commit: bool = True,
 ) -> None:
-    """Append a new UploadStatus row.
-
-    By default this commits the surrounding transaction; pass
-    ``commit=False`` to defer the commit so the caller can batch the
-    status flip with other writes (e.g. bulk hex_claim inserts) into a
-    single transaction.
-    """
+    """Append a new UploadStatus row. Doesn't commit: the caller decides."""
     statuses.create(
         UploadStatus(
             upload_uid=upload.uid,
@@ -135,8 +127,6 @@ def set_upload_status(  # noqa: PLR0913
             detail=detail,
         )
     )
-    if commit:
-        tx.commit()
 
 
 def list_uploads(  # noqa: PLR0913
@@ -220,7 +210,10 @@ def process_upload(  # noqa: PLR0913
         logger.info("upload_not_pending", key=key, status=upload.current_status)
         return
 
-    set_upload_status(statuses, tx, upload, UploadStatusValue.UPLOAD_RECEIVED)
+    # Committed on its own, before parsing: a crash mid-parse leaves an honest
+    # RECEIVED rather than a PENDING that would be reprocessed.
+    _append_status(statuses, upload, UploadStatusValue.UPLOAD_RECEIVED)
+    tx.commit()
     logger.info("upload_status_updated", key=key, status="UPLOAD_RECEIVED")
 
     data = storage.get_object(key)
@@ -229,9 +222,10 @@ def process_upload(  # noqa: PLR0913
         polygons = gpx_bytes_to_polygons(data, resolution=settings.H3_RESOLUTION)
     except GpxValidationError as e:
         logger.warning("gpx_invalid", key=key, reason=e.reason)
-        set_upload_status(
-            statuses, tx, upload, UploadStatusValue.UPLOAD_INVALID, detail=e.reason
+        _append_status(
+            statuses, upload, UploadStatusValue.UPLOAD_INVALID, detail=e.reason
         )
+        tx.commit()
         return
 
     new_claims = [
@@ -251,9 +245,7 @@ def process_upload(  # noqa: PLR0913
     # Bulk insert + UPLOAD_SUCCESS share a single transaction so a failed
     # insert does not leave a misleading success status.
     claims.create_many(new_claims)
-    set_upload_status(
-        statuses, tx, upload, UploadStatusValue.UPLOAD_SUCCESS, commit=False
-    )
+    _append_status(statuses, upload, UploadStatusValue.UPLOAD_SUCCESS)
     tx.commit()
 
     # TODO: Consider an UPLOAD_FAILED status for bulk insert failures.

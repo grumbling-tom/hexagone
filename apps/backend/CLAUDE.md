@@ -403,6 +403,15 @@ sign-in, sessions, the upload worker) uses `system_scoped(X)` /
 - `delete(uid)` — atomic; guarded by the UPDATE row rules.
 
 All raise `NotAuthorisedError` (handled app-wide as a 403); none commits.
+
+### Committing
+
+Services commit, through `tx: Transaction` (only `commit()`/`rollback()`; it
+can't query). A service that commits is never called by another service:
+shared steps live in private, non-committing helpers (`_insert_user`,
+`_append_status`, `_delete`) and each public service commits once at the
+point its work is done. **Never add a `commit: bool` flag** to defer a commit;
+that flag only exists to paper over a committing service being reused.
 **Never assign to a loaded instance** (`user.email = "x"`): the session refuses
 to flush instance-level edits (`UnscopedWriteError`), because the ORM would
 otherwise write them without consulting the policy.

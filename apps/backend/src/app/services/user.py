@@ -85,12 +85,7 @@ def create_user(
         DuplicateEmailError: If a user with this email already exists.
     """
     try:
-        user = users.create(
-            User(
-                email=email,
-                password_hash=hash_password(password),
-            )
-        )
+        user = _insert_user(users, email, password)
         tx.commit()
     except IntegrityError:
         tx.rollback()
@@ -98,6 +93,14 @@ def create_user(
 
     logger.info("user_created", user_uid=user.uid, email=mask_email(email))
     return user
+
+
+def _insert_user(users: ScopedRepository[User], email: str, password: str) -> User:
+    """Insert a user. Doesn't commit: the caller decides.
+
+    ``create`` flushes, so a duplicate email raises ``IntegrityError`` here.
+    """
+    return users.create(User(email=email, password_hash=hash_password(password)))
 
 
 def get_or_create_user_by_email(
@@ -119,13 +122,18 @@ def get_or_create_user_by_email(
         return user, False
 
     try:
-        return create_user(users, tx, email, secrets.token_urlsafe(32)), True
-    except DuplicateEmailError:
+        user = _insert_user(users, email, secrets.token_urlsafe(32))
+        tx.commit()
+    except IntegrityError:
         # Lost a create race against a concurrent verify; the row now exists.
+        tx.rollback()
         user = get_user_by_email(users, email)
         if user is None:  # pragma: no cover - defensive
             raise
         return user, False
+
+    logger.info("user_created", user_uid=user.uid, email=mask_email(email))
+    return user, True
 
 
 def list_users(

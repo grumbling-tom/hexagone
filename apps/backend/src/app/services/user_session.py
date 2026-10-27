@@ -107,7 +107,8 @@ def validate_session(
             session_id=session_id,
             user_uid=session.user_uid,
         )
-        invalidate_session(sessions, tx, session)
+        _delete(sessions, session)
+        tx.commit()
         return None
 
     now = datetime.now(UTC)
@@ -117,7 +118,8 @@ def validate_session(
 
     if now > expires_at:
         logger.warning("session_expired", session_id=session_id)
-        invalidate_session(sessions, tx, session)
+        _delete(sessions, session)
+        tx.commit()
         return None
 
     if session.user_agent_hash != hash_user_agent(user_agent):
@@ -125,33 +127,11 @@ def validate_session(
             "session_user_agent_mismatch",
             session_id=session_id,
         )
-        invalidate_session(sessions, tx, session)
+        _delete(sessions, session)
+        tx.commit()
         return None
 
-    return refresh_session(sessions, tx, session)
-
-
-def refresh_session(
-    sessions: ScopedRepository[UserSession], tx: Transaction, session: UserSession
-) -> UserSession:
-    """Refresh session expiration (sliding window).
-
-    Args:
-        sessions: UserSession repository (system-scoped).
-        tx: Transaction boundary.
-        session: Session object to refresh.
-
-    Returns:
-        The refreshed session.
-    """
-    now = datetime.now(UTC)
-    if session.expires_at.tzinfo is None:
-        now = now.replace(tzinfo=None)
-
-    refreshed = sessions.update(
-        session.uid,
-        {"expires_at": now + timedelta(hours=settings.SESSION_EXPIRY_HOURS)},
-    )
+    refreshed = _refresh(sessions, session)
     tx.commit()
     return refreshed
 
@@ -159,16 +139,33 @@ def refresh_session(
 def invalidate_session(
     sessions: ScopedRepository[UserSession], tx: Transaction, session: UserSession
 ) -> None:
-    """Invalidate a session by permanently deleting it.
+    """Invalidate a session by permanently deleting it (e.g. on logout).
 
     Args:
         sessions: UserSession repository (system-scoped).
         tx: Transaction boundary.
         session: UserSession object to invalidate.
     """
-    session_id = session.uid
-
-    sessions.delete(session_id)
+    _delete(sessions, session)
     tx.commit()
 
+
+def _refresh(
+    sessions: ScopedRepository[UserSession], session: UserSession
+) -> UserSession:
+    """Slide the session's expiry forward. Doesn't commit: the caller decides."""
+    now = datetime.now(UTC)
+    if session.expires_at.tzinfo is None:
+        now = now.replace(tzinfo=None)
+
+    return sessions.update(
+        session.uid,
+        {"expires_at": now + timedelta(hours=settings.SESSION_EXPIRY_HOURS)},
+    )
+
+
+def _delete(sessions: ScopedRepository[UserSession], session: UserSession) -> None:
+    """Delete the session row. Doesn't commit: the caller decides."""
+    session_id = session.uid
+    sessions.delete(session_id)
     logger.info("session_invalidated", session_id=session_id)
