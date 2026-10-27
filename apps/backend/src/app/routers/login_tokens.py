@@ -6,7 +6,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Response
 from pydantic import EmailStr
 
-from src.app.dependencies import LoginTokenRepo, UoWDep, email_client
+from src.app.dependencies import LoginTokenRepo, TxDep, email_client
 from src.app.services.email import EmailClient, send_login_link_email
 from src.app.services.login_token import is_email_allowed, issue_login_token
 from src.app.settings import settings
@@ -27,7 +27,7 @@ class CreateLoginTokenRequest(BaseSchema):
 def create_login_token(
     body: CreateLoginTokenRequest,
     tokens: LoginTokenRepo,
-    uow: UoWDep,
+    tx: TxDep,
     mailer: Annotated[EmailClient, Depends(email_client)],
 ) -> Response:
     """Request a magic-link sign-in email (enumeration-safe).
@@ -48,7 +48,7 @@ def create_login_token(
     nonce = secrets.token_urlsafe(settings.LOGIN_TOKEN_SECRET_BYTES)
 
     if is_email_allowed(body.email):
-        issued = issue_login_token(tokens, uow, body.email)
+        issued = issue_login_token(tokens, tx, body.email)
         nonce = issued.nonce
         try:
             send_login_link_email(mailer, to_email=body.email, token=issued.token)

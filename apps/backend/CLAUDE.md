@@ -350,7 +350,7 @@ classes. This keeps the filter layer simple and composable.
 ## Service Layer — ScopedRepository Only; Never a Session
 
 Services reach the database **only** through `ScopedRepository[X]` objects
-injected by the router, plus a `UnitOfWork` for `commit()`/`rollback()`. A
+injected by the router, plus a `Transaction` for `commit()`/`rollback()`. A
 service never receives a `Session`: one that did could run any query
 SQLAlchemy permits. `tests/app/test_service_imports.py` enforces this (no
 `Session`/`select`/`update`/… imports in `services/`, no `repo._db`).
@@ -377,15 +377,15 @@ rules can't be skipped:
 # router
 @router.patch("/user-groups/{group_uid}", operation_id="updateUserGroup")
 def update_user_group(group_uid: str, body: UpdateUserGroupRequest,
-                      groups: GroupRepo, uow: UoWDep) -> UserGroupResponse:
-    group = user_group_service.update_group(groups, uow, group_uid, name=body.name)
+                      groups: GroupRepo, tx: TxDep) -> UserGroupResponse:
+    group = user_group_service.update_group(groups, tx, group_uid, name=body.name)
     return UserGroupResponse.model_validate(group)
 
 # service
-def update_group(groups: ScopedRepository[UserGroup], uow: UnitOfWork,
+def update_group(groups: ScopedRepository[UserGroup], tx: Transaction,
                  group_uid: str, *, name: str) -> UserGroup:
     group = groups.update(group_uid, {"name": name})  # owner check is the policy's
-    uow.commit()
+    tx.commit()
     return group
 ```
 
@@ -540,7 +540,7 @@ writes the caller couldn't avoid by branching, like
 missing" semantics. The pattern then looks like:
 
 ```python
-def update_group(groups, uow, group_uid, *, name) -> UserGroup:
+def update_group(groups, tx, group_uid, *, name) -> UserGroup:
     group = get_group(groups, group_uid, operation=Operation.UPDATE)
     if group is None:
         raise UserGroupNotFoundError(group_uid)

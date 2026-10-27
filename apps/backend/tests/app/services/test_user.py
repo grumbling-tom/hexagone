@@ -5,7 +5,7 @@ from unittest.mock import MagicMock
 import pytest
 from sqlalchemy.orm import Session
 
-from src.app.repository import ScopedRepository, UnitOfWork, User
+from src.app.repository import ScopedRepository, Transaction, User
 from src.app.services.password import hash_password
 from src.app.services.user import (
     DuplicateEmailError,
@@ -73,9 +73,9 @@ def test_authenticate_user_nonexistent(
 def test_create_user_success(
     test_db: Session,
     system_users: ScopedRepository[User],
-    uow: UnitOfWork,
+    tx: Transaction,
 ):
-    user = create_user(system_users, uow, "new@example.com", "password123")
+    user = create_user(system_users, tx, "new@example.com", "password123")
     assert user.email == "new@example.com"
     assert user.uid is not None
     assert user.password_hash != "password123"
@@ -84,11 +84,11 @@ def test_create_user_success(
 def test_create_user_duplicate_email(
     test_db: Session,
     system_users: ScopedRepository[User],
-    uow: UnitOfWork,
+    tx: Transaction,
 ):
-    create_user(system_users, uow, "dupe@example.com", "password123")
+    create_user(system_users, tx, "dupe@example.com", "password123")
     with pytest.raises(DuplicateEmailError):
-        create_user(system_users, uow, "dupe@example.com", "password456")
+        create_user(system_users, tx, "dupe@example.com", "password456")
 
 
 def test_get_user_by_email_with_a_mock_repository():

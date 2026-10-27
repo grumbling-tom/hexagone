@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, Query
 from pydantic import Field, ValidationInfo, model_validator
 
 from src.app.dependencies import (
-    UoWDep,
+    TxDep,
     UploadRepo,
     authenticated_user,
     file_storage,
@@ -87,13 +87,13 @@ def create_upload(
     body: CreateUploadRequest,
     user: Annotated[User, Depends(authenticated_user)],
     uploads: UploadRepo,
-    uow: UoWDep,
+    tx: TxDep,
     storage: Annotated[StorageBackend, Depends(file_storage)],
 ) -> UploadResponse:
     """Create a new GPX file upload and return a presigned URL."""
     upload = create_upload_service(
         uploads,
-        uow,
+        tx,
         user=user,
         original_filename=body.original_filename,
         file_size_bytes=body.file_size_bytes,

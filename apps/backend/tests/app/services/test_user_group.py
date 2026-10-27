@@ -9,7 +9,7 @@ from src.app.repository import (
     NotAuthorisedError,
     ScopedRepository,
     SystemPolicy,
-    UnitOfWork,
+    Transaction,
     User,
     UserGroup,
     UserGroupMembership,
@@ -37,10 +37,10 @@ def test_create_group_creates_owner_membership(
     test_user: User,
     groups: ScopedRepository[UserGroup],
     memberships: ScopedRepository[UserGroupMembership],
-    uow: UnitOfWork,
+    tx: Transaction,
 ):
     group = user_group_service.create_group(
-        groups, memberships, uow, test_user, name="Solo"
+        groups, memberships, tx, test_user, name="Solo"
     )
 
     assert group.owner_uid == test_user.uid
@@ -74,13 +74,13 @@ def test_add_member_as_owner_adds_membership(
     create_group: Callable[..., UserGroup],
     groups: ScopedRepository[UserGroup],
     memberships: ScopedRepository[UserGroupMembership],
-    uow: UnitOfWork,
+    tx: Transaction,
 ):
     other = create_user(email="other@example.com")
     group = create_group(name="Mine", owner=test_user)
 
     membership = user_group_service.add_member(
-        groups, memberships, uow, group.uid, other.uid
+        groups, memberships, tx, group.uid, other.uid
     )
 
     assert membership.user_uid == other.uid
@@ -99,7 +99,7 @@ def test_add_member_as_non_owner_raises_not_found(
     create_group: Callable[..., UserGroup],
     groups: ScopedRepository[UserGroup],
     memberships: ScopedRepository[UserGroupMembership],
-    uow: UnitOfWork,
+    tx: Transaction,
 ):
     """A caller who doesn't own the group can't add members — the relational
     UPDATE read returns nothing, so it's a 404-shaped `UserGroupNotFoundError`."""
@@ -108,7 +108,7 @@ def test_add_member_as_non_owner_raises_not_found(
     group = create_group(name="Theirs", owner=owner)
 
     with pytest.raises(user_group_service.UserGroupNotFoundError):
-        user_group_service.add_member(groups, memberships, uow, group.uid, outsider.uid)
+        user_group_service.add_member(groups, memberships, tx, group.uid, outsider.uid)
 
 
 def test_add_member_rejects_duplicates(
@@ -118,15 +118,15 @@ def test_add_member_rejects_duplicates(
     create_group: Callable[..., UserGroup],
     groups: ScopedRepository[UserGroup],
     memberships: ScopedRepository[UserGroupMembership],
-    uow: UnitOfWork,
+    tx: Transaction,
 ):
     other = create_user(email="other@example.com")
     group = create_group(name="Mine", owner=test_user)
 
-    user_group_service.add_member(groups, memberships, uow, group.uid, other.uid)
+    user_group_service.add_member(groups, memberships, tx, group.uid, other.uid)
 
     with pytest.raises(user_group_service.DuplicateMembershipError):
-        user_group_service.add_member(groups, memberships, uow, group.uid, other.uid)
+        user_group_service.add_member(groups, memberships, tx, group.uid, other.uid)
 
 
 def test_archive_group_as_owner_soft_deletes(
@@ -134,11 +134,11 @@ def test_archive_group_as_owner_soft_deletes(
     test_user: User,
     create_group: Callable[..., UserGroup],
     groups: ScopedRepository[UserGroup],
-    uow: UnitOfWork,
+    tx: Transaction,
 ):
     group = create_group(name="Doomed", owner=test_user)
 
-    archived = user_group_service.archive_group(groups, uow, group.uid)
+    archived = user_group_service.archive_group(groups, tx, group.uid)
 
     assert archived.uid == group.uid
     assert archived.archived is True
@@ -151,15 +151,15 @@ def test_archive_group_is_idempotent(
     test_user: User,
     create_group: Callable[..., UserGroup],
     groups: ScopedRepository[UserGroup],
-    uow: UnitOfWork,
+    tx: Transaction,
 ):
     """Re-archiving an already-archived group hits the `archived == False`
     guard and matches no row, so `repo.update` raises `NotAuthorisedError`."""
     group = create_group(name="Doomed", owner=test_user)
-    user_group_service.archive_group(groups, uow, group.uid)
+    user_group_service.archive_group(groups, tx, group.uid)
 
     with pytest.raises(NotAuthorisedError):
-        user_group_service.archive_group(groups, uow, group.uid)
+        user_group_service.archive_group(groups, tx, group.uid)
 
 
 def test_list_groups_excludes_archived(
@@ -167,7 +167,7 @@ def test_list_groups_excludes_archived(
     test_user: User,
     create_group: Callable[..., UserGroup],
     groups: ScopedRepository[UserGroup],
-    uow: UnitOfWork,
+    tx: Transaction,
 ):
     live = create_group(name="Live")
     create_group(name="Doomed")
@@ -177,7 +177,7 @@ def test_list_groups_excludes_archived(
         for g in user_group_service.list_groups(groups).items
         if g.name == "Doomed"
     )
-    user_group_service.archive_group(groups, uow, doomed_uid)
+    user_group_service.archive_group(groups, tx, doomed_uid)
 
     remaining = user_group_service.list_groups(groups).items
     assert [g.uid for g in remaining] == [live.uid]
@@ -190,7 +190,7 @@ def test_archive_group_for_non_owner_raises_not_authorised(
     create_group: Callable[..., UserGroup],
     create_membership: Callable[..., UserGroupMembership],
     groups: ScopedRepository[UserGroup],
-    uow: UnitOfWork,
+    tx: Transaction,
 ):
     """A non-owner (even a member) matches no row under the UPDATE guard, so
     `archive_group` raises `NotAuthorisedError` — surfaced app-wide as 403."""
@@ -199,7 +199,7 @@ def test_archive_group_for_non_owner_raises_not_authorised(
     create_membership(group=group, user=test_user)
 
     with pytest.raises(NotAuthorisedError):
-        user_group_service.archive_group(groups, uow, group.uid)
+        user_group_service.archive_group(groups, tx, group.uid)
 
 
 def test_get_group_for_non_member_returns_none(

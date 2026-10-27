@@ -9,7 +9,7 @@ from src.app.repository import (
     Operation,
     Predicate,
     ScopedRepository,
-    UnitOfWork,
+    Transaction,
     User,
     UserGroup,
     UserGroupMembership,
@@ -31,7 +31,7 @@ class DuplicateMembershipError(Exception):
 def create_group(
     groups: ScopedRepository[UserGroup],
     memberships: ScopedRepository[UserGroupMembership],
-    uow: UnitOfWork,
+    tx: Transaction,
     owner: User,
     name: str,
 ) -> UserGroup:
@@ -46,7 +46,7 @@ def create_group(
     memberships.create(
         UserGroupMembership(user_uid=owner.uid, user_group_uid=group.uid)
     )
-    uow.commit()
+    tx.commit()
 
     logger.info(
         "user_group_created",
@@ -109,7 +109,7 @@ def list_groups(  # noqa: PLR0913
 
 
 def update_group(
-    groups: ScopedRepository[UserGroup], uow: UnitOfWork, group_uid: str, *, name: str
+    groups: ScopedRepository[UserGroup], tx: Transaction, group_uid: str, *, name: str
 ) -> UserGroup:
     """Rename a group. Owner-only.
 
@@ -117,12 +117,12 @@ def update_group(
     UPDATE itself, so authorization and mutation are one atomic statement.
     """
     group = groups.update(group_uid, {"name": name})
-    uow.commit()
+    tx.commit()
     return group
 
 
 def archive_group(
-    groups: ScopedRepository[UserGroup], uow: UnitOfWork, group_uid: str
+    groups: ScopedRepository[UserGroup], tx: Transaction, group_uid: str
 ) -> UserGroup:
     """Soft-delete a group. Owner-only, atomic, and idempotent.
 
@@ -135,7 +135,7 @@ def archive_group(
         {"archived": True},
         where=[Equals(field="archived", value=False)],
     )
-    uow.commit()
+    tx.commit()
     logger.info("user_group_archived", user_group_uid=group.uid)
     return group
 
@@ -173,7 +173,7 @@ def remove_membership(
 def add_member(
     groups: ScopedRepository[UserGroup],
     memberships: ScopedRepository[UserGroupMembership],
-    uow: UnitOfWork,
+    tx: Transaction,
     group_uid: str,
     member_uid: str,
 ) -> UserGroupMembership:
@@ -193,9 +193,9 @@ def add_member(
         membership = memberships.create(
             UserGroupMembership(user_uid=member_uid, user_group_uid=group.uid)
         )
-        uow.commit()  # create() already flushed; IntegrityError surfaces there
+        tx.commit()  # create() already flushed; IntegrityError surfaces there
     except IntegrityError:
-        uow.rollback()
+        tx.rollback()
         msg = f"User {member_uid} already a member of {group.uid}"
         raise DuplicateMembershipError(msg) from None
 

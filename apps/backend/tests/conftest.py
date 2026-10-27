@@ -21,7 +21,7 @@ from src.app.repository import (
     LoginToken,
     ScopedRepository,
     SystemPolicy,
-    UnitOfWork,
+    Transaction,
     Upload,
     UploadStatus,
     UploadStatusValue,
@@ -274,9 +274,9 @@ def system_repo[T: OrmModel](
 
 
 @pytest.fixture
-def uow(test_db: Session) -> UnitOfWork:
+def tx(test_db: Session) -> Transaction:
     """The test session's transaction boundary."""
-    return UnitOfWork(test_db)
+    return Transaction(test_db)
 
 
 @pytest.fixture
@@ -294,7 +294,7 @@ def system_users(test_db: Session) -> ScopedRepository[User]:
 def _test_session(db: Session, user: User) -> UserSession:
     return create_session(
         ScopedRepository(db, UserSession, SystemPolicy()),
-        UnitOfWork(db),
+        Transaction(db),
         user.uid,
         "testclient",
         "testclient",

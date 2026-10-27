@@ -6,7 +6,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from pydantic import Field
 
-from src.app.dependencies import GroupRepo, MembershipRepo, UoWDep, authenticated_user
+from src.app.dependencies import GroupRepo, MembershipRepo, TxDep, authenticated_user
 from src.app.repository import User
 from src.app.services import user_group as user_group_service
 from src.app.settings import settings
@@ -50,11 +50,11 @@ def create_user_group(
     user: Annotated[User, Depends(authenticated_user)],
     groups: GroupRepo,
     memberships: MembershipRepo,
-    uow: UoWDep,
+    tx: TxDep,
 ) -> UserGroupResponse:
     """Create a new group with the caller as owner and sole initial member."""
     group = user_group_service.create_group(
-        groups, memberships, uow, user, name=body.name
+        groups, memberships, tx, user, name=body.name
     )
     return UserGroupResponse.model_validate(group)
 
@@ -93,10 +93,10 @@ def update_user_group(
     group_uid: str,
     body: UpdateUserGroupRequest,
     groups: GroupRepo,
-    uow: UoWDep,
+    tx: TxDep,
 ) -> UserGroupResponse:
     """Rename a group. Owner only."""
-    group = user_group_service.update_group(groups, uow, group_uid, name=body.name)
+    group = user_group_service.update_group(groups, tx, group_uid, name=body.name)
     return UserGroupResponse.model_validate(group)
 
 
@@ -105,7 +105,7 @@ def update_user_group(
     status_code=204,
     operation_id="deleteUserGroup",
 )
-def delete_user_group(group_uid: str, groups: GroupRepo, uow: UoWDep) -> Response:
+def delete_user_group(group_uid: str, groups: GroupRepo, tx: TxDep) -> Response:
     """Soft-delete (archive) a group. Owner only."""
-    user_group_service.archive_group(groups, uow, group_uid)
+    user_group_service.archive_group(groups, tx, group_uid)
     return Response(status_code=204)

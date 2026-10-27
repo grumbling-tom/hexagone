@@ -25,7 +25,7 @@ from src.app.repository import (
     Policy,
     ScopedRepository,
     SystemPolicy,
-    UnitOfWork,
+    Transaction,
     Upload,
     User,
     UserGroup,
@@ -52,7 +52,7 @@ __all__ = [
     "PolicyDep",
     "SessionRepo",
     "SystemUserRepo",
-    "UoWDep",
+    "TxDep",
     "UploadRepo",
     "UserRepo",
     "authenticated_user",
@@ -76,11 +76,11 @@ def email_client() -> EmailClient:
     return ResendEmailClient()
 
 
-def unit_of_work(db: DbDep) -> UnitOfWork:
-    return UnitOfWork(db)
+def transaction(db: DbDep) -> Transaction:
+    return Transaction(db)
 
 
-UoWDep = Annotated[UnitOfWork, Depends(unit_of_work)]
+TxDep = Annotated[Transaction, Depends(transaction)]
 
 
 def system_scoped[T: BaseModel](
@@ -106,7 +106,7 @@ SystemUserRepo = Annotated[ScopedRepository[User], Depends(system_scoped(User))]
 def authenticated_user(
     request: Request,
     sessions: SessionRepo,
-    uow: UoWDep,
+    tx: TxDep,
     session_id: Annotated[
         str | None, Cookie(alias=settings.SESSION_COOKIE_NAME)
     ] = None,
@@ -121,7 +121,7 @@ def authenticated_user(
 
     user_agent = request.headers.get("user-agent", "")
 
-    session = validate_session(sessions, uow, session_id, user_agent)
+    session = validate_session(sessions, tx, session_id, user_agent)
     if not session:
         raise HTTPException(status_code=401, detail="Invalid or expired session")
 

@@ -8,7 +8,7 @@ from src.app.repository import (
     Equals,
     Related,
     ScopedRepository,
-    UnitOfWork,
+    Transaction,
     User,
     UserGroup,
 )
@@ -68,13 +68,13 @@ class DuplicateEmailError(Exception):
 
 
 def create_user(
-    users: ScopedRepository[User], uow: UnitOfWork, email: str, password: str
+    users: ScopedRepository[User], tx: Transaction, email: str, password: str
 ) -> User:
     """Create a new user account.
 
     Args:
         users: User repository (system-scoped: sign-up has no viewer).
-        uow: Transaction boundary.
+        tx: Transaction boundary.
         email: User email address.
         password: Plaintext password to hash and store.
 
@@ -91,9 +91,9 @@ def create_user(
                 password_hash=hash_password(password),
             )
         )
-        uow.commit()
+        tx.commit()
     except IntegrityError:
-        uow.rollback()
+        tx.rollback()
         raise DuplicateEmailError from None
 
     logger.info("user_created", user_uid=user.uid, email=mask_email(email))
@@ -101,7 +101,7 @@ def create_user(
 
 
 def get_or_create_user_by_email(
-    users: ScopedRepository[User], uow: UnitOfWork, email: str
+    users: ScopedRepository[User], tx: Transaction, email: str
 ) -> tuple[User, bool]:
     """Fetch the user for *email*, creating one if absent.
 
@@ -119,7 +119,7 @@ def get_or_create_user_by_email(
         return user, False
 
     try:
-        return create_user(users, uow, email, secrets.token_urlsafe(32)), True
+        return create_user(users, tx, email, secrets.token_urlsafe(32)), True
     except DuplicateEmailError:
         # Lost a create race against a concurrent verify; the row now exists.
         user = get_user_by_email(users, email)

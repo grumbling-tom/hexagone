@@ -3,7 +3,7 @@
 import hashlib
 from datetime import UTC, datetime, timedelta
 
-from src.app.repository import ScopedRepository, UnitOfWork, UserSession
+from src.app.repository import ScopedRepository, Transaction, UserSession
 from src.app.settings import settings
 from src.app.utils import get_logger
 
@@ -24,7 +24,7 @@ def hash_user_agent(user_agent: str) -> str:
 
 def create_session(
     sessions: ScopedRepository[UserSession],
-    uow: UnitOfWork,
+    tx: Transaction,
     user_uid: str,
     user_agent: str,
     ip_address: str,
@@ -33,7 +33,7 @@ def create_session(
 
     Args:
         sessions: UserSession repository (system-scoped: there's no viewer yet).
-        uow: Transaction boundary.
+        tx: Transaction boundary.
         user_uid: UID of the user who owns this session.
         user_agent: User agent string from request.
         ip_address: Client IP address.
@@ -52,7 +52,7 @@ def create_session(
     )
 
     sessions.create(session)
-    uow.commit()
+    tx.commit()
 
     logger.info(
         "session_created",
@@ -66,7 +66,7 @@ def create_session(
 
 def validate_session(
     sessions: ScopedRepository[UserSession],
-    uow: UnitOfWork,
+    tx: Transaction,
     session_id: str,
     user_agent: str,
 ) -> UserSession | None:
@@ -74,7 +74,7 @@ def validate_session(
 
     Args:
         sessions: UserSession repository (system-scoped).
-        uow: Transaction boundary.
+        tx: Transaction boundary.
         session_id: Session UID from cookie.
         user_agent: Current user agent string.
 
@@ -107,7 +107,7 @@ def validate_session(
             session_id=session_id,
             user_uid=session.user_uid,
         )
-        invalidate_session(sessions, uow, session)
+        invalidate_session(sessions, tx, session)
         return None
 
     now = datetime.now(UTC)
@@ -117,7 +117,7 @@ def validate_session(
 
     if now > expires_at:
         logger.warning("session_expired", session_id=session_id)
-        invalidate_session(sessions, uow, session)
+        invalidate_session(sessions, tx, session)
         return None
 
     if session.user_agent_hash != hash_user_agent(user_agent):
@@ -125,20 +125,20 @@ def validate_session(
             "session_user_agent_mismatch",
             session_id=session_id,
         )
-        invalidate_session(sessions, uow, session)
+        invalidate_session(sessions, tx, session)
         return None
 
-    return refresh_session(sessions, uow, session)
+    return refresh_session(sessions, tx, session)
 
 
 def refresh_session(
-    sessions: ScopedRepository[UserSession], uow: UnitOfWork, session: UserSession
+    sessions: ScopedRepository[UserSession], tx: Transaction, session: UserSession
 ) -> UserSession:
     """Refresh session expiration (sliding window).
 
     Args:
         sessions: UserSession repository (system-scoped).
-        uow: Transaction boundary.
+        tx: Transaction boundary.
         session: Session object to refresh.
 
     Returns:
@@ -152,23 +152,23 @@ def refresh_session(
         session.uid,
         {"expires_at": now + timedelta(hours=settings.SESSION_EXPIRY_HOURS)},
     )
-    uow.commit()
+    tx.commit()
     return refreshed
 
 
 def invalidate_session(
-    sessions: ScopedRepository[UserSession], uow: UnitOfWork, session: UserSession
+    sessions: ScopedRepository[UserSession], tx: Transaction, session: UserSession
 ) -> None:
     """Invalidate a session by permanently deleting it.
 
     Args:
         sessions: UserSession repository (system-scoped).
-        uow: Transaction boundary.
+        tx: Transaction boundary.
         session: UserSession object to invalidate.
     """
     session_id = session.uid
 
     sessions.delete(session_id)
-    uow.commit()
+    tx.commit()
 
     logger.info("session_invalidated", session_id=session_id)

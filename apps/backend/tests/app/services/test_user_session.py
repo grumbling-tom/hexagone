@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 from src.app.repository import (
     ScopedRepository,
     SystemPolicy,
-    UnitOfWork,
+    Transaction,
     User,
     UserSession,
 )
@@ -50,10 +50,10 @@ def test_hash_user_agent_consistency():
 
 
 def test_create_session(
-    test_db: Session, sessions: ScopedRepository[UserSession], uow: UnitOfWork
+    test_db: Session, sessions: ScopedRepository[UserSession], tx: Transaction
 ):
     user = _make_user(test_db)
-    session = create_session(sessions, uow, user.uid, "TestAgent", "127.0.0.1")
+    session = create_session(sessions, tx, user.uid, "TestAgent", "127.0.0.1")
     assert session.user_uid == user.uid
     assert session.ip_address == "127.0.0.1"
     assert session.user_agent_hash == hash_user_agent("TestAgent")
@@ -61,50 +61,50 @@ def test_create_session(
 
 
 def test_validate_session_success(
-    test_db: Session, sessions: ScopedRepository[UserSession], uow: UnitOfWork
+    test_db: Session, sessions: ScopedRepository[UserSession], tx: Transaction
 ):
     user = _make_user(test_db)
-    session = create_session(sessions, uow, user.uid, "TestAgent", "127.0.0.1")
-    result = validate_session(sessions, uow, session.uid, "TestAgent")
+    session = create_session(sessions, tx, user.uid, "TestAgent", "127.0.0.1")
+    result = validate_session(sessions, tx, session.uid, "TestAgent")
     assert result is not None
     assert result.uid == session.uid
 
 
 def test_validate_session_expired(
-    test_db: Session, sessions: ScopedRepository[UserSession], uow: UnitOfWork
+    test_db: Session, sessions: ScopedRepository[UserSession], tx: Transaction
 ):
     user = _make_user(test_db)
-    session = create_session(sessions, uow, user.uid, "TestAgent", "127.0.0.1")
+    session = create_session(sessions, tx, user.uid, "TestAgent", "127.0.0.1")
 
     sessions.update(
         session.uid,
         {"expires_at": datetime.now(UTC).replace(tzinfo=None) - timedelta(hours=1)},
     )
-    uow.commit()
+    tx.commit()
 
-    result = validate_session(sessions, uow, session.uid, "TestAgent")
+    result = validate_session(sessions, tx, session.uid, "TestAgent")
     assert result is None
 
 
 def test_validate_session_ua_mismatch(
-    test_db: Session, sessions: ScopedRepository[UserSession], uow: UnitOfWork
+    test_db: Session, sessions: ScopedRepository[UserSession], tx: Transaction
 ):
     user = _make_user(test_db)
-    session = create_session(sessions, uow, user.uid, "TestAgent", "127.0.0.1")
-    result = validate_session(sessions, uow, session.uid, "DifferentAgent")
+    session = create_session(sessions, tx, user.uid, "TestAgent", "127.0.0.1")
+    result = validate_session(sessions, tx, session.uid, "DifferentAgent")
     assert result is None
 
 
 def test_validate_session_ignores_ip_change(
-    test_db: Session, sessions: ScopedRepository[UserSession], uow: UnitOfWork
+    test_db: Session, sessions: ScopedRepository[UserSession], tx: Transaction
 ):
     """A changed client IP must NOT invalidate the session — mobile and VPN
     clients legitimately roam across IPs mid-session."""
     user = _make_user(test_db, email="iproam@example.com")
-    session = create_session(sessions, uow, user.uid, "TestAgent", "127.0.0.1")
+    session = create_session(sessions, tx, user.uid, "TestAgent", "127.0.0.1")
 
     # Same cookie + user agent, different IP: still valid, still alive.
-    result = validate_session(sessions, uow, session.uid, "TestAgent")
+    result = validate_session(sessions, tx, session.uid, "TestAgent")
     assert result is not None
     assert result.uid == session.uid
 
@@ -112,51 +112,51 @@ def test_validate_session_ignores_ip_change(
 
 
 def test_validate_session_archived_user(
-    test_db: Session, sessions: ScopedRepository[UserSession], uow: UnitOfWork
+    test_db: Session, sessions: ScopedRepository[UserSession], tx: Transaction
 ):
     user = _make_user(test_db, email="archived_sess@example.com")
-    session = create_session(sessions, uow, user.uid, "TestAgent", "127.0.0.1")
+    session = create_session(sessions, tx, user.uid, "TestAgent", "127.0.0.1")
 
     ScopedRepository(test_db, User, SystemPolicy()).update(user.uid, {"archived": True})
-    uow.commit()
+    tx.commit()
 
-    result = validate_session(sessions, uow, session.uid, "TestAgent")
+    result = validate_session(sessions, tx, session.uid, "TestAgent")
     assert result is None
 
 
 def test_hard_delete_on_mismatch(
-    test_db: Session, sessions: ScopedRepository[UserSession], uow: UnitOfWork
+    test_db: Session, sessions: ScopedRepository[UserSession], tx: Transaction
 ):
     user = _make_user(test_db, email="harddelete@example.com")
-    session = create_session(sessions, uow, user.uid, "TestAgent", "127.0.0.1")
+    session = create_session(sessions, tx, user.uid, "TestAgent", "127.0.0.1")
     session_uid = session.uid
 
-    validate_session(sessions, uow, session_uid, "DifferentAgent")
+    validate_session(sessions, tx, session_uid, "DifferentAgent")
 
     assert sessions.find_by_uid(session_uid) is None
 
 
 def test_sliding_window_refresh(
-    test_db: Session, sessions: ScopedRepository[UserSession], uow: UnitOfWork
+    test_db: Session, sessions: ScopedRepository[UserSession], tx: Transaction
 ):
     user = _make_user(test_db, email="refresh@example.com")
-    session = create_session(sessions, uow, user.uid, "TestAgent", "127.0.0.1")
+    session = create_session(sessions, tx, user.uid, "TestAgent", "127.0.0.1")
     original_expires = session.expires_at
 
     time.sleep(0.01)
 
-    validate_session(sessions, uow, session.uid, "TestAgent")
+    validate_session(sessions, tx, session.uid, "TestAgent")
     test_db.refresh(session)
     assert session.expires_at >= original_expires
 
 
 def test_invalidate_session(
-    test_db: Session, sessions: ScopedRepository[UserSession], uow: UnitOfWork
+    test_db: Session, sessions: ScopedRepository[UserSession], tx: Transaction
 ):
     user = _make_user(test_db, email="invalidate@example.com")
-    session = create_session(sessions, uow, user.uid, "TestAgent", "127.0.0.1")
+    session = create_session(sessions, tx, user.uid, "TestAgent", "127.0.0.1")
     session_uid = session.uid
 
-    invalidate_session(sessions, uow, session)
+    invalidate_session(sessions, tx, session)
 
     assert sessions.find_by_uid(session_uid) is None

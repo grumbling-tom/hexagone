@@ -23,7 +23,7 @@ from src.app.repository import (
     IsNull,
     LoginToken,
     ScopedRepository,
-    UnitOfWork,
+    Transaction,
 )
 from src.app.settings import settings
 from src.app.utils import get_logger, mask_email
@@ -69,7 +69,7 @@ def is_email_allowed(email: str) -> bool:
 
 
 def issue_login_token(
-    tokens: ScopedRepository[LoginToken], uow: UnitOfWork, email: str
+    tokens: ScopedRepository[LoginToken], tx: Transaction, email: str
 ) -> IssuedLoginToken:
     """Issue a single-use magic-link token (and browser nonce) for *email*.
 
@@ -79,7 +79,7 @@ def issue_login_token(
 
     Args:
         tokens: LoginToken repository (system-scoped: there's no viewer yet).
-        uow: Transaction boundary.
+        tx: Transaction boundary.
         email: Target email address, already ``EmailStr``-normalised by the
             request boundary — this service does not re-normalise.
 
@@ -114,7 +114,7 @@ def issue_login_token(
             expires_at=expires_at,
         )
     )
-    uow.commit()
+    tx.commit()
 
     logger.info(
         "login_token_issued",
@@ -178,7 +178,7 @@ def _find_spendable_token(
 
 
 def verify_login_token(
-    tokens: ScopedRepository[LoginToken], uow: UnitOfWork, token: str, nonce: str
+    tokens: ScopedRepository[LoginToken], tx: Transaction, token: str, nonce: str
 ) -> str | None:
     """Consume a magic-link token and return the email it was issued for.
 
@@ -189,7 +189,7 @@ def verify_login_token(
 
     Args:
         tokens: LoginToken repository (system-scoped).
-        uow: Transaction boundary.
+        tx: Transaction boundary.
         token: Plaintext token from the magic link.
         nonce: Plaintext browser-binding nonce from the requester's cookie.
 
@@ -201,7 +201,7 @@ def verify_login_token(
         return None
 
     login_token = tokens.update(login_token.uid, {"used_at": datetime.now(UTC)})
-    uow.commit()
+    tx.commit()
 
     logger.info("login_token_verified", email=mask_email(login_token.email))
     return login_token.email

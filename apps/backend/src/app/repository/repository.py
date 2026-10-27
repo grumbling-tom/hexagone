@@ -59,7 +59,7 @@ def hidden_fields(entity: BaseModel) -> frozenset[str]:
 class UnscopedWriteError(RuntimeError):
     """A loaded instance was modified or deleted outside ``ScopedRepository``.
 
-    ``user.email = "x"; uow.commit()`` would be flushed by the ORM's unit of
+    ``user.email = "x"; tx.commit()`` would be flushed by the ORM's unit of
     work without consulting any policy. All writes go through
     ``ScopedRepository.update``/``delete`` (Core statements that never dirty an
     instance) or ``create`` (new instances only).
@@ -80,7 +80,7 @@ def forbid_unscoped_writes(db: Session) -> None:
         event.listen(db, "before_flush", _reject_unscoped_writes)
 
 
-class UnitOfWork:
+class Transaction:
     """The transaction boundary, and nothing else.
 
     Services commit through this rather than holding a ``Session``: a service
@@ -111,7 +111,7 @@ class ScopedRepository[T: BaseModel]:
     guarded. Code with no viewer passes ``SystemPolicy()`` — explicitly.
 
     The session is private (``_db``). Nothing outside this module should touch
-    it; commits go through ``UnitOfWork``.
+    it; commits go through ``Transaction``.
 
     Type parameter:
         T: The SQLAlchemy model class type

@@ -9,7 +9,7 @@ from src.app.repository import (
     HexClaim,
     In,
     ScopedRepository,
-    UnitOfWork,
+    Transaction,
     Upload,
     UploadStatus,
     UploadStatusValue,
@@ -67,7 +67,7 @@ def maybe_presigned_url(
 
 def create_upload(
     uploads: ScopedRepository[Upload],
-    uow: UnitOfWork,
+    tx: Transaction,
     user: User,
     original_filename: str,
     file_size_bytes: int,
@@ -80,7 +80,7 @@ def create_upload(
 
     Args:
         uploads: Upload repository.
-        uow: Transaction boundary.
+        tx: Transaction boundary.
         user: The authenticated user.
         original_filename: Client-provided filename.
         file_size_bytes: Expected file size in bytes.
@@ -100,7 +100,7 @@ def create_upload(
             statuses=[UploadStatus(status=UploadStatusValue.UPLOAD_PENDING)],
         )
     )
-    uow.commit()
+    tx.commit()
 
     logger.info(
         "upload_created",
@@ -113,7 +113,7 @@ def create_upload(
 
 def set_upload_status(  # noqa: PLR0913
     statuses: ScopedRepository[UploadStatus],
-    uow: UnitOfWork,
+    tx: Transaction,
     upload: Upload,
     status: UploadStatusValue,
     *,
@@ -136,7 +136,7 @@ def set_upload_status(  # noqa: PLR0913
         )
     )
     if commit:
-        uow.commit()
+        tx.commit()
 
 
 def list_uploads(  # noqa: PLR0913
@@ -189,7 +189,7 @@ def process_upload(  # noqa: PLR0913
     uploads: ScopedRepository[Upload],
     statuses: ScopedRepository[UploadStatus],
     claims: ScopedRepository[HexClaim],
-    uow: UnitOfWork,
+    tx: Transaction,
     key: str,
     storage: StorageBackend,
 ) -> None:
@@ -220,7 +220,7 @@ def process_upload(  # noqa: PLR0913
         logger.info("upload_not_pending", key=key, status=upload.current_status)
         return
 
-    set_upload_status(statuses, uow, upload, UploadStatusValue.UPLOAD_RECEIVED)
+    set_upload_status(statuses, tx, upload, UploadStatusValue.UPLOAD_RECEIVED)
     logger.info("upload_status_updated", key=key, status="UPLOAD_RECEIVED")
 
     data = storage.get_object(key)
@@ -230,7 +230,7 @@ def process_upload(  # noqa: PLR0913
     except GpxValidationError as e:
         logger.warning("gpx_invalid", key=key, reason=e.reason)
         set_upload_status(
-            statuses, uow, upload, UploadStatusValue.UPLOAD_INVALID, detail=e.reason
+            statuses, tx, upload, UploadStatusValue.UPLOAD_INVALID, detail=e.reason
         )
         return
 
@@ -252,9 +252,9 @@ def process_upload(  # noqa: PLR0913
     # insert does not leave a misleading success status.
     claims.create_many(new_claims)
     set_upload_status(
-        statuses, uow, upload, UploadStatusValue.UPLOAD_SUCCESS, commit=False
+        statuses, tx, upload, UploadStatusValue.UPLOAD_SUCCESS, commit=False
     )
-    uow.commit()
+    tx.commit()
 
     # TODO: Consider an UPLOAD_FAILED status for bulk insert failures.
     logger.info(

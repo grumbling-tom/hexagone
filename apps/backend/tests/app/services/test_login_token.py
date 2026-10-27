@@ -6,7 +6,7 @@ from typing import Any
 import pytest
 from sqlalchemy.orm import Session
 
-from src.app.repository import LoginToken, ScopedRepository, UnitOfWork
+from src.app.repository import LoginToken, ScopedRepository, Transaction
 from src.app.services.email import EmailClient, send_login_link_email
 from src.app.services.login_token import (
     is_email_allowed,
@@ -34,12 +34,12 @@ def _sha256(value: str) -> str:
 def test_issue_then_verify_returns_email(
     test_db: Session,
     login_tokens: ScopedRepository[LoginToken],
-    uow: UnitOfWork,
+    tx: Transaction,
 ) -> None:
-    issued = issue_login_token(login_tokens, uow, "user@example.com")
+    issued = issue_login_token(login_tokens, tx, "user@example.com")
 
     assert (
-        verify_login_token(login_tokens, uow, issued.token, issued.nonce)
+        verify_login_token(login_tokens, tx, issued.token, issued.nonce)
         == "user@example.com"
     )
 
@@ -47,9 +47,9 @@ def test_issue_then_verify_returns_email(
 def test_only_hashes_are_persisted_not_plaintext(
     test_db: Session,
     login_tokens: ScopedRepository[LoginToken],
-    uow: UnitOfWork,
+    tx: Transaction,
 ) -> None:
-    issued = issue_login_token(login_tokens, uow, "user@example.com")
+    issued = issue_login_token(login_tokens, tx, "user@example.com")
 
     row = login_tokens.get_all().items[0]
     assert row.token_hash == _sha256(issued.token)
@@ -64,15 +64,15 @@ def test_only_hashes_are_persisted_not_plaintext(
 def test_token_cannot_be_reused(
     test_db: Session,
     login_tokens: ScopedRepository[LoginToken],
-    uow: UnitOfWork,
+    tx: Transaction,
 ) -> None:
-    issued = issue_login_token(login_tokens, uow, "user@example.com")
+    issued = issue_login_token(login_tokens, tx, "user@example.com")
 
     assert (
-        verify_login_token(login_tokens, uow, issued.token, issued.nonce)
+        verify_login_token(login_tokens, tx, issued.token, issued.nonce)
         == "user@example.com"
     )
-    assert verify_login_token(login_tokens, uow, issued.token, issued.nonce) is None
+    assert verify_login_token(login_tokens, tx, issued.token, issued.nonce) is None
 
 
 # --- unknown / superseded ------------------------------------------------------
@@ -81,22 +81,22 @@ def test_token_cannot_be_reused(
 def test_unknown_token_is_rejected(
     test_db: Session,
     login_tokens: ScopedRepository[LoginToken],
-    uow: UnitOfWork,
+    tx: Transaction,
 ) -> None:
-    issued = issue_login_token(login_tokens, uow, "user@example.com")
+    issued = issue_login_token(login_tokens, tx, "user@example.com")
 
     assert (
-        verify_login_token(login_tokens, uow, "not-a-real-token", issued.nonce) is None
+        verify_login_token(login_tokens, tx, "not-a-real-token", issued.nonce) is None
     )
 
 
 def test_issuing_again_revokes_the_previous_token(
     test_db: Session,
     login_tokens: ScopedRepository[LoginToken],
-    uow: UnitOfWork,
+    tx: Transaction,
 ) -> None:
-    first = issue_login_token(login_tokens, uow, "user@example.com")
-    second = issue_login_token(login_tokens, uow, "user@example.com")
+    first = issue_login_token(login_tokens, tx, "user@example.com")
+    second = issue_login_token(login_tokens, tx, "user@example.com")
 
     rows = login_tokens.get_all().items
     # Soft-revoke keeps the old row for audit; exactly one stays live.
@@ -104,9 +104,9 @@ def test_issuing_again_revokes_the_previous_token(
     assert sum(1 for r in rows if r.revoked_at is None) == 1
 
     # The revoked token is rejected; the live one works.
-    assert verify_login_token(login_tokens, uow, first.token, first.nonce) is None
+    assert verify_login_token(login_tokens, tx, first.token, first.nonce) is None
     assert (
-        verify_login_token(login_tokens, uow, second.token, second.nonce)
+        verify_login_token(login_tokens, tx, second.token, second.nonce)
         == "user@example.com"
     )
 
@@ -118,12 +118,12 @@ def test_expired_token_is_rejected(
     test_db: Session,
     monkeypatch: pytest.MonkeyPatch,
     login_tokens: ScopedRepository[LoginToken],
-    uow: UnitOfWork,
+    tx: Transaction,
 ) -> None:
     monkeypatch.setattr(settings, "LOGIN_TOKEN_EXPIRY_MINUTES", -1)
-    issued = issue_login_token(login_tokens, uow, "user@example.com")
+    issued = issue_login_token(login_tokens, tx, "user@example.com")
 
-    assert verify_login_token(login_tokens, uow, issued.token, issued.nonce) is None
+    assert verify_login_token(login_tokens, tx, issued.token, issued.nonce) is None
 
 
 # --- browser-binding nonce -----------------------------------------------------
@@ -132,14 +132,14 @@ def test_expired_token_is_rejected(
 def test_wrong_nonce_is_rejected(
     test_db: Session,
     login_tokens: ScopedRepository[LoginToken],
-    uow: UnitOfWork,
+    tx: Transaction,
 ) -> None:
-    issued = issue_login_token(login_tokens, uow, "user@example.com")
+    issued = issue_login_token(login_tokens, tx, "user@example.com")
 
-    assert verify_login_token(login_tokens, uow, issued.token, "wrong-nonce") is None
+    assert verify_login_token(login_tokens, tx, issued.token, "wrong-nonce") is None
     # The token is untouched by a failed attempt and still spendable.
     assert (
-        verify_login_token(login_tokens, uow, issued.token, issued.nonce)
+        verify_login_token(login_tokens, tx, issued.token, issued.nonce)
         == "user@example.com"
     )
 
@@ -147,10 +147,10 @@ def test_wrong_nonce_is_rejected(
 def test_each_token_gets_a_distinct_nonce(
     test_db: Session,
     login_tokens: ScopedRepository[LoginToken],
-    uow: UnitOfWork,
+    tx: Transaction,
 ) -> None:
-    a = issue_login_token(login_tokens, uow, "a@example.com")
-    b = issue_login_token(login_tokens, uow, "b@example.com")
+    a = issue_login_token(login_tokens, tx, "a@example.com")
+    b = issue_login_token(login_tokens, tx, "b@example.com")
 
     assert a.nonce != b.nonce
     assert a.token != b.token
@@ -162,14 +162,14 @@ def test_each_token_gets_a_distinct_nonce(
 def test_peek_does_not_consume_the_token(
     test_db: Session,
     login_tokens: ScopedRepository[LoginToken],
-    uow: UnitOfWork,
+    tx: Transaction,
 ) -> None:
-    issued = issue_login_token(login_tokens, uow, "user@example.com")
+    issued = issue_login_token(login_tokens, tx, "user@example.com")
 
     assert peek_login_token(login_tokens, issued.token, issued.nonce) is True
     # Peeking left it spendable.
     assert (
-        verify_login_token(login_tokens, uow, issued.token, issued.nonce)
+        verify_login_token(login_tokens, tx, issued.token, issued.nonce)
         == "user@example.com"
     )
     # Once consumed, peek reports invalid.
@@ -179,9 +179,9 @@ def test_peek_does_not_consume_the_token(
 def test_peek_rejects_wrong_nonce(
     test_db: Session,
     login_tokens: ScopedRepository[LoginToken],
-    uow: UnitOfWork,
+    tx: Transaction,
 ) -> None:
-    issued = issue_login_token(login_tokens, uow, "user@example.com")
+    issued = issue_login_token(login_tokens, tx, "user@example.com")
 
     assert peek_login_token(login_tokens, issued.token, "wrong-nonce") is False
 

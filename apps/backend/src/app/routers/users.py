@@ -9,7 +9,7 @@ from src.app.dependencies import (
     GroupRepo,
     SessionRepo,
     SystemUserRepo,
-    UoWDep,
+    TxDep,
     UserRepo,
     authenticated_user,
     email_client,
@@ -73,18 +73,18 @@ def create_user(  # noqa: PLR0913 — FastAPI-injected deps
     response: Response,
     users: SystemUserRepo,
     sessions: SessionRepo,
-    uow: UoWDep,
+    tx: TxDep,
     email: Annotated[EmailClient, Depends(email_client)],
 ) -> UserResponse:
     """Create a new user account and start a session."""
     try:
-        user = create_user_service(users, uow, body.email, body.password)
+        user = create_user_service(users, tx, body.email, body.password)
     except DuplicateEmailError:
         raise HTTPException(status_code=409, detail="Email already taken") from None
 
     user_agent = request.headers.get("user-agent", "")
     ip_address = get_client_ip(request)
-    session = create_session(sessions, uow, user.uid, user_agent, ip_address)
+    session = create_session(sessions, tx, user.uid, user_agent, ip_address)
 
     response.set_cookie(
         key=settings.SESSION_COOKIE_NAME,

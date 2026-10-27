@@ -14,7 +14,7 @@ from src.app.repository import (
     HexClaim,
     ScopedRepository,
     SystemPolicy,
-    UnitOfWork,
+    Transaction,
     Upload,
     UploadStatus,
     UploadStatusValue,
@@ -66,7 +66,7 @@ def process(test_db: Session) -> Callable[[str], None]:
             ScopedRepository(test_db, Upload, SystemPolicy()),
             ScopedRepository(test_db, UploadStatus, SystemPolicy()),
             ScopedRepository(test_db, HexClaim, SystemPolicy()),
-            UnitOfWork(test_db),
+            Transaction(test_db),
             key,
             S3StorageBackend(),
         )
@@ -92,11 +92,11 @@ def test_create_upload(
     test_db: Session,
     test_user: User,
     uploads: ScopedRepository[Upload],
-    uow: UnitOfWork,
+    tx: Transaction,
 ):
     upload = create_upload(
         uploads,
-        uow,
+        tx,
         user=test_user,
         original_filename="test.gpx",
         file_size_bytes=1024,
@@ -112,11 +112,11 @@ def test_create_upload_persists(
     test_db: Session,
     test_user: User,
     uploads: ScopedRepository[Upload],
-    uow: UnitOfWork,
+    tx: Transaction,
 ):
     upload = create_upload(
         uploads,
-        uow,
+        tx,
         user=test_user,
         original_filename="track.gpx",
         file_size_bytes=2048,
@@ -136,11 +136,11 @@ def test_list_uploads_excludes_pending(
     test_db: Session,
     test_user: User,
     uploads: ScopedRepository[Upload],
-    uow: UnitOfWork,
+    tx: Transaction,
 ):
     create_upload(
         uploads,
-        uow,
+        tx,
         user=test_user,
         original_filename="pending.gpx",
         file_size_bytes=100,
@@ -154,11 +154,11 @@ def test_list_uploads_includes_pending_when_requested(
     test_db: Session,
     test_user: User,
     uploads: ScopedRepository[Upload],
-    uow: UnitOfWork,
+    tx: Transaction,
 ):
     create_upload(
         uploads,
-        uow,
+        tx,
         user=test_user,
         original_filename="pending.gpx",
         file_size_bytes=100,
@@ -176,7 +176,7 @@ def test_list_uploads_filters_by_user(
     test_db: Session,
     test_user: User,
     uploads: ScopedRepository[Upload],
-    uow: UnitOfWork,
+    tx: Transaction,
 ):
     other_user = User(
         email="other@example.com",
@@ -188,7 +188,7 @@ def test_list_uploads_filters_by_user(
 
     create_upload(
         ScopedRepository(test_db, Upload, ViewerPolicy(other_user)),
-        uow,
+        tx,
         user=other_user,
         original_filename="other.gpx",
         file_size_bytes=100,
@@ -205,11 +205,11 @@ def test_list_uploads_with_received_status(
     test_db: Session,
     test_user: User,
     uploads: ScopedRepository[Upload],
-    uow: UnitOfWork,
+    tx: Transaction,
 ):
     upload = create_upload(
         uploads,
-        uow,
+        tx,
         user=test_user,
         original_filename="received.gpx",
         file_size_bytes=500,
@@ -232,13 +232,13 @@ def test_list_uploads_pagination_with_status_filter(
     test_db: Session,
     test_user: User,
     uploads: ScopedRepository[Upload],
-    uow: UnitOfWork,
+    tx: Transaction,
 ):
     # Create 5 RECEIVED uploads
     for i in range(5):
         upload = create_upload(
             uploads,
-            uow,
+            tx,
             user=test_user,
             original_filename=f"received_{i}.gpx",
             file_size_bytes=100,
@@ -255,7 +255,7 @@ def test_list_uploads_pagination_with_status_filter(
     for i in range(5):
         create_upload(
             uploads,
-            uow,
+            tx,
             user=test_user,
             original_filename=f"pending_{i}.gpx",
             file_size_bytes=100,
@@ -392,12 +392,12 @@ def test_maybe_presigned_url_recent_pending(
     test_db: Session,
     test_user: User,
     uploads: ScopedRepository[Upload],
-    uow: UnitOfWork,
+    tx: Transaction,
 ):
     """Recent pending uploads should get a presigned URL and headers."""
     upload = create_upload(
         uploads,
-        uow,
+        tx,
         user=test_user,
         original_filename="new.gpx",
         file_size_bytes=1024,

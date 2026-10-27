@@ -26,7 +26,7 @@ from src.app.repository import (
     PolicyConflictError,
     ScopedRepository,
     SystemPolicy,
-    UnitOfWork,
+    Transaction,
     UnscopedWriteError,
     UnsortableFieldError,
     User,
@@ -183,14 +183,14 @@ def test_alice_cannot_update(
 
 
 def test_editing_a_loaded_instance_is_refused_at_flush(
-    cast: dict[str, User], alice_users: ScopedRepository[User], uow: UnitOfWork
+    cast: dict[str, User], alice_users: ScopedRepository[User], tx: Transaction
 ):
     """The ORM would flush this without asking the policy; the guard stops it."""
     bob = one(alice_users, cast["bob"].uid)
     bob.email = "hijack@acme.com"
 
     with pytest.raises(UnscopedWriteError):
-        uow.commit()
+        tx.commit()
 
 
 # --- one instance, one view ----------------------------------------------------

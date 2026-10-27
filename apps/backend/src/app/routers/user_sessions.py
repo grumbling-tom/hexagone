@@ -9,7 +9,7 @@ from src.app.dependencies import (
     LoginTokenRepo,
     SessionRepo,
     SystemUserRepo,
-    UoWDep,
+    TxDep,
     authenticated_user,
     email_client,
 )
@@ -21,7 +21,7 @@ from src.app.settings import settings
 from src.app.utils import BaseSchema, get_client_ip, get_logger
 
 if TYPE_CHECKING:
-    from src.app.repository import LoginToken, ScopedRepository, UnitOfWork, User
+    from src.app.repository import LoginToken, ScopedRepository, Transaction, User
 
 logger = get_logger(__name__)
 
@@ -61,7 +61,7 @@ class UserSessionResponse(BaseSchema):
 def _user_from_login_token(  # noqa: PLR0913
     tokens: ScopedRepository[LoginToken],
     users: ScopedRepository[User],
-    uow: UnitOfWork,
+    tx: Transaction,
     token: str,
     nonce: str | None,
     mailer: EmailClient,
@@ -72,13 +72,13 @@ def _user_from_login_token(  # noqa: PLR0913
     changed since the link was issued), and auto-creates a first-time
     allow-listed user — sending the welcome email on creation.
     """
-    email = verify_login_token(tokens, uow, token, nonce or "")
+    email = verify_login_token(tokens, tx, token, nonce or "")
     if email is None:
         return None
     if not is_email_allowed(email):
         return None
 
-    user, created = get_or_create_user_by_email(users, uow, email)
+    user, created = get_or_create_user_by_email(users, tx, email)
     if user.archived:
         return None
     if created:
@@ -98,13 +98,13 @@ def create_user_session(  # noqa: PLR0913 — FastAPI-injected deps, not a desig
     users: SystemUserRepo,
     tokens: LoginTokenRepo,
     sessions: SessionRepo,
-    uow: UoWDep,
+    tx: TxDep,
     mailer: Annotated[EmailClient, Depends(email_client)],
     nonce: Annotated[str | None, Cookie(alias=settings.LOGIN_NONCE_COOKIE_NAME)] = None,
 ) -> UserSessionResponse:
     """Create a session via a magic-link token or email + password."""
     if body.token is not None:
-        user = _user_from_login_token(tokens, users, uow, body.token, nonce, mailer)
+        user = _user_from_login_token(tokens, users, tx, body.token, nonce, mailer)
     elif body.email is not None and body.password is not None:
         user = authenticate_user(users, body.email, body.password)
     else:  # pragma: no cover - the validator guarantees exactly one mode
@@ -115,7 +115,7 @@ def create_user_session(  # noqa: PLR0913 — FastAPI-injected deps, not a desig
 
     user_agent = request.headers.get("user-agent", "")
     ip_address = get_client_ip(request)
-    session = create_session(sessions, uow, user.uid, user_agent, ip_address)
+    session = create_session(sessions, tx, user.uid, user_agent, ip_address)
 
     response.set_cookie(
         key=settings.SESSION_COOKIE_NAME,
@@ -136,7 +136,7 @@ def delete_current_session(
     request: Request,
     response: Response,
     sessions: SessionRepo,
-    uow: UoWDep,
+    tx: TxDep,
     _: Annotated[User, Depends(authenticated_user)],
 ) -> None:
     """Log out by invalidating the current session.
@@ -149,7 +149,7 @@ def delete_current_session(
     if session_id:
         session = sessions.find_by_uid(session_id)
         if session:
-            invalidate_session(sessions, uow, session)
+            invalidate_session(sessions, tx, session)
 
     response.delete_cookie(
         key=settings.SESSION_COOKIE_NAME,
