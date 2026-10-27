@@ -2,13 +2,14 @@ import uuid
 from collections.abc import Generator
 from contextlib import contextmanager
 from datetime import UTC, datetime
+from typing import Any
 
 from sqlalchemy import DateTime, String, create_engine, make_url, text
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sessionmaker
 
 from ..settings import settings
-from ..utils import get_logger
+from ..utils import HIDDEN_FIELDS_KEY, REDACTED, get_logger
 
 logger = get_logger(__name__)
 
@@ -58,6 +59,27 @@ class BaseModel(DeclarativeBase):
         DateTime(timezone=True),
         default=lambda: datetime.now(UTC),
     )
+
+    def __getattribute__(self, name: str) -> Any:  # noqa: ANN401
+        """Return ``REDACTED`` for fields the repository hid from this viewer.
+
+        The hidden set lives on the instance's ``InstanceState.info`` (written by
+        ``repository.hide``), not in the attribute values: writing a marker into
+        the column would mark the row dirty and get flushed. Underscore names
+        are SQLAlchemy/Python internals and are never masked.
+
+        Bypasses: ``__dict__``/``vars()`` and column-only selects
+        (``select(User.email)``) read raw values. ``ScopedRepository`` is the
+        only sanctioned read path, and it never does either.
+        """
+        if name[0] != "_":
+            state = object.__getattribute__(self, "__dict__").get("_sa_instance_state")
+            # Peek at the memoised ``info`` dict rather than touching
+            # ``state.info``, which would allocate one for every instance.
+            info = state.__dict__.get("info") if state is not None else None
+            if info and name in info.get(HIDDEN_FIELDS_KEY, ()):
+                return REDACTED
+        return super().__getattribute__(name)
 
 
 @contextmanager
