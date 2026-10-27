@@ -1,4 +1,4 @@
-"""Tests for permission predicates."""
+"""Tests for the viewer row rules (``row_rules``)."""
 
 from collections.abc import Callable
 
@@ -10,7 +10,7 @@ from src.app.repository import (
     HexClaim,
     HexClaimByCell,
     Related,
-    Repository,
+    ScopedRepository,
     Upload,
     User,
     UserGroup,
@@ -18,11 +18,11 @@ from src.app.repository import (
     UserSession,
 )
 from src.app.repository.predicates import Guard
-from src.app.services.permissions import Operation, permissions_predicates
+from src.app.services.permissions import Operation, ViewerPolicy, row_rules
 
 
 def test_upload_permission_predicates(test_user: User):
-    predicates = permissions_predicates(test_user, Upload)
+    predicates = row_rules(test_user, Upload)
     assert len(predicates) == 1
     p = predicates[0]
     assert isinstance(p, Equals)
@@ -31,7 +31,7 @@ def test_upload_permission_predicates(test_user: User):
 
 
 def test_hex_claim_permission_predicates(test_user: User):
-    predicates = permissions_predicates(test_user, HexClaim)
+    predicates = row_rules(test_user, HexClaim)
     assert len(predicates) == 1
     p = predicates[0]
     assert isinstance(p, Equals)
@@ -40,7 +40,7 @@ def test_hex_claim_permission_predicates(test_user: User):
 
 
 def test_hex_claim_by_cell_permission_predicates(test_user: User):
-    predicates = permissions_predicates(test_user, HexClaimByCell)
+    predicates = row_rules(test_user, HexClaimByCell)
     assert len(predicates) == 1
     p = predicates[0]
     assert isinstance(p, Equals)
@@ -68,16 +68,14 @@ def test_user_group_read_predicate_returns_owned_and_member_groups(
     # test_user has nothing to do with this one.
     create_group(name="Stranger", owner=other)
 
-    result = Repository(test_db, UserGroup).get_filtered(
-        filters=permissions_predicates(test_user, UserGroup, Operation.READ),
-    )
+    result = ScopedRepository(test_db, UserGroup, ViewerPolicy(test_user)).get_all()
 
     assert {g.name for g in result.items} == {"Owned", "MemberOf"}
 
 
 def test_user_group_update_predicate_is_owner_only(test_user: User):
     """UPDATE narrows to a single owner Equals — no membership leg."""
-    predicates = permissions_predicates(test_user, UserGroup, Operation.UPDATE)
+    predicates = row_rules(test_user, UserGroup, Operation.UPDATE)
     assert len(predicates) == 1
     p = predicates[0]
     assert isinstance(p, Equals)
@@ -91,7 +89,7 @@ def test_user_group_create_guard_admits_only_own_groups(
     """CREATE yields `Guard`s judged against the in-memory instance: a user may
     create a group they own, but not one owned by somebody else."""
     other = create_user(email="other@example.com")
-    guards = permissions_predicates(test_user, UserGroup, Operation.CREATE)
+    guards = row_rules(test_user, UserGroup, Operation.CREATE)
 
     own = UserGroup(name="Mine", owner_uid=test_user.uid)
     theirs = UserGroup(name="Theirs", owner_uid=other.uid)
@@ -102,7 +100,7 @@ def test_user_group_create_guard_admits_only_own_groups(
 
 
 def test_upload_create_guard_admits_only_own_uploads(test_user: User):
-    guards = permissions_predicates(test_user, Upload, Operation.CREATE)
+    guards = row_rules(test_user, Upload, Operation.CREATE)
 
     own = Upload(user_uid=test_user.uid)
     theirs = Upload(user_uid="someone-else")
@@ -114,7 +112,7 @@ def test_upload_create_guard_admits_only_own_uploads(test_user: User):
 @pytest.mark.parametrize("operation", [Operation.CREATE, Operation.UPDATE])
 def test_read_only_view_rejects_writes(test_user: User, operation: Operation):
     with pytest.raises(ValueError, match=f"No {operation} permission predicates"):
-        permissions_predicates(test_user, HexClaimByCell, operation)  # pyright: ignore[reportCallIssue,reportArgumentType]
+        row_rules(test_user, HexClaimByCell, operation)  # pyright: ignore[reportCallIssue,reportArgumentType]
 
 
 def test_dual_mode_predicate_is_a_guard():
@@ -133,4 +131,4 @@ def test_unknown_entity_raises(test_user: User):
     with pytest.raises(
         ValueError, match="No read permission predicates defined for UserSession"
     ):
-        permissions_predicates(test_user, UserSession)
+        row_rules(test_user, UserSession)

@@ -6,7 +6,7 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
-from src.app.repository import Repository, User
+from src.app.repository import LoginToken, ScopedRepository, Transaction, User
 from src.app.services.login_token import issue_login_token
 from src.app.services.user import create_user
 from src.app.settings import settings
@@ -70,9 +70,11 @@ def test_verify_token_creates_new_user_and_session(
     test_db: Session,
     sent_emails: list[dict[str, Any]],
     monkeypatch: pytest.MonkeyPatch,
+    login_tokens: ScopedRepository[LoginToken],
+    tx: Transaction,
 ):
     monkeypatch.setattr(settings, "ALLOWED_EMAILS", ["newbie@example.com"])
-    issued = issue_login_token(test_db, "newbie@example.com")
+    issued = issue_login_token(login_tokens, tx, "newbie@example.com")
 
     response = _post_token(unauthenticated_client, issued.token, issued.nonce)
 
@@ -87,24 +89,29 @@ def test_verify_token_for_existing_user_makes_no_second_account(
     unauthenticated_client: TestClient,
     test_db: Session,
     monkeypatch: pytest.MonkeyPatch,
+    login_tokens: ScopedRepository[LoginToken],
+    tx: Transaction,
+    system_users: ScopedRepository[User],
 ):
     monkeypatch.setattr(settings, "ALLOWED_EMAILS", ["existing@example.com"])
-    create_user(test_db, "existing@example.com", "placeholder-pw-123")
-    issued = issue_login_token(test_db, "existing@example.com")
+    create_user(system_users, tx, "existing@example.com", "placeholder-pw-123")
+    issued = issue_login_token(login_tokens, tx, "existing@example.com")
 
     response = _post_token(unauthenticated_client, issued.token, issued.nonce)
 
     assert response.status_code == 200
-    assert len(Repository(test_db, User).get_all().items) == 1
+    assert len(system_users.get_all().items) == 1
 
 
 def test_verify_invalid_token_is_rejected(
     unauthenticated_client: TestClient,
     test_db: Session,
     monkeypatch: pytest.MonkeyPatch,
+    login_tokens: ScopedRepository[LoginToken],
+    tx: Transaction,
 ):
     monkeypatch.setattr(settings, "ALLOWED_EMAILS", ["x@example.com"])
-    issued = issue_login_token(test_db, "x@example.com")
+    issued = issue_login_token(login_tokens, tx, "x@example.com")
 
     response = _post_token(unauthenticated_client, "not-a-real-token", issued.nonce)
     assert response.status_code == 401
@@ -114,9 +121,11 @@ def test_verify_rejects_wrong_or_missing_nonce(
     unauthenticated_client: TestClient,
     test_db: Session,
     monkeypatch: pytest.MonkeyPatch,
+    login_tokens: ScopedRepository[LoginToken],
+    tx: Transaction,
 ):
     monkeypatch.setattr(settings, "ALLOWED_EMAILS", ["x@example.com"])
-    issued = issue_login_token(test_db, "x@example.com")
+    issued = issue_login_token(login_tokens, tx, "x@example.com")
 
     wrong = _post_token(unauthenticated_client, issued.token, "wrong-nonce")
     assert wrong.status_code == 401
@@ -130,9 +139,11 @@ def test_verify_token_is_single_use(
     unauthenticated_client: TestClient,
     test_db: Session,
     monkeypatch: pytest.MonkeyPatch,
+    login_tokens: ScopedRepository[LoginToken],
+    tx: Transaction,
 ):
     monkeypatch.setattr(settings, "ALLOWED_EMAILS", ["x@example.com"])
-    issued = issue_login_token(test_db, "x@example.com")
+    issued = issue_login_token(login_tokens, tx, "x@example.com")
 
     first = _post_token(unauthenticated_client, issued.token, issued.nonce)
     assert first.status_code == 200
@@ -144,9 +155,11 @@ def test_verify_rejected_when_email_removed_from_allowlist(
     unauthenticated_client: TestClient,
     test_db: Session,
     monkeypatch: pytest.MonkeyPatch,
+    login_tokens: ScopedRepository[LoginToken],
+    tx: Transaction,
 ):
     monkeypatch.setattr(settings, "ALLOWED_EMAILS", ["x@example.com"])
-    issued = issue_login_token(test_db, "x@example.com")
+    issued = issue_login_token(login_tokens, tx, "x@example.com")
     monkeypatch.setattr(settings, "ALLOWED_EMAILS", [])  # de-invited before verify
 
     response = _post_token(unauthenticated_client, issued.token, issued.nonce)

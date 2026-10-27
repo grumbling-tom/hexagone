@@ -9,12 +9,10 @@ from datetime import datetime
 from enum import StrEnum
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Query
 from pydantic import Field
-from sqlalchemy.orm import Session
 
-from src.app.dependencies import authenticated_user, db_session
-from src.app.repository.models import User
+from src.app.dependencies import HexClaimByCellRepo, HexClaimRepo
 from src.app.services.hex_claim import (
     aggregate_hex_claims_by_cell as aggregate_hex_claims_by_cell_service,
 )
@@ -65,14 +63,12 @@ class ListHexClaimsParams(BaseSchema):
 
 @hex_claims_router.get("/hex-claims", operation_id="listHexClaims")
 def list_hex_claims(
-    user: Annotated[User, Depends(authenticated_user)],
-    db: Annotated[Session, Depends(db_session)],
+    claims: HexClaimRepo,
     params: Annotated[ListHexClaimsParams, Query()],
 ) -> PaginatedResult[HexClaimResponse]:
     """List the authenticated user's raw hex claims."""
     result = list_hex_claims_service(
-        db=db,
-        user=user,
+        claims,
         page_size=params.page_size,
         cursor=params.cursor,
         upload_uids=params.upload_uid,
@@ -144,16 +140,14 @@ class ListAggregatedHexClaimsParams(BaseSchema):
     "/aggregated-hex-claims", operation_id="listAggregatedHexClaims"
 )
 def list_aggregated_hex_claims(
-    user: Annotated[User, Depends(authenticated_user)],
-    db: Annotated[Session, Depends(db_session)],
+    by_cell: HexClaimByCellRepo,
     params: Annotated[ListAggregatedHexClaimsParams, Query()],
 ) -> PaginatedResult[AggregatedHexClaimByCell]:
     """Aggregate the user's hex claims along the requested dimension."""
     # Today only one `by` value exists; this branches once a second is added.
     if params.by is AggregateHexClaimBy.hex_cell:
         result = aggregate_hex_claims_by_cell_service(
-            db=db,
-            user=user,
+            by_cell,
             page_size=params.page_size,
             cursor=params.cursor,
         )

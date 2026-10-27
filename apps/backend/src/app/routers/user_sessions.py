@@ -4,22 +4,24 @@ from typing import TYPE_CHECKING, Annotated, Self
 
 from fastapi import APIRouter, Cookie, Depends, HTTPException, Request, Response
 from pydantic import EmailStr, model_validator
-from sqlalchemy.orm import Session
 
-from src.app.dependencies import authenticated_user, db_session, email_client
+from src.app.dependencies import (
+    LoginTokenRepo,
+    SessionRepo,
+    SystemUserRepo,
+    TxDep,
+    authenticated_user,
+    email_client,
+)
 from src.app.services.email import EmailClient, send_welcome_email
 from src.app.services.login_token import is_email_allowed, verify_login_token
 from src.app.services.user import authenticate_user, get_or_create_user_by_email
-from src.app.services.user_session import (
-    create_session,
-    invalidate_session,
-    validate_session,
-)
+from src.app.services.user_session import create_session, invalidate_session
 from src.app.settings import settings
 from src.app.utils import BaseSchema, get_client_ip, get_logger
 
 if TYPE_CHECKING:
-    from src.app.repository import User
+    from src.app.repository import LoginToken, ScopedRepository, Transaction, User
 
 logger = get_logger(__name__)
 
@@ -56,8 +58,13 @@ class UserSessionResponse(BaseSchema):
     email: str
 
 
-def _user_from_login_token(
-    db: Session, token: str, nonce: str | None, mailer: EmailClient
+def _user_from_login_token(  # noqa: PLR0913
+    tokens: ScopedRepository[LoginToken],
+    users: ScopedRepository[User],
+    tx: Transaction,
+    token: str,
+    nonce: str | None,
+    mailer: EmailClient,
 ) -> User | None:
     """Resolve the user for a magic-link token, or None if it isn't valid.
 
@@ -65,13 +72,13 @@ def _user_from_login_token(
     changed since the link was issued), and auto-creates a first-time
     allow-listed user — sending the welcome email on creation.
     """
-    email = verify_login_token(db, token, nonce or "")
+    email = verify_login_token(tokens, tx, token, nonce or "")
     if email is None:
         return None
     if not is_email_allowed(email):
         return None
 
-    user, created = get_or_create_user_by_email(db, email)
+    user, created = get_or_create_user_by_email(users, tx, email)
     if user.archived:
         return None
     if created:
@@ -88,15 +95,18 @@ def create_user_session(  # noqa: PLR0913 — FastAPI-injected deps, not a desig
     body: CreateUserSessionRequest,
     request: Request,
     response: Response,
-    db: Annotated[Session, Depends(db_session)],
+    users: SystemUserRepo,
+    tokens: LoginTokenRepo,
+    sessions: SessionRepo,
+    tx: TxDep,
     mailer: Annotated[EmailClient, Depends(email_client)],
     nonce: Annotated[str | None, Cookie(alias=settings.LOGIN_NONCE_COOKIE_NAME)] = None,
 ) -> UserSessionResponse:
     """Create a session via a magic-link token or email + password."""
     if body.token is not None:
-        user = _user_from_login_token(db, body.token, nonce, mailer)
+        user = _user_from_login_token(tokens, users, tx, body.token, nonce, mailer)
     elif body.email is not None and body.password is not None:
-        user = authenticate_user(db, body.email, body.password)
+        user = authenticate_user(users, body.email, body.password)
     else:  # pragma: no cover - the validator guarantees exactly one mode
         user = None
 
@@ -105,7 +115,7 @@ def create_user_session(  # noqa: PLR0913 — FastAPI-injected deps, not a desig
 
     user_agent = request.headers.get("user-agent", "")
     ip_address = get_client_ip(request)
-    session = create_session(db, user.uid, user_agent, ip_address)
+    session = create_session(sessions, tx, user.uid, user_agent, ip_address)
 
     response.set_cookie(
         key=settings.SESSION_COOKIE_NAME,
@@ -125,18 +135,21 @@ def create_user_session(  # noqa: PLR0913 — FastAPI-injected deps, not a desig
 def delete_current_session(
     request: Request,
     response: Response,
-    db: Annotated[Session, Depends(db_session)],
+    sessions: SessionRepo,
+    tx: TxDep,
     _: Annotated[User, Depends(authenticated_user)],
 ) -> None:
-    """Log out by invalidating the current session."""
+    """Log out by invalidating the current session.
+
+    ``authenticated_user`` has already validated (and refreshed) the cookie's
+    session, so it is simply deleted here.
+    """
     session_id = request.cookies.get(settings.SESSION_COOKIE_NAME)
 
     if session_id:
-        user_agent = request.headers.get("user-agent", "")
-
-        session = validate_session(db, session_id, user_agent)
+        session = sessions.find_by_uid(session_id)
         if session:
-            invalidate_session(db, session)
+            invalidate_session(sessions, tx, session)
 
     response.delete_cookie(
         key=settings.SESSION_COOKIE_NAME,

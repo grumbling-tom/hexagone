@@ -7,11 +7,11 @@ from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Query
 from pydantic import Field, ValidationInfo, model_validator
-from sqlalchemy.orm import Session
 
 from src.app.dependencies import (
+    TxDep,
+    UploadRepo,
     authenticated_user,
-    db_session,
     file_storage,
 )
 from src.app.repository.models import Upload, UploadStatusValue, User
@@ -86,12 +86,14 @@ class ListUploadsParams(BaseSchema):
 def create_upload(
     body: CreateUploadRequest,
     user: Annotated[User, Depends(authenticated_user)],
-    db: Annotated[Session, Depends(db_session)],
+    uploads: UploadRepo,
+    tx: TxDep,
     storage: Annotated[StorageBackend, Depends(file_storage)],
 ) -> UploadResponse:
     """Create a new GPX file upload and return a presigned URL."""
     upload = create_upload_service(
-        db=db,
+        uploads,
+        tx,
         user=user,
         original_filename=body.original_filename,
         file_size_bytes=body.file_size_bytes,
@@ -101,15 +103,13 @@ def create_upload(
 
 @router.get("/uploads", operation_id="listUploads")
 def list_uploads(
-    user: Annotated[User, Depends(authenticated_user)],
-    db: Annotated[Session, Depends(db_session)],
+    uploads: UploadRepo,
     storage: Annotated[StorageBackend, Depends(file_storage)],
     params: Annotated[ListUploadsParams, Query()],
 ) -> PaginatedResult[UploadResponse]:
     """List the authenticated user's uploads, filtered by status."""
     result = list_uploads_service(
-        db=db,
-        user=user,
+        uploads,
         page_size=params.page_size,
         cursor=params.cursor,
         statuses=params.statuses,

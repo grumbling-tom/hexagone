@@ -61,25 +61,34 @@ class Guard(Protocol):
 class Predicate(BaseSchema, ABC):
     """Nominal base for all concrete predicates (Pydantic nesting + SQL contract).
 
-    Carries the ``field`` attribute and declares the universal ``to_sql``
-    contract. It is the type used for nested fields (``list[Predicate]``,
-    ``Predicate``) so Pydantic can construct nested predicate trees.
+    Declares only the universal ``to_sql`` contract. It is the type used for
+    nested fields (``list[Predicate]``, ``Predicate``) so Pydantic can
+    construct nested predicate trees.
+
+    It carries no ``field``: a combinator (``And``/``Or``), a relationship hop
+    (``Related``) and a constant (``Anyone``/``Nobody``) don't name a column,
+    and ``gate()`` relies on ``FieldPredicate`` meaning exactly "a leaf that
+    reads one column".
 
     NOTE: there is intentionally no ``is_satisfied_by`` here — its absence is the
     structural discriminator that keeps SQL-only predicates out of
     ``create(guards=...)``.
     """
 
-    field: str = Field(
-        ..., description="Name of the model field the predicate refers to"
-    )
-
     @abstractmethod
     def to_sql(self, entity: type[BaseModel]) -> ColumnElement[bool]:
         """Render this predicate to a SQLAlchemy boolean expression."""
 
 
-class Equals[T](Predicate):
+class FieldPredicate(Predicate, ABC):
+    """A leaf predicate that reads exactly one column, named by ``field``."""
+
+    field: str = Field(
+        ..., description="Name of the model field the predicate refers to"
+    )
+
+
+class Equals[T](FieldPredicate):
     """Exact equality comparison.
 
     Example:
@@ -95,7 +104,7 @@ class Equals[T](Predicate):
         return bool(getattr(obj, self.field) == self.value)
 
 
-class NotEquals[T](Predicate):
+class NotEquals[T](FieldPredicate):
     """Inequality comparison.
 
     Example:
@@ -111,7 +120,7 @@ class NotEquals[T](Predicate):
         return bool(getattr(obj, self.field) != self.value)
 
 
-class GreaterThan[T](Predicate):
+class GreaterThan[T](FieldPredicate):
     """Greater-than comparison.
 
     Example:
@@ -127,7 +136,7 @@ class GreaterThan[T](Predicate):
         return bool(getattr(obj, self.field) > self.value)
 
 
-class GreaterThanOrEqual[T](Predicate):
+class GreaterThanOrEqual[T](FieldPredicate):
     """Greater-than-or-equal comparison.
 
     Example:
@@ -143,7 +152,7 @@ class GreaterThanOrEqual[T](Predicate):
         return bool(getattr(obj, self.field) >= self.value)
 
 
-class LessThan[T](Predicate):
+class LessThan[T](FieldPredicate):
     """Less-than comparison.
 
     Example:
@@ -159,7 +168,7 @@ class LessThan[T](Predicate):
         return bool(getattr(obj, self.field) < self.value)
 
 
-class LessThanOrEqual[T](Predicate):
+class LessThanOrEqual[T](FieldPredicate):
     """Less-than-or-equal comparison.
 
     Example:
@@ -175,7 +184,7 @@ class LessThanOrEqual[T](Predicate):
         return bool(getattr(obj, self.field) <= self.value)
 
 
-class Like(Predicate):
+class Like(FieldPredicate):
     """SQL LIKE pattern matching (case-insensitive by default).
 
     Example:
@@ -206,7 +215,7 @@ class Like(Predicate):
         return re.fullmatch(regex, str(value), flags) is not None
 
 
-class In[T](Predicate):
+class In[T](FieldPredicate):
     """SQL IN — value is one of an allowed set.
 
     Example:
@@ -222,7 +231,7 @@ class In[T](Predicate):
         return getattr(obj, self.field) in self.values
 
 
-class NotIn[T](Predicate):
+class NotIn[T](FieldPredicate):
     """SQL NOT IN — value is none of an excluded set.
 
     Example:
@@ -238,7 +247,7 @@ class NotIn[T](Predicate):
         return getattr(obj, self.field) not in self.values
 
 
-class Range[T](Predicate):
+class Range[T](FieldPredicate):
     """Range query between inclusive min/max bounds; either may be None.
 
     Example:
@@ -271,7 +280,7 @@ class Range[T](Predicate):
         return not (self.max_value is not None and value > self.max_value)
 
 
-class IsNull(Predicate):
+class IsNull(FieldPredicate):
     """NULL / NOT NULL check.
 
     Example:
@@ -295,10 +304,8 @@ class IsNull(Predicate):
 class Or(Predicate):
     """OR-compose any number of inner predicates into a single boolean expression.
 
-    ``field`` is inherited from ``Predicate`` but unused; it defaults to ``""``
-    so the model can be constructed without one. The real contract is the
-    ``predicates`` list, typed as the nominal ``Predicate`` so Pydantic can nest
-    arbitrary predicates (including SQL-only ones like ``Related``).
+    The ``predicates`` list is typed as the nominal ``Predicate`` so Pydantic
+    can nest arbitrary predicates (including SQL-only ones like ``Related``).
 
     Example:
         Or(predicates=[
@@ -308,7 +315,6 @@ class Or(Predicate):
         # (status = 'active') OR (status = 'pending')
     """
 
-    field: str = ""  # unused; satisfies base
     predicates: list[Predicate] = Field(
         ...,
         description="Inner predicates whose SQL expressions are OR-combined",
@@ -321,6 +327,51 @@ class Or(Predicate):
 
     # No is_satisfied_by: an OR whose children may be SQL-only can't be evaluated
     # in memory. Omitting it makes `Or` a static type error as a create guard.
+
+
+class And(Predicate):
+    """AND-compose any number of inner predicates into a single expression.
+
+    Mostly built by ``gate()`` to pin a caller's leaf to its field's
+    visibility rule; callers can use it too. Like ``Or`` it has no
+    ``is_satisfied_by``, because its children may be SQL-only.
+
+    Example:
+        And(predicates=[
+            Equals(field="email", value="bob@acme.com"),
+            Equals(field="archived", value=False),
+        ])
+    """
+
+    predicates: list[Predicate] = Field(
+        ...,
+        description="Inner predicates whose SQL expressions are AND-combined",
+    )
+
+    def to_sql(self, entity: type[BaseModel]) -> ColumnElement[bool]:
+        if not self.predicates:
+            return true()  # an empty AND matches everything
+        return and_(*(p.to_sql(entity) for p in self.predicates))
+
+
+class Anyone(Predicate):
+    """Always true. As a rule: every viewer may do this to every row/field."""
+
+    def to_sql(self, entity: type[BaseModel]) -> ColumnElement[bool]:  # noqa: ARG002
+        return true()
+
+    def is_satisfied_by(self, obj: BaseModel) -> bool:  # noqa: ARG002
+        return True
+
+
+class Nobody(Predicate):
+    """Always false. The deny-by-default rule for anything not granted."""
+
+    def to_sql(self, entity: type[BaseModel]) -> ColumnElement[bool]:  # noqa: ARG002
+        return false()
+
+    def is_satisfied_by(self, obj: BaseModel) -> bool:  # noqa: ARG002
+        return False
 
 
 class Related(Predicate):

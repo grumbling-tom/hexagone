@@ -1,14 +1,22 @@
-"""Tests for the Repository pattern and filtering functionality."""
+"""Tests for ScopedRepository: pagination, filtering and guarded writes.
+
+Most tests use ``SystemPolicy`` so they exercise the query machinery alone;
+the guarded-write tests use a policy with one fixed row rule. Permission
+behaviour for real viewers lives in ``tests/app/services/test_user_directory.py``.
+"""
 
 import base64
 from collections.abc import Callable
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
 
 import pytest
 
 from src.app.repository import (
+    BaseModel,
     Equals,
+    FieldRules,
     GreaterThan,
     GreaterThanOrEqual,
     In,
@@ -19,10 +27,12 @@ from src.app.repository import (
     NotAuthorisedError,
     NotEquals,
     NotIn,
+    Operation,
     Or,
     Range,
     Related,
-    Repository,
+    ScopedRepository,
+    SystemPolicy,
     Upload,
     UploadStatus,
     UploadStatusValue,
@@ -36,6 +46,19 @@ if TYPE_CHECKING:
     from sqlalchemy.orm import Session
 
 
+@dataclass(frozen=True)
+class FixedRowsPolicy:
+    """Every row rule is ``rule``; every field is visible and writable."""
+
+    rule: Equals[str]
+
+    def rows(self, entity: type[BaseModel], operation: Operation) -> list[Equals[str]]:
+        return [self.rule]
+
+    def fields(self, entity: type[BaseModel], operation: Operation) -> FieldRules:
+        return SystemPolicy().fields(entity, operation)
+
+
 # Basic Repository Operations Tests
 
 
@@ -44,7 +67,7 @@ def test_get_all_returns_all_uploads(
 ):
     create_upload("a.gpx")
     create_upload("b.gpx")
-    repo = Repository(test_db, Upload)
+    repo = ScopedRepository(test_db, Upload, SystemPolicy())
 
     result = repo.get_all()
     assert len(result.items) == 2
@@ -59,7 +82,7 @@ def test_get_all_returns_all_uploads(
 def test_pagination_basic(test_db: Session, create_upload: Callable[..., Upload]):
     for i in range(5):
         create_upload(f"file_{i}.gpx")
-    repo = Repository(test_db, Upload)
+    repo = ScopedRepository(test_db, Upload, SystemPolicy())
 
     page1 = repo.get_all(page_size=2)
     assert len(page1.items) == 2
@@ -85,7 +108,7 @@ def test_repository_uses_default_page_size(
 ):
     for i in range(settings.DEFAULT_PAGE_SIZE + 5):
         create_upload(f"file_{i}.gpx")
-    repo = Repository(test_db, Upload)
+    repo = ScopedRepository(test_db, Upload, SystemPolicy())
 
     result = repo.get_all()
     assert len(result.items) == settings.DEFAULT_PAGE_SIZE
@@ -97,7 +120,7 @@ def test_repository_page_size_can_override_default(
 ):
     for i in range(15):
         create_upload(f"file_{i}.gpx")
-    repo = Repository(test_db, Upload)
+    repo = ScopedRepository(test_db, Upload, SystemPolicy())
 
     custom_page_size = 5
     assert custom_page_size != settings.DEFAULT_PAGE_SIZE
@@ -113,7 +136,7 @@ def test_custom_sorting_by_original_filename(
     create_upload("zebra.gpx")
     create_upload("alpha.gpx")
     create_upload("gamma.gpx")
-    repo = Repository(test_db, Upload)
+    repo = ScopedRepository(test_db, Upload, SystemPolicy())
 
     result_asc = repo.get_all(
         sort_field=Upload.original_filename, sort_order=SortOrder.ASC
@@ -134,7 +157,7 @@ def test_pagination_with_custom_sorting(
     names = ["delta.gpx", "alpha.gpx", "echo.gpx", "bravo.gpx", "charlie.gpx"]
     for name in names:
         create_upload(name)
-    repo = Repository(test_db, Upload)
+    repo = ScopedRepository(test_db, Upload, SystemPolicy())
 
     page1 = repo.get_all(
         page_size=2, sort_field=Upload.original_filename, sort_order=SortOrder.ASC
@@ -173,7 +196,7 @@ def test_cursor_validation_mismatched_sort_field(
 ):
     for i in range(3):
         create_upload(f"file_{i}.gpx")
-    repo = Repository(test_db, Upload)
+    repo = ScopedRepository(test_db, Upload, SystemPolicy())
 
     page1 = repo.get_all(page_size=2, sort_field=Upload.uid, sort_order=SortOrder.ASC)
     assert page1.next_cursor is not None
@@ -192,7 +215,7 @@ def test_cursor_validation_mismatched_sort_order(
 ):
     for i in range(3):
         create_upload(f"file_{i}.gpx")
-    repo = Repository(test_db, Upload)
+    repo = ScopedRepository(test_db, Upload, SystemPolicy())
 
     page1 = repo.get_all(page_size=2, sort_field=Upload.uid, sort_order=SortOrder.ASC)
     assert page1.next_cursor is not None
@@ -208,7 +231,7 @@ def test_cursor_validation_mismatched_sort_order(
 
 def test_invalid_cursor_format(test_db: Session, create_upload: Callable[..., Upload]):
     create_upload("test.gpx")
-    repo = Repository(test_db, Upload)
+    repo = ScopedRepository(test_db, Upload, SystemPolicy())
 
     with pytest.raises(ValueError, match="Invalid cursor format"):
         repo.get_all(cursor="not-valid-base64!")
@@ -229,7 +252,7 @@ def test_equals_filter(test_db: Session, create_upload: Callable[..., Upload]):
     create_upload("alpha.gpx")
     create_upload("beta.gpx")
     create_upload("alpha.gpx", file_size_bytes=200)
-    repo = Repository(test_db, Upload)
+    repo = ScopedRepository(test_db, Upload, SystemPolicy())
 
     result = repo.get_filtered(
         filters=[Equals(field="original_filename", value="alpha.gpx")]
@@ -242,7 +265,7 @@ def test_not_equals_filter(test_db: Session, create_upload: Callable[..., Upload
     create_upload("alpha.gpx")
     create_upload("beta.gpx")
     create_upload("gamma.gpx")
-    repo = Repository(test_db, Upload)
+    repo = ScopedRepository(test_db, Upload, SystemPolicy())
 
     result = repo.get_filtered(
         filters=[NotEquals(field="original_filename", value="alpha.gpx")]
@@ -256,7 +279,7 @@ def test_greater_than_filter(test_db: Session, create_upload: Callable[..., Uplo
     create_upload("early.gpx", created_at=now - timedelta(hours=2))
     create_upload("middle.gpx", created_at=now - timedelta(hours=1))
     create_upload("late.gpx", created_at=now)
-    repo = Repository(test_db, Upload)
+    repo = ScopedRepository(test_db, Upload, SystemPolicy())
 
     result = repo.get_filtered(
         filters=[GreaterThan(field="created_at", value=now - timedelta(hours=1))]
@@ -272,7 +295,7 @@ def test_greater_than_or_equal_filter(
     create_upload("early.gpx", created_at=now - timedelta(hours=2))
     create_upload("middle.gpx", created_at=now - timedelta(hours=1))
     create_upload("late.gpx", created_at=now)
-    repo = Repository(test_db, Upload)
+    repo = ScopedRepository(test_db, Upload, SystemPolicy())
 
     result = repo.get_filtered(
         filters=[GreaterThanOrEqual(field="created_at", value=now - timedelta(hours=1))]
@@ -286,7 +309,7 @@ def test_less_than_filter(test_db: Session, create_upload: Callable[..., Upload]
     create_upload("early.gpx", created_at=now - timedelta(hours=2))
     create_upload("middle.gpx", created_at=now - timedelta(hours=1))
     create_upload("late.gpx", created_at=now)
-    repo = Repository(test_db, Upload)
+    repo = ScopedRepository(test_db, Upload, SystemPolicy())
 
     result = repo.get_filtered(
         filters=[LessThan(field="created_at", value=now - timedelta(hours=1))]
@@ -302,7 +325,7 @@ def test_less_than_or_equal_filter(
     create_upload("early.gpx", created_at=now - timedelta(hours=2))
     create_upload("middle.gpx", created_at=now - timedelta(hours=1))
     create_upload("late.gpx", created_at=now)
-    repo = Repository(test_db, Upload)
+    repo = ScopedRepository(test_db, Upload, SystemPolicy())
 
     result = repo.get_filtered(
         filters=[LessThanOrEqual(field="created_at", value=now - timedelta(hours=1))]
@@ -318,7 +341,7 @@ def test_like_filter_case_insensitive(
     create_upload("TESTING Route.gpx")
     create_upload("production.gpx")
     create_upload("test hike.gpx")
-    repo = Repository(test_db, Upload)
+    repo = ScopedRepository(test_db, Upload, SystemPolicy())
 
     result = repo.get_filtered(
         filters=[
@@ -338,7 +361,7 @@ def test_in_filter(test_db: Session, create_upload: Callable[..., Upload]):
     create_upload("beta.gpx")
     create_upload("gamma.gpx")
     create_upload("delta.gpx")
-    repo = Repository(test_db, Upload)
+    repo = ScopedRepository(test_db, Upload, SystemPolicy())
 
     result = repo.get_filtered(
         filters=[In(field="original_filename", values=["alpha.gpx", "gamma.gpx"])]
@@ -366,7 +389,7 @@ def test_relation_filter_matches_outer_rows_with_any_inner_match(
         ],
     )
 
-    repo = Repository(test_db, Upload)
+    repo = ScopedRepository(test_db, Upload, SystemPolicy())
     result = repo.get_filtered(
         filters=[
             Related(
@@ -389,7 +412,7 @@ def test_or_filter_returns_rows_matching_any_inner_filter(
     create_upload("gamma.gpx", file_size_bytes=300)
     create_upload("delta.gpx", file_size_bytes=400)
 
-    repo = Repository(test_db, Upload)
+    repo = ScopedRepository(test_db, Upload, SystemPolicy())
     result = repo.get_filtered(
         filters=[
             Or(
@@ -410,7 +433,7 @@ def test_not_in_filter(test_db: Session, create_upload: Callable[..., Upload]):
     create_upload("beta.gpx")
     create_upload("gamma.gpx")
     create_upload("delta.gpx")
-    repo = Repository(test_db, Upload)
+    repo = ScopedRepository(test_db, Upload, SystemPolicy())
 
     result = repo.get_filtered(
         filters=[NotIn(field="original_filename", values=["alpha.gpx", "gamma.gpx"])]
@@ -426,7 +449,7 @@ def test_range_filter_both_bounds(
     create_upload("b.gpx", file_size_bytes=50)
     create_upload("c.gpx", file_size_bytes=100)
     create_upload("d.gpx", file_size_bytes=200)
-    repo = Repository(test_db, Upload)
+    repo = ScopedRepository(test_db, Upload, SystemPolicy())
 
     result = repo.get_filtered(
         filters=[Range(field="file_size_bytes", min_value=50, max_value=100)]
@@ -439,7 +462,7 @@ def test_range_filter_min_only(test_db: Session, create_upload: Callable[..., Up
     create_upload("small.gpx", file_size_bytes=10)
     create_upload("medium.gpx", file_size_bytes=50)
     create_upload("large.gpx", file_size_bytes=100)
-    repo = Repository(test_db, Upload)
+    repo = ScopedRepository(test_db, Upload, SystemPolicy())
 
     result = repo.get_filtered(
         filters=[Range(field="file_size_bytes", min_value=50, max_value=None)]
@@ -452,7 +475,7 @@ def test_range_filter_max_only(test_db: Session, create_upload: Callable[..., Up
     create_upload("small.gpx", file_size_bytes=10)
     create_upload("medium.gpx", file_size_bytes=50)
     create_upload("large.gpx", file_size_bytes=100)
-    repo = Repository(test_db, Upload)
+    repo = ScopedRepository(test_db, Upload, SystemPolicy())
 
     result = repo.get_filtered(
         filters=[Range(field="file_size_bytes", min_value=None, max_value=50)]
@@ -465,15 +488,15 @@ def test_is_null_filter(test_db: Session, create_upload: Callable[..., Upload]):
     """Test IsNull using UploadStatus.detail which is nullable."""
     upload = create_upload("test.gpx", status_values=[])
 
-    status_repo = Repository(test_db, UploadStatus)
-    status_repo.add(
+    status_repo = ScopedRepository(test_db, UploadStatus, SystemPolicy())
+    test_db.add(
         UploadStatus(
             upload_uid=upload.uid,
             status=UploadStatusValue.UPLOAD_PENDING,
             detail=None,
         )
     )
-    status_repo.add(
+    test_db.add(
         UploadStatus(
             upload_uid=upload.uid,
             status=UploadStatusValue.UPLOAD_INVALID,
@@ -502,7 +525,7 @@ def test_multiple_filters_combined(
     create_upload("prod_small.gpx", file_size_bytes=10)
     create_upload("test_large.gpx", file_size_bytes=200)
     create_upload("prod_large.gpx", file_size_bytes=200)
-    repo = Repository(test_db, Upload)
+    repo = ScopedRepository(test_db, Upload, SystemPolicy())
 
     result = repo.get_filtered(
         filters=[
@@ -518,7 +541,7 @@ def test_filter_with_pagination(test_db: Session, create_upload: Callable[..., U
     for i in range(5):
         create_upload(f"test_{i}.gpx")
         create_upload(f"prod_{i}.gpx")
-    repo = Repository(test_db, Upload)
+    repo = ScopedRepository(test_db, Upload, SystemPolicy())
 
     filters = [Like(field="original_filename", pattern="%test%", case_sensitive=False)]
 
@@ -545,7 +568,7 @@ def test_invalid_field_name_raises_error(
     test_db: Session, create_upload: Callable[..., Upload]
 ):
     create_upload("test.gpx")
-    repo = Repository(test_db, Upload)
+    repo = ScopedRepository(test_db, Upload, SystemPolicy())
 
     with pytest.raises(AttributeError):
         repo.get_filtered(filters=[Equals(field="nonexistent_field", value="test")])
@@ -557,7 +580,7 @@ def test_get_filtered_with_no_filters(
     create_upload("alpha.gpx")
     create_upload("beta.gpx")
     create_upload("gamma.gpx")
-    repo = Repository(test_db, Upload)
+    repo = ScopedRepository(test_db, Upload, SystemPolicy())
 
     result = repo.get_filtered(filters=None)
     assert len(result.items) == 3
@@ -573,7 +596,7 @@ def test_get_filtered_with_empty_filters_list(
 ):
     create_upload("alpha.gpx")
     create_upload("beta.gpx")
-    repo = Repository(test_db, Upload)
+    repo = ScopedRepository(test_db, Upload, SystemPolicy())
 
     result = repo.get_filtered(filters=[])
     assert len(result.items) == 2
@@ -594,7 +617,7 @@ def test_in_filter_on_current_status_matches(
         ],
     )
 
-    repo = Repository(test_db, Upload)
+    repo = ScopedRepository(test_db, Upload, SystemPolicy())
     result = repo.get_filtered(
         filters=[
             In(field="current_status", values=[UploadStatusValue.UPLOAD_RECEIVED])
@@ -616,7 +639,7 @@ def test_in_filter_on_current_status_uses_latest(
         ],
     )
 
-    repo = Repository(test_db, Upload)
+    repo = ScopedRepository(test_db, Upload, SystemPolicy())
     result = repo.get_filtered(
         filters=[
             In(field="current_status", values=[UploadStatusValue.UPLOAD_RECEIVED])
@@ -630,7 +653,7 @@ def test_in_filter_on_current_status_excludes_non_matching(
 ):
     create_upload("c.gpx", status_values=[UploadStatusValue.UPLOAD_PENDING])
 
-    repo = Repository(test_db, Upload)
+    repo = ScopedRepository(test_db, Upload, SystemPolicy())
     result = repo.get_filtered(
         filters=[In(field="current_status", values=[UploadStatusValue.UPLOAD_SUCCESS])],
     )
@@ -642,7 +665,7 @@ def test_in_filter_on_current_status_no_statuses(
 ):
     create_upload("d.gpx", status_values=[])
 
-    repo = Repository(test_db, Upload)
+    repo = ScopedRepository(test_db, Upload, SystemPolicy())
     result = repo.get_filtered(
         filters=[
             In(field="current_status", values=[UploadStatusValue.UPLOAD_RECEIVED])
@@ -669,7 +692,7 @@ def test_in_filter_on_current_status_multiple_values(
         ],
     )
 
-    repo = Repository(test_db, Upload)
+    repo = ScopedRepository(test_db, Upload, SystemPolicy())
     result = repo.get_filtered(
         filters=[
             In(
@@ -711,7 +734,7 @@ def test_in_filter_on_current_status_composes_with_equals(
         ],
     )
 
-    repo = Repository(test_db, Upload)
+    repo = ScopedRepository(test_db, Upload, SystemPolicy())
     result = repo.get_filtered(
         filters=[
             In(field="current_status", values=[UploadStatusValue.UPLOAD_RECEIVED]),
@@ -729,13 +752,10 @@ def test_update_applies_guard_and_returns_updated_row(
     test_db: Session, test_user: User, create_upload: Callable[..., Upload]
 ):
     upload = create_upload("orig.gpx")
-    repo = Repository(test_db, Upload)
+    owner = FixedRowsPolicy(Equals(field="user_uid", value=test_user.uid))
+    repo = ScopedRepository(test_db, Upload, owner)
 
-    updated = repo.update(
-        upload.uid,
-        {"original_filename": "renamed.gpx"},
-        guards=[Equals(field="user_uid", value=test_user.uid)],
-    )
+    updated = repo.update(upload.uid, {"original_filename": "renamed.gpx"})
 
     assert updated is not None
     assert updated.original_filename == "renamed.gpx"
@@ -745,28 +765,28 @@ def test_update_failing_guard_raises_and_leaves_row(
     test_db: Session, create_upload: Callable[..., Upload]
 ):
     upload = create_upload("orig.gpx")
-    repo = Repository(test_db, Upload)
+    stranger = FixedRowsPolicy(Equals(field="user_uid", value="someone-else"))
+    repo = ScopedRepository(test_db, Upload, stranger)
 
     with pytest.raises(NotAuthorisedError):
-        repo.update(
-            upload.uid,
-            {"original_filename": "renamed.gpx"},
-            guards=[Equals(field="user_uid", value="someone-else")],
-        )
+        repo.update(upload.uid, {"original_filename": "renamed.gpx"})
 
     # The row is untouched — the guard was part of the UPDATE's WHERE.
     test_db.expire_all()
-    assert repo.get_by_uid(upload.uid).original_filename == "orig.gpx"
+    found = ScopedRepository(test_db, Upload, SystemPolicy()).find_by_uid(upload.uid)
+    assert found is not None
+    assert found.original_filename == "orig.gpx"
 
 
 def test_update_missing_uid_raises(test_db: Session):
-    repo = Repository(test_db, Upload)
+    repo = ScopedRepository(test_db, Upload, SystemPolicy())
     with pytest.raises(NotAuthorisedError):
         repo.update("does-not-exist", {"original_filename": "x.gpx"})
 
 
 def test_create_runs_guard_and_inserts(test_db: Session, test_user: User):
-    repo = Repository(test_db, Upload)
+    owner = FixedRowsPolicy(Equals(field="user_uid", value=test_user.uid))
+    repo = ScopedRepository(test_db, Upload, owner)
 
     created = repo.create(
         Upload(
@@ -776,17 +796,19 @@ def test_create_runs_guard_and_inserts(test_db: Session, test_user: User):
             s3_bucket_name="bucket",
             s3_key="key-ok",
         ),
-        guards=[Equals(field="user_uid", value=test_user.uid)],
     )
 
     assert created.uid is not None
-    assert repo.get_by_uid(created.uid).s3_key == "key-ok"
+    found = repo.find_by_uid(created.uid)
+    assert found is not None
+    assert found.s3_key == "key-ok"
 
 
 def test_create_failing_guard_raises_and_does_not_insert(
     test_db: Session, test_user: User
 ):
-    repo = Repository(test_db, Upload)
+    stranger = FixedRowsPolicy(Equals(field="user_uid", value="someone-else"))
+    repo = ScopedRepository(test_db, Upload, stranger)
 
     with pytest.raises(NotAuthorisedError):
         repo.create(
@@ -797,10 +819,11 @@ def test_create_failing_guard_raises_and_does_not_insert(
                 s3_bucket_name="bucket",
                 s3_key="key-blocked",
             ),
-            guards=[Equals(field="user_uid", value="someone-else")],
         )
 
     assert (
-        repo.get_filtered(filters=[Equals(field="s3_key", value="key-blocked")]).items
+        ScopedRepository(test_db, Upload, SystemPolicy())
+        .get_filtered(filters=[Equals(field="s3_key", value="key-blocked")])
+        .items
         == []
     )

@@ -29,6 +29,9 @@ export const createUserSession = (
     }
   /**
  * Log out by invalidating the current session.
+
+``authenticated_user`` has already validated (and refreshed) the cookie's
+session, so it is simply deleted here.
  * @summary Delete Current Session
  */
 export const deleteCurrentSession = (

@@ -276,7 +276,7 @@
           "user-sessions"
         ],
         "summary": "Delete Current Session",
-        "description": "Log out by invalidating the current session.",
+        "description": "Log out by invalidating the current session.\n\n``authenticated_user`` has already validated (and refreshed) the cookie's\nsession, so it is simply deleted here.",
         "operationId": "deleteCurrentSession",
         "parameters": [
           {
@@ -1563,6 +1563,28 @@
         ],
         "title": "PaginatedResult[UserResponse]"
       },
+      "Redactable_str_": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "properties": {
+              "redacted": {
+                "type": "boolean",
+                "enum": [
+                  true
+                ]
+              }
+            },
+            "type": "object",
+            "required": [
+              "redacted"
+            ],
+            "title": "Redacted"
+          }
+        ]
+      },
       "SortOrder": {
         "type": "string",
         "enum": [
@@ -1710,8 +1732,7 @@
             "title": "Uid"
           },
           "email": {
-            "type": "string",
-            "title": "Email"
+            "$ref": "#/components/schemas/Redactable_str_"
           }
         },
         "type": "object",
@@ -1720,7 +1741,7 @@
           "email"
         ],
         "title": "UserResponse",
-        "description": "Response body for user endpoints."
+        "description": "Response body for user endpoints.\n\n``email`` is ``{\"redacted\": true}`` when the viewer may not see it (they\nare not that user and share no group with them)."
       },
       "UserSessionResponse": {
         "properties": {

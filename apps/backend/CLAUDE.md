@@ -208,20 +208,23 @@ def list_things(
 
 ## Authentication
 
-Authentication uses FastAPI dependency injection, not middleware. Routes that
-require a logged-in user declare a dependency on `authenticated_user`:
+Authentication uses FastAPI dependency injection, not middleware. Any route
+that injects a viewer-scoped repository (`UserRepo`, `GroupRepo`, … from
+`src/app/dependencies.py`) is authenticated by that alone — the repository is
+built from `viewer_policy`, which depends on `authenticated_user`. Inject
+`authenticated_user` directly only when the route needs the `User` itself
+(e.g. as the owner of something it creates):
 
 ```python
-from src.app.dependencies import authenticated_user
+from src.app.dependencies import ThingRepo
 
 @router.get("/things")
-def list_things(
-    user: Annotated[User, Depends(authenticated_user)],
-) -> list[ThingResponse]:
+def list_things(things: ThingRepo) -> list[ThingResponse]:
     ...
 ```
 
-Routes that are public (e.g. registration, login) simply omit the dependency.
+Routes that are public (e.g. registration, login) use `system_scoped(...)`
+repositories (`SystemUserRepo`, `SessionRepo`, `LoginTokenRepo`) instead.
 Do not use middleware or route-level exemption lists for auth.
 
 ## Testing — Fixtures over Helper Functions
@@ -279,8 +282,8 @@ Enforced by `test_services_do_not_return_pydantic_schemas` in
 When the response shape doesn't map 1:1 to a base table — typically
 aggregations, rollups, or projections — define a **view-backed ORM model**
 rather than hand-rolling `select(...).group_by(...)` in the service. The
-view becomes the canonical entity; `Repository`, `permissions_predicates`, and
-the cursor pipeline all work unchanged.
+view becomes the canonical entity; `ScopedRepository`, the permission rules,
+and the cursor pipeline all work unchanged.
 
 All view-backed models live in `repository/views.py` and inherit from the
 abstract `View` base. The pattern is adapted from the SQLAlchemy wiki Views
@@ -305,17 +308,18 @@ listeners.
 ## Bulk Inserts — Use ORM Instances + `session.add_all`
 
 When inserting multiple rows, build ORM model instances and pass them to
-`session.add_all(...)` rather than dropping to SQLAlchemy Core
+`ScopedRepository.create_many(...)` (which guards each one, then
+`session.add_all`s them) rather than dropping to SQLAlchemy Core
 (`session.execute(insert(Model), [dict, dict, ...])`).
 
 ```python
 # Good
-claims = [
+new_claims = [
     HexClaim(upload_uid=upload.uid, h3_cell=cell, ...)
     for polygon in polygons
     for cell in polygon.cells
 ]
-db.add_all(claims)
+claims.create_many(new_claims)
 
 # Bad
 rows = [
@@ -343,107 +347,137 @@ that hybrid property.
 Push the join/subquery complexity into the model, not into custom filter
 classes. This keeps the filter layer simple and composable.
 
-## Service Layer — Use Repository + Predicates for Queries and Writes
+## Service Layer — ScopedRepository Only; Never a Session
 
-Service queries access the database through `Repository(db, Model)` plus
-the type-safe predicates in `repository/predicates.py`, composing with
-`permissions_predicates(user, entity, operation)` from
-`services/permissions.py` where authorisation applies. Avoid raw `select(...)` for service queries — it
-bypasses cursor pagination, the composable Filter contract, and the
-single central permissions layer.
+Services reach the database **only** through `ScopedRepository[X]` objects
+injected by the router, plus a `Transaction` for `commit()`/`rollback()`. A
+service never receives a `Session`: one that did could run any query
+SQLAlchemy permits. `tests/app/test_service_imports.py` enforces this (no
+`Session`/`select`/`update`/… imports in `services/`, no `repo._db`).
 
-### Good
+A `ScopedRepository` can't be built without a `Policy`, so the permission
+rules can't be skipped:
+
+- **Row rules** (`row_rules` in `services/permissions.py`) — which rows the
+  viewer may READ / CREATE / UPDATE. ANDed into every query's WHERE (CREATE:
+  judged in memory against the instance as `Guard`s).
+- **Field rules** (`field_rules`) — which parts of a row. READ rules are
+  selected as boolean columns per row; a false one makes the attribute return
+  `REDACTED` (serialised as `{"redacted": true}` via `Redactable[T]` in
+  `utils/schemas.py`). UPDATE rules ride in the UPDATE's WHERE per field
+  written, deny by default.
+- **Caller filters are gated** (`repository/gating.py`): each leaf is ANDed
+  with its field's READ rule, so a viewer can't *ask* about a field they can't
+  see (`?email=carol@…` returns nothing). Sorting is only allowed on fields
+  every viewer can see.
+
+### Wiring
 
 ```python
-def list_groups_for_user(db, user) -> list[UserGroup]:
-    return Repository(db, UserGroup).get_filtered(
-        filters=[
-            *permissions_predicates(user, UserGroup),
-            Equals(field="archived", value=False),
-        ],
-        sort_field=UserGroup.created_at,
-        sort_order=SortOrder.DESC,
-    ).items
+# router
+@router.patch("/user-groups/{group_uid}", operation_id="updateUserGroup")
+def update_user_group(group_uid: str, body: UpdateUserGroupRequest,
+                      groups: GroupRepo, tx: TxDep) -> UserGroupResponse:
+    group = user_group_service.update_group(groups, tx, group_uid, name=body.name)
+    return UserGroupResponse.model_validate(group)
+
+# service
+def update_group(groups: ScopedRepository[UserGroup], tx: Transaction,
+                 group_uid: str, *, name: str) -> UserGroup:
+    group = groups.update(group_uid, {"name": name})  # owner check is the policy's
+    tx.commit()
+    return group
 ```
 
-### Bad
+Viewer-scoped repos come from `scoped(X)`; code with no viewer (sign-up,
+sign-in, sessions, the upload worker) uses `system_scoped(X)` /
+`SystemPolicy()` — keep every use greppable.
 
-```python
-def list_groups_for_user(db, user) -> list[UserGroup]:
-    stmt = (
-        select(UserGroup)
-        .join(UserGroupMembership, ...)
-        .where(...)
-    )
-    return list(db.execute(stmt).scalars().all())
-```
+### Writes
+
+- `create(obj)` / `create_many(objs)` — the policy's CREATE `Guard`s judge the
+  in-memory instance. Children attached via a cascading relationship
+  (`Upload(statuses=[...])`) are inserted under the parent's guard.
+- `update(uid, values, where=...)` — atomic; row rules + per-field UPDATE rules
+  + your gated `where` in one statement. The result is re-masked.
+- `delete(uid)` — atomic; guarded by the UPDATE row rules.
+
+All raise `NotAuthorisedError` (handled app-wide as a 403); none commits.
+
+### Committing
+
+Services commit, through `tx: Transaction` (only `commit()`/`rollback()`; it
+can't query). A service that commits is never called by another service:
+shared steps live in private, non-committing helpers (`_insert_user`,
+`_append_status`, `_delete`) and each public service commits once at the
+point its work is done. **Never add a `commit: bool` flag** to defer a commit;
+that flag only exists to paper over a committing service being reused.
+**Never assign to a loaded instance** (`user.email = "x"`): the session refuses
+to flush instance-level edits (`UnscopedWriteError`), because the ORM would
+otherwise write them without consulting the policy.
+
+### Adding an entity
+
+1. Model + migration.
+2. A `row_rules` branch (READ at least; CREATE/UPDATE only if viewers do them).
+3. A `field_rules` branch for READ and UPDATE listing **every** column and
+   public hybrid — `test_policy_coverage.py` fails until you do. Or add the
+   entity to `SYSTEM_ONLY` if no viewer ever touches it.
+4. `ThingRepo = Annotated[ScopedRepository[Thing], Depends(scoped(Thing))]` in
+   `dependencies.py`.
+5. Services take `things: ScopedRepository[Thing]`; routers inject `ThingRepo`.
+6. One table-test row per rule (see `tests/app/services/test_user_directory.py`).
 
 If a predicate you need doesn't exist yet, **add a new `Predicate`
 subclass in `repository/predicates.py`** rather than dropping to raw SQL.
-Predicates are reusable, unit-testable, and compose with
-`Repository.get_filtered`. Implement `is_satisfied_by` as well as `to_sql`
-only when the predicate can be judged against a single in-memory instance —
-that is what makes it usable as a create `Guard`.
+A leaf that reads one column subclasses `FieldPredicate` (so `gate()` can pin
+it); anything else must be taught to `gate()`, which raises on unknown kinds.
+Implement `is_satisfied_by` as well as `to_sql` only when the predicate can be
+judged against a single in-memory instance — that is what makes it usable as
+a create `Guard`.
 
-**Exceptions — raw `select(...)` is appropriate when:**
-- Aggregates `Repository` doesn't expose — `func.count(...)`,
-  `func.sum(...)`, etc.
-- Inside a `View` subclass's `__view_selectable__`.
-- The query target genuinely requires multiple entities back in one
-  round-trip (rare; prefer two `Repository.find_by_uid()` calls unless
-  profiling shows a real cost).
+**Known limits.**
+- Relational CREATE rules can't be `Guard`s ("viewer owns the parent group"
+  is a fact about another row). `UserGroupMembership` CREATE is `Anyone()`;
+  `add_member`'s owner-scoped read is the real check.
+- Relationships loaded by their own default loaders (`Upload.statuses`,
+  `UserSession.user`, `UserGroupMembership.user`) bypass the policy.
+- Masks live on identity-map instances. One session serves one view; a
+  system read of a row a viewer read masked raises `PolicyConflictError`.
 
-Permissioned writes go through `Repository` too, with the guards from
-`permissions_predicates` for the matching `Operation`:
-
-- **CREATE** → `Repository.create(obj, guards=permissions_predicates(user,
-  Entity, Operation.CREATE))`. The overloads type this as `list[Guard]`, so
-  relational predicates (`Related`, `Or`) can't be used to guard an insert.
-- **UPDATE** → `Repository.update(uid, values, guards=permissions_predicates(
-  user, Entity, Operation.UPDATE))`. The guards ride in the UPDATE's WHERE,
-  so the check and the write are one atomic statement.
-
-Both raise `NotAuthorisedError` (handled app-wide as a 403) and neither
-commits. Repository methods without guards (`add`, `delete`,
-`permanent_delete`) are not permission-checked.
+**Exceptions — raw `select(...)` is appropriate only** inside a `View`
+subclass's `__view_selectable__` and model `@hybrid_property` expressions.
 
 ## Service Layer — Workhorse `list_<things>` + Thin `get_<thing>` Wrapper
 
 When a service exposes both "list" and "fetch one of those things" for
 the same entity, write **one** `list_<things>` function that builds the
-filter list (including `permissions_predicates`, archived check, scoping
-flags) and returns `PaginatedResult[Thing]`. Then make `get_<thing>` a
-one-line wrapper that delegates to it with a `uid` filter and returns
-the first item — the filter logic, including any auth scoping, lives in
-one place and is exercised by both endpoints.
+filter list (archived check, scoping flags) and returns
+`PaginatedResult[Thing]`. Then make `get_<thing>` a one-line wrapper that
+delegates to it with a `uid` filter and returns the first item — the filter
+logic lives in one place and is exercised by both endpoints. (Permission
+scoping isn't in the filter list any more — the repository applies it.)
 
 ### Good
 
 ```python
-def list_groups(  # noqa: PLR0913
-    db, user, *,
+def list_groups(
+    groups: ScopedRepository[UserGroup], *,
     page_size=settings.DEFAULT_PAGE_SIZE,
     group_uid=None,
-    owner_only=False,
-    sort_field="created_at",
-    sort_order=SortOrder.DESC,
+    operation=Operation.READ,
 ) -> PaginatedResult[UserGroup]:
-    filters = [
-        *permissions_predicates(user, UserGroup),
-        Equals(field="archived", value=False),
-    ]
-    if owner_only:
-        filters.append(Equals(field="owner_uid", value=user.uid))
+    filters: list[Predicate] = [Equals(field="archived", value=False)]
+    if operation is Operation.UPDATE:
+        filters.extend(groups.policy.rows(UserGroup, Operation.UPDATE))
     if group_uid is not None:
         filters.append(Equals(field="uid", value=group_uid))
-    return Repository(db, UserGroup).get_filtered(filters=filters, ...)
+    return groups.get_filtered(filters=filters, ...)
 
 
-def get_group(db, user, group_uid, *, owner_only=False) -> UserGroup | None:
+def get_group(groups, group_uid, operation=Operation.READ) -> UserGroup | None:
     try:
-        return list_groups(
-            db, user, group_uid=group_uid, owner_only=owner_only,
-        ).items[0]
+        return list_groups(groups, group_uid=group_uid, operation=operation).items[0]
     except IndexError:
         return None
 ```
@@ -451,25 +485,18 @@ def get_group(db, user, group_uid, *, owner_only=False) -> UserGroup | None:
 ### Bad — duplicated filter logic
 
 ```python
-def list_groups(db, user):
-    return Repository(db, UserGroup).get_filtered(
-        filters=[*permissions_predicates(user, UserGroup),
-                 Equals(field="archived", value=False)],
-    )
-
-def get_group(db, user, group_uid):
+def get_group(groups, group_uid):
     # Same filter list, restated by hand — drifts the moment list_groups grows a clause:
-    return Repository(db, UserGroup).get_filtered(
-        filters=[*permissions_predicates(user, UserGroup),
-                 Equals(field="archived", value=False),
+    return groups.get_filtered(
+        filters=[Equals(field="archived", value=False),
                  Equals(field="uid", value=group_uid)],
     ).items[0]
 ```
 
-Prefer expressing access modifiers through the `operation` argument
-(e.g. `get_group(..., operation=Operation.UPDATE)` narrows to groups the
-caller owns) rather than ad-hoc scoping flags like `owner_only=True`, so
-the rule lives in the permissions layer.
+Express access modifiers through the `operation` argument (e.g.
+`get_group(..., operation=Operation.UPDATE)` narrows to groups the viewer may
+change) rather than ad-hoc flags like `owner_only=True`, so the rule lives in
+the permissions layer.
 
 ## Service Layer — Return `None` for Absence; Routers Raise HTTP
 
@@ -485,14 +512,14 @@ the service layer and makes simple cases like "delete if exists" noisy.
 
 ```python
 # service
-def get_group(db, user, group_uid) -> UserGroup | None:
+def get_group(groups, group_uid) -> UserGroup | None:
     try:
-        return list_groups(db, user, group_uid=group_uid).items[0]
+        return list_groups(groups, group_uid=group_uid).items[0]
     except IndexError:
         return None
 
 # router
-group = user_group_service.get_group(db, user, group_uid)
+group = user_group_service.get_group(groups, group_uid)
 if group is None:
     raise HTTPException(status_code=404, detail="Group not found")
 ```
@@ -501,7 +528,7 @@ if group is None:
 
 ```python
 # service
-def get_group(db, user, group_uid) -> UserGroup:
+def get_group(groups, group_uid) -> UserGroup:
     group = ...
     if group is None:
         raise UserGroupNotFoundError(group_uid)
@@ -509,7 +536,7 @@ def get_group(db, user, group_uid) -> UserGroup:
 
 # router has to catch what the service threw
 try:
-    group = user_group_service.get_group(db, user, group_uid)
+    group = user_group_service.get_group(groups, group_uid)
 except user_group_service.UserGroupNotFoundError:
     raise HTTPException(status_code=404, ...) from None
 ```
@@ -522,8 +549,8 @@ writes the caller couldn't avoid by branching, like
 missing" semantics. The pattern then looks like:
 
 ```python
-def update_group(db, user, group_uid, *, name) -> UserGroup:
-    group = get_group(db, user, group_uid, owner_only=True)
+def update_group(groups, tx, group_uid, *, name) -> UserGroup:
+    group = get_group(groups, group_uid, operation=Operation.UPDATE)
     if group is None:
         raise UserGroupNotFoundError(group_uid)
     ...

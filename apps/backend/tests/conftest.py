@@ -18,18 +18,24 @@ from src.app.main import app
 from src.app.repository import (
     BaseModel,
     HexClaim,
-    Repository,
+    LoginToken,
+    ScopedRepository,
+    SystemPolicy,
+    Transaction,
     Upload,
     UploadStatus,
     UploadStatusValue,
     User,
     UserGroup,
     UserGroupMembership,
+    UserSession,
 )
+from src.app.repository.database import BaseModel as OrmModel
 from src.app.services.email import EmailClient
 from src.app.services.password import hash_password
 from src.app.services.storage import S3StorageBackend
 from src.app.services.user_session import create_session
+from src.app.utils import HIDDEN_FIELDS_KEY
 
 
 @pytest.fixture(autouse=True)
@@ -100,9 +106,6 @@ def create_upload(test_db: Session, test_user: User) -> Callable[..., Upload]:
         if status_values is None:
             status_values = [UploadStatusValue.UPLOAD_PENDING]
 
-        upload_repo = Repository(test_db, Upload)
-        status_repo = Repository(test_db, UploadStatus)
-
         upload = Upload(
             user_uid=owner.uid,
             original_filename=filename,
@@ -112,11 +115,11 @@ def create_upload(test_db: Session, test_user: User) -> Callable[..., Upload]:
         )
         if created_at is not None:
             upload.created_at = created_at
-        upload_repo.add(upload)
+        test_db.add(upload)
         test_db.flush()
 
         for value in status_values:
-            status_repo.add(UploadStatus(upload_uid=upload.uid, status=value))
+            test_db.add(UploadStatus(upload_uid=upload.uid, status=value))
             test_db.flush()
 
         test_db.commit()
@@ -246,8 +249,56 @@ def create_membership(
 
 
 def _make_get_db(db: Session) -> Generator[Session]:
-    """Create a get_db override that yields the given session."""
+    """Create a get_db override that yields the given session.
+
+    In production every request gets a fresh session, so field masks (which
+    live on identity-map instances) never outlive a request. Tests share ONE
+    session across fixtures and requests, so clear the masks at each request
+    boundary to get the same behaviour.
+    """
+    for state in db.identity_map.all_states():
+        state.info.pop(HIDDEN_FIELDS_KEY, None)
     yield db
+
+
+@pytest.fixture
+def system_repo[T: OrmModel](
+    test_db: Session,
+) -> Callable[[type[T]], ScopedRepository[T]]:
+    """Return a factory for unrestricted repositories on the test session."""
+
+    def _factory(entity: type[T]) -> ScopedRepository[T]:
+        return ScopedRepository(test_db, entity, SystemPolicy())
+
+    return _factory
+
+
+@pytest.fixture
+def tx(test_db: Session) -> Transaction:
+    """The test session's transaction boundary."""
+    return Transaction(test_db)
+
+
+@pytest.fixture
+def login_tokens(test_db: Session) -> ScopedRepository[LoginToken]:
+    """System-scoped LoginToken repository (sign-in has no viewer)."""
+    return ScopedRepository(test_db, LoginToken, SystemPolicy())
+
+
+@pytest.fixture
+def system_users(test_db: Session) -> ScopedRepository[User]:
+    """System-scoped User repository (sign-up/sign-in have no viewer)."""
+    return ScopedRepository(test_db, User, SystemPolicy())
+
+
+def _test_session(db: Session, user: User) -> UserSession:
+    return create_session(
+        ScopedRepository(db, UserSession, SystemPolicy()),
+        Transaction(db),
+        user.uid,
+        "testclient",
+        "testclient",
+    )
 
 
 class FakeEmailClient(EmailClient):
@@ -294,7 +345,7 @@ def client(
     app.dependency_overrides[file_storage] = S3StorageBackend
     app.dependency_overrides[email_client] = lambda: FakeEmailClient(sent_emails)
 
-    session = create_session(test_db, test_user.uid, "testclient", "testclient")
+    session = _test_session(test_db, test_user)
 
     with TestClient(app) as c:
         c.cookies.set("sessionid", session.uid)
@@ -314,7 +365,7 @@ def authenticate_as(
     """
 
     def _switch(user: User) -> TestClient:
-        session = create_session(test_db, user.uid, "testclient", "testclient")
+        session = _test_session(test_db, user)
         client.cookies.set("sessionid", session.uid)
         return client
 
