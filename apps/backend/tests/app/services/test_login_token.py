@@ -6,7 +6,7 @@ from typing import Any
 import pytest
 from sqlalchemy.orm import Session
 
-from src.app.repository import LoginToken, Repository
+from src.app.repository import LoginToken, ScopedRepository, UnitOfWork
 from src.app.services.email import EmailClient, send_login_link_email
 from src.app.services.login_token import (
     is_email_allowed,
@@ -31,16 +31,27 @@ def _sha256(value: str) -> str:
 # --- issue / verify happy path -------------------------------------------------
 
 
-def test_issue_then_verify_returns_email(test_db: Session) -> None:
-    issued = issue_login_token(test_db, "user@example.com")
+def test_issue_then_verify_returns_email(
+    test_db: Session,
+    login_tokens: ScopedRepository[LoginToken],
+    uow: UnitOfWork,
+) -> None:
+    issued = issue_login_token(login_tokens, uow, "user@example.com")
 
-    assert verify_login_token(test_db, issued.token, issued.nonce) == "user@example.com"
+    assert (
+        verify_login_token(login_tokens, uow, issued.token, issued.nonce)
+        == "user@example.com"
+    )
 
 
-def test_only_hashes_are_persisted_not_plaintext(test_db: Session) -> None:
-    issued = issue_login_token(test_db, "user@example.com")
+def test_only_hashes_are_persisted_not_plaintext(
+    test_db: Session,
+    login_tokens: ScopedRepository[LoginToken],
+    uow: UnitOfWork,
+) -> None:
+    issued = issue_login_token(login_tokens, uow, "user@example.com")
 
-    row = Repository(test_db, LoginToken).get_all().items[0]
+    row = login_tokens.get_all().items[0]
     assert row.token_hash == _sha256(issued.token)
     assert row.nonce_hash == _sha256(issued.nonce)
     assert issued.token not in (row.token_hash, row.nonce_hash)
@@ -50,62 +61,96 @@ def test_only_hashes_are_persisted_not_plaintext(test_db: Session) -> None:
 # --- single-use ----------------------------------------------------------------
 
 
-def test_token_cannot_be_reused(test_db: Session) -> None:
-    issued = issue_login_token(test_db, "user@example.com")
+def test_token_cannot_be_reused(
+    test_db: Session,
+    login_tokens: ScopedRepository[LoginToken],
+    uow: UnitOfWork,
+) -> None:
+    issued = issue_login_token(login_tokens, uow, "user@example.com")
 
-    assert verify_login_token(test_db, issued.token, issued.nonce) == "user@example.com"
-    assert verify_login_token(test_db, issued.token, issued.nonce) is None
+    assert (
+        verify_login_token(login_tokens, uow, issued.token, issued.nonce)
+        == "user@example.com"
+    )
+    assert verify_login_token(login_tokens, uow, issued.token, issued.nonce) is None
 
 
 # --- unknown / superseded ------------------------------------------------------
 
 
-def test_unknown_token_is_rejected(test_db: Session) -> None:
-    issued = issue_login_token(test_db, "user@example.com")
+def test_unknown_token_is_rejected(
+    test_db: Session,
+    login_tokens: ScopedRepository[LoginToken],
+    uow: UnitOfWork,
+) -> None:
+    issued = issue_login_token(login_tokens, uow, "user@example.com")
 
-    assert verify_login_token(test_db, "not-a-real-token", issued.nonce) is None
+    assert (
+        verify_login_token(login_tokens, uow, "not-a-real-token", issued.nonce) is None
+    )
 
 
-def test_issuing_again_revokes_the_previous_token(test_db: Session) -> None:
-    first = issue_login_token(test_db, "user@example.com")
-    second = issue_login_token(test_db, "user@example.com")
+def test_issuing_again_revokes_the_previous_token(
+    test_db: Session,
+    login_tokens: ScopedRepository[LoginToken],
+    uow: UnitOfWork,
+) -> None:
+    first = issue_login_token(login_tokens, uow, "user@example.com")
+    second = issue_login_token(login_tokens, uow, "user@example.com")
 
-    rows = Repository(test_db, LoginToken).get_all().items
+    rows = login_tokens.get_all().items
     # Soft-revoke keeps the old row for audit; exactly one stays live.
     assert len(rows) == 2
     assert sum(1 for r in rows if r.revoked_at is None) == 1
 
     # The revoked token is rejected; the live one works.
-    assert verify_login_token(test_db, first.token, first.nonce) is None
-    assert verify_login_token(test_db, second.token, second.nonce) == "user@example.com"
+    assert verify_login_token(login_tokens, uow, first.token, first.nonce) is None
+    assert (
+        verify_login_token(login_tokens, uow, second.token, second.nonce)
+        == "user@example.com"
+    )
 
 
 # --- expiry --------------------------------------------------------------------
 
 
 def test_expired_token_is_rejected(
-    test_db: Session, monkeypatch: pytest.MonkeyPatch
+    test_db: Session,
+    monkeypatch: pytest.MonkeyPatch,
+    login_tokens: ScopedRepository[LoginToken],
+    uow: UnitOfWork,
 ) -> None:
     monkeypatch.setattr(settings, "LOGIN_TOKEN_EXPIRY_MINUTES", -1)
-    issued = issue_login_token(test_db, "user@example.com")
+    issued = issue_login_token(login_tokens, uow, "user@example.com")
 
-    assert verify_login_token(test_db, issued.token, issued.nonce) is None
+    assert verify_login_token(login_tokens, uow, issued.token, issued.nonce) is None
 
 
 # --- browser-binding nonce -----------------------------------------------------
 
 
-def test_wrong_nonce_is_rejected(test_db: Session) -> None:
-    issued = issue_login_token(test_db, "user@example.com")
+def test_wrong_nonce_is_rejected(
+    test_db: Session,
+    login_tokens: ScopedRepository[LoginToken],
+    uow: UnitOfWork,
+) -> None:
+    issued = issue_login_token(login_tokens, uow, "user@example.com")
 
-    assert verify_login_token(test_db, issued.token, "wrong-nonce") is None
+    assert verify_login_token(login_tokens, uow, issued.token, "wrong-nonce") is None
     # The token is untouched by a failed attempt and still spendable.
-    assert verify_login_token(test_db, issued.token, issued.nonce) == "user@example.com"
+    assert (
+        verify_login_token(login_tokens, uow, issued.token, issued.nonce)
+        == "user@example.com"
+    )
 
 
-def test_each_token_gets_a_distinct_nonce(test_db: Session) -> None:
-    a = issue_login_token(test_db, "a@example.com")
-    b = issue_login_token(test_db, "b@example.com")
+def test_each_token_gets_a_distinct_nonce(
+    test_db: Session,
+    login_tokens: ScopedRepository[LoginToken],
+    uow: UnitOfWork,
+) -> None:
+    a = issue_login_token(login_tokens, uow, "a@example.com")
+    b = issue_login_token(login_tokens, uow, "b@example.com")
 
     assert a.nonce != b.nonce
     assert a.token != b.token
@@ -114,20 +159,31 @@ def test_each_token_gets_a_distinct_nonce(test_db: Session) -> None:
 # --- peek (non-consuming) ------------------------------------------------------
 
 
-def test_peek_does_not_consume_the_token(test_db: Session) -> None:
-    issued = issue_login_token(test_db, "user@example.com")
+def test_peek_does_not_consume_the_token(
+    test_db: Session,
+    login_tokens: ScopedRepository[LoginToken],
+    uow: UnitOfWork,
+) -> None:
+    issued = issue_login_token(login_tokens, uow, "user@example.com")
 
-    assert peek_login_token(test_db, issued.token, issued.nonce) is True
+    assert peek_login_token(login_tokens, issued.token, issued.nonce) is True
     # Peeking left it spendable.
-    assert verify_login_token(test_db, issued.token, issued.nonce) == "user@example.com"
+    assert (
+        verify_login_token(login_tokens, uow, issued.token, issued.nonce)
+        == "user@example.com"
+    )
     # Once consumed, peek reports invalid.
-    assert peek_login_token(test_db, issued.token, issued.nonce) is False
+    assert peek_login_token(login_tokens, issued.token, issued.nonce) is False
 
 
-def test_peek_rejects_wrong_nonce(test_db: Session) -> None:
-    issued = issue_login_token(test_db, "user@example.com")
+def test_peek_rejects_wrong_nonce(
+    test_db: Session,
+    login_tokens: ScopedRepository[LoginToken],
+    uow: UnitOfWork,
+) -> None:
+    issued = issue_login_token(login_tokens, uow, "user@example.com")
 
-    assert peek_login_token(test_db, issued.token, "wrong-nonce") is False
+    assert peek_login_token(login_tokens, issued.token, "wrong-nonce") is False
 
 
 # --- allowlist -----------------------------------------------------------------

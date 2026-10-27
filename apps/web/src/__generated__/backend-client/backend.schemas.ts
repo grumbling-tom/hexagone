@@ -69,14 +69,6 @@ export interface UserSessionResponse {
 }
 
 /**
- * Response body for user endpoints.
- */
-export interface UserResponse {
-  email: string;
-  uid: string;
-}
-
-/**
  * Response body for user group endpoints.
  */
 export interface UserGroupResponse {
@@ -161,6 +153,23 @@ export const SortOrder = {
   asc: 'asc',
   desc: 'desc',
 } as const;
+
+export type RedactableStrAnyOf = {
+  redacted: boolean;
+};
+
+export type RedactableStr = string | RedactableStrAnyOf;
+
+/**
+ * Response body for user endpoints.
+
+``email`` is ``{"redacted": true}`` when the viewer may not see it (they
+are not that user and share no group with them).
+ */
+export interface UserResponse {
+  email: RedactableStr;
+  uid: string;
+}
 
 export type PaginatedResultUserResponsePreviousCursor = string | null;
 

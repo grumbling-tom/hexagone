@@ -4,20 +4,18 @@ import uuid
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
-from sqlalchemy.orm import Session as DBSession
-
 from src.app.repository import (
     Equals,
     HexClaim,
     In,
-    Repository,
+    ScopedRepository,
+    UnitOfWork,
     Upload,
     UploadStatus,
     UploadStatusValue,
 )
 from src.app.repository.models import User
 from src.app.services.gpx import GpxValidationError, gpx_bytes_to_polygons
-from src.app.services.permissions import permissions_predicates
 from src.app.services.storage import StorageBackend
 from src.app.settings import settings
 from src.app.utils import PaginatedResult, SortOrder, get_logger
@@ -68,15 +66,21 @@ def maybe_presigned_url(
 
 
 def create_upload(
-    db: DBSession,
+    uploads: ScopedRepository[Upload],
+    uow: UnitOfWork,
     user: User,
     original_filename: str,
     file_size_bytes: int,
 ) -> Upload:
     """Create a new upload record with initial UPLOAD_PENDING status.
 
+    The status row is attached through ``Upload.statuses`` and inserted by the
+    same guarded ``create``, so it rides on the Upload's CREATE rule (the
+    viewer owns it) — the viewer has no rule to create statuses directly.
+
     Args:
-        db: Database session.
+        uploads: Upload repository.
+        uow: Transaction boundary.
         user: The authenticated user.
         original_filename: Client-provided filename.
         file_size_bytes: Expected file size in bytes.
@@ -86,26 +90,17 @@ def create_upload(
     """
     s3_key = f"v1/uploads/{uuid.uuid4()}"
 
-    upload_repo = Repository(db, Upload)
-    status_repo = Repository(db, UploadStatus)
-
-    upload = Upload(
-        user_uid=user.uid,
-        original_filename=original_filename,
-        file_size_bytes=file_size_bytes,
-        s3_bucket_name=settings.HEXAGONE_S3_BUCKET,
-        s3_key=s3_key,
+    upload = uploads.create(
+        Upload(
+            user_uid=user.uid,
+            original_filename=original_filename,
+            file_size_bytes=file_size_bytes,
+            s3_bucket_name=settings.HEXAGONE_S3_BUCKET,
+            s3_key=s3_key,
+            statuses=[UploadStatus(status=UploadStatusValue.UPLOAD_PENDING)],
+        )
     )
-    upload_repo.add(upload)
-    db.flush()
-
-    status = UploadStatus(
-        upload_uid=upload.uid,
-        status=UploadStatusValue.UPLOAD_PENDING,
-    )
-    status_repo.add(status)
-    db.commit()
-    db.refresh(upload)
+    uow.commit()
 
     logger.info(
         "upload_created",
@@ -116,8 +111,9 @@ def create_upload(
     return upload
 
 
-def set_upload_status(
-    db: DBSession,
+def set_upload_status(  # noqa: PLR0913
+    statuses: ScopedRepository[UploadStatus],
+    uow: UnitOfWork,
     upload: Upload,
     status: UploadStatusValue,
     *,
@@ -131,7 +127,7 @@ def set_upload_status(
     status flip with other writes (e.g. bulk hex_claim inserts) into a
     single transaction.
     """
-    db.add(
+    statuses.create(
         UploadStatus(
             upload_uid=upload.uid,
             status=status,
@@ -140,12 +136,11 @@ def set_upload_status(
         )
     )
     if commit:
-        db.commit()
+        uow.commit()
 
 
 def list_uploads(  # noqa: PLR0913
-    db: DBSession,
-    user: User,
+    uploads: ScopedRepository[Upload],
     page_size: int = settings.DEFAULT_PAGE_SIZE,
     cursor: str | None = None,
     statuses: list[UploadStatusValue] | None = None,
@@ -155,8 +150,7 @@ def list_uploads(  # noqa: PLR0913
     """List uploads for the authenticated user, filtered by status.
 
     Args:
-        db: Database session.
-        user: The authenticated user.
+        uploads: Upload repository (the policy narrows it to the viewer's own).
         page_size: Number of items per page.
         cursor: Pagination cursor.
         statuses: Filter by most recent status values.
@@ -173,12 +167,8 @@ def list_uploads(  # noqa: PLR0913
             UploadStatusValue.UPLOAD_INVALID,
         ]
 
-    filters = permissions_predicates(user, Upload)
-    filters.append(In(field="current_status", values=statuses))
-
-    upload_repo = Repository(db, Upload)
-    return upload_repo.get_filtered(
-        filters=filters,
+    return uploads.get_filtered(
+        filters=[In(field="current_status", values=statuses)],
         page_size=page_size,
         cursor=cursor,
         sort_field=getattr(Upload, sort_field),
@@ -186,16 +176,23 @@ def list_uploads(  # noqa: PLR0913
     )
 
 
-def find_upload_by_s3_key(db: DBSession, key: str) -> Upload | None:
+def find_upload_by_s3_key(uploads: ScopedRepository[Upload], key: str) -> Upload | None:
     """Find an Upload record by its associated object key."""
-    result = Repository(db, Upload).get_filtered(
+    result = uploads.get_filtered(
         filters=[Equals(field="s3_key", value=key)],
         page_size=1,
     )
     return result.items[0] if result.items else None
 
 
-def process_upload(db: DBSession, key: str, storage: StorageBackend) -> None:
+def process_upload(  # noqa: PLR0913
+    uploads: ScopedRepository[Upload],
+    statuses: ScopedRepository[UploadStatus],
+    claims: ScopedRepository[HexClaim],
+    uow: UnitOfWork,
+    key: str,
+    storage: StorageBackend,
+) -> None:
     """Process an uploaded GPX object: parse it and record hex claims.
 
     Extracted from the former AWS Lambda S3-event handler — called with an
@@ -210,9 +207,10 @@ def process_upload(db: DBSession, key: str, storage: StorageBackend) -> None:
     failures propagate, so the caller's queue can retry those.
 
     The caller owns the session lifecycle (e.g. the worker opens one via
-    ``get_db()``); this function manages its own commits within it.
+    ``get_db()``) and builds system-scoped repositories on it — the worker
+    has no viewer; this function manages its own commits within it.
     """
-    upload = find_upload_by_s3_key(db, key)
+    upload = find_upload_by_s3_key(uploads, key)
 
     if not upload:
         logger.warning("upload_not_found", key=key)
@@ -222,7 +220,7 @@ def process_upload(db: DBSession, key: str, storage: StorageBackend) -> None:
         logger.info("upload_not_pending", key=key, status=upload.current_status)
         return
 
-    set_upload_status(db, upload, UploadStatusValue.UPLOAD_RECEIVED)
+    set_upload_status(statuses, uow, upload, UploadStatusValue.UPLOAD_RECEIVED)
     logger.info("upload_status_updated", key=key, status="UPLOAD_RECEIVED")
 
     data = storage.get_object(key)
@@ -231,10 +229,12 @@ def process_upload(db: DBSession, key: str, storage: StorageBackend) -> None:
         polygons = gpx_bytes_to_polygons(data, resolution=settings.H3_RESOLUTION)
     except GpxValidationError as e:
         logger.warning("gpx_invalid", key=key, reason=e.reason)
-        set_upload_status(db, upload, UploadStatusValue.UPLOAD_INVALID, detail=e.reason)
+        set_upload_status(
+            statuses, uow, upload, UploadStatusValue.UPLOAD_INVALID, detail=e.reason
+        )
         return
 
-    claims = [
+    new_claims = [
         HexClaim(
             upload_uid=upload.uid,
             user_uid=upload.user_uid,
@@ -250,14 +250,16 @@ def process_upload(db: DBSession, key: str, storage: StorageBackend) -> None:
 
     # Bulk insert + UPLOAD_SUCCESS share a single transaction so a failed
     # insert does not leave a misleading success status.
-    db.add_all(claims)
-    set_upload_status(db, upload, UploadStatusValue.UPLOAD_SUCCESS, commit=False)
-    db.commit()
+    claims.create_many(new_claims)
+    set_upload_status(
+        statuses, uow, upload, UploadStatusValue.UPLOAD_SUCCESS, commit=False
+    )
+    uow.commit()
 
     # TODO: Consider an UPLOAD_FAILED status for bulk insert failures.
     logger.info(
         "upload_processed",
         key=key,
         polygon_count=len(polygons),
-        cells_inserted=len(claims),
+        cells_inserted=len(new_claims),
     )

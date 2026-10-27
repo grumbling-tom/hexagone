@@ -6,7 +6,7 @@ from datetime import UTC, datetime
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
-from src.app.repository import HexClaim, Upload, User
+from src.app.repository import HexClaim, ScopedRepository, SystemPolicy, Upload, User
 from src.app.services.password import hash_password
 
 # ---------------------------------------------------------------------------
@@ -161,8 +161,9 @@ def test_list_aggregated_hex_claims_by_cell_first_last_timestamps(
     upload = create_upload("hike.gpx")
     a = create_hex_claim(upload, h3_cell="8c1f1d2806467ff", polygon_index=0)
     b = create_hex_claim(upload, h3_cell="8c1f1d2806467ff", polygon_index=1)
-    a.created_at = datetime(2026, 1, 1, tzinfo=UTC)
-    b.created_at = datetime(2026, 6, 1, tzinfo=UTC)
+    claims = ScopedRepository(test_db, HexClaim, SystemPolicy())
+    claims.update(a.uid, {"created_at": datetime(2026, 1, 1, tzinfo=UTC)})
+    claims.update(b.uid, {"created_at": datetime(2026, 6, 1, tzinfo=UTC)})
     test_db.commit()
 
     response = client.get("/api/v1/aggregated-hex-claims?by=hex_cell")

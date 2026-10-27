@@ -5,9 +5,8 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from pydantic import Field
-from sqlalchemy.orm import Session
 
-from src.app.dependencies import authenticated_user, db_session
+from src.app.dependencies import GroupRepo, MembershipRepo, UoWDep, authenticated_user
 from src.app.repository import User
 from src.app.services import user_group as user_group_service
 from src.app.settings import settings
@@ -49,23 +48,25 @@ class UserGroupResponse(BaseSchema):
 def create_user_group(
     body: CreateUserGroupRequest,
     user: Annotated[User, Depends(authenticated_user)],
-    db: Annotated[Session, Depends(db_session)],
+    groups: GroupRepo,
+    memberships: MembershipRepo,
+    uow: UoWDep,
 ) -> UserGroupResponse:
     """Create a new group with the caller as owner and sole initial member."""
-    group = user_group_service.create_group(db, user, name=body.name)
+    group = user_group_service.create_group(
+        groups, memberships, uow, user, name=body.name
+    )
     return UserGroupResponse.model_validate(group)
 
 
 @router.get("/user-groups", operation_id="listUserGroups")
 def list_user_groups(
-    user: Annotated[User, Depends(authenticated_user)],
-    db: Annotated[Session, Depends(db_session)],
+    groups: GroupRepo,
     params: Annotated[ListUserGroupsParams, Query()],
 ) -> PaginatedResult[UserGroupResponse]:
     """List the caller's non-archived groups, newest first."""
     result = user_group_service.list_groups(
-        db,
-        user,
+        groups,
         page_size=params.page_size,
         cursor=params.cursor,
     )
@@ -79,13 +80,9 @@ def list_user_groups(
 
 
 @router.get("/user-groups/{group_uid}", operation_id="getUserGroup")
-def get_user_group(
-    group_uid: str,
-    user: Annotated[User, Depends(authenticated_user)],
-    db: Annotated[Session, Depends(db_session)],
-) -> UserGroupResponse:
+def get_user_group(group_uid: str, groups: GroupRepo) -> UserGroupResponse:
     """Return one group the caller belongs to. 404 if not a member."""
-    group = user_group_service.get_group(db, user, group_uid)
+    group = user_group_service.get_group(groups, group_uid)
     if group is None:
         raise HTTPException(status_code=404, detail="Group not found")
     return UserGroupResponse.model_validate(group)
@@ -95,11 +92,11 @@ def get_user_group(
 def update_user_group(
     group_uid: str,
     body: UpdateUserGroupRequest,
-    user: Annotated[User, Depends(authenticated_user)],
-    db: Annotated[Session, Depends(db_session)],
+    groups: GroupRepo,
+    uow: UoWDep,
 ) -> UserGroupResponse:
     """Rename a group. Owner only."""
-    group = user_group_service.update_group(db, user, group_uid, name=body.name)
+    group = user_group_service.update_group(groups, uow, group_uid, name=body.name)
     return UserGroupResponse.model_validate(group)
 
 
@@ -108,11 +105,7 @@ def update_user_group(
     status_code=204,
     operation_id="deleteUserGroup",
 )
-def delete_user_group(
-    group_uid: str,
-    user: Annotated[User, Depends(authenticated_user)],
-    db: Annotated[Session, Depends(db_session)],
-) -> Response:
+def delete_user_group(group_uid: str, groups: GroupRepo, uow: UoWDep) -> Response:
     """Soft-delete (archive) a group. Owner only."""
-    user_group_service.archive_group(db, user, group_uid)
+    user_group_service.archive_group(groups, uow, group_uid)
     return Response(status_code=204)

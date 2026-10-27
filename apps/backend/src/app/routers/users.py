@@ -4,9 +4,16 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from pydantic import EmailStr, Field
-from sqlalchemy.orm import Session
 
-from src.app.dependencies import authenticated_user, db_session, email_client
+from src.app.dependencies import (
+    GroupRepo,
+    SessionRepo,
+    SystemUserRepo,
+    UoWDep,
+    UserRepo,
+    authenticated_user,
+    email_client,
+)
 from src.app.repository import User
 from src.app.services import user as user_service
 from src.app.services import user_group as user_group_service
@@ -15,7 +22,13 @@ from src.app.services.user import DuplicateEmailError
 from src.app.services.user import create_user as create_user_service
 from src.app.services.user_session import create_session
 from src.app.settings import settings
-from src.app.utils import BaseSchema, PaginatedResult, get_client_ip, get_logger
+from src.app.utils import (
+    BaseSchema,
+    PaginatedResult,
+    Redactable,
+    get_client_ip,
+    get_logger,
+)
 
 logger = get_logger(__name__)
 
@@ -43,29 +56,35 @@ class ListUsersParams(BaseSchema):
 
 
 class UserResponse(BaseSchema):
-    """Response body for user endpoints."""
+    """Response body for user endpoints.
+
+    ``email`` is ``{"redacted": true}`` when the viewer may not see it (they
+    are not that user and share no group with them).
+    """
 
     uid: str
-    email: str
+    email: Redactable[str]
 
 
 @router.post("/users", status_code=201, operation_id="createUser")
-def create_user(
+def create_user(  # noqa: PLR0913 — FastAPI-injected deps
     body: CreateUserRequest,
     request: Request,
     response: Response,
-    db: Annotated[Session, Depends(db_session)],
+    users: SystemUserRepo,
+    sessions: SessionRepo,
+    uow: UoWDep,
     email: Annotated[EmailClient, Depends(email_client)],
 ) -> UserResponse:
     """Create a new user account and start a session."""
     try:
-        user = create_user_service(db, body.email, body.password)
+        user = create_user_service(users, uow, body.email, body.password)
     except DuplicateEmailError:
         raise HTTPException(status_code=409, detail="Email already taken") from None
 
     user_agent = request.headers.get("user-agent", "")
     ip_address = get_client_ip(request)
-    session = create_session(db, user.uid, user_agent, ip_address)
+    session = create_session(sessions, uow, user.uid, user_agent, ip_address)
 
     response.set_cookie(
         key=settings.SESSION_COOKIE_NAME,
@@ -87,8 +106,8 @@ def create_user(
 
 @router.get("/users", operation_id="listUsers")
 def list_users(
-    user: Annotated[User, Depends(authenticated_user)],
-    db: Annotated[Session, Depends(db_session)],
+    users: UserRepo,
+    groups: GroupRepo,
     params: Annotated[ListUsersParams, Query()],
 ) -> PaginatedResult[UserResponse]:
     """List users filtered by group membership.
@@ -97,8 +116,8 @@ def list_users(
     """
     try:
         result = user_service.list_users(
-            db,
-            user,
+            users,
+            groups,
             group_uid=params.group_uid,
             page_size=params.page_size,
             cursor=params.cursor,

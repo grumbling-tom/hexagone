@@ -5,9 +5,8 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Response
 from pydantic import EmailStr
-from sqlalchemy.orm import Session
 
-from src.app.dependencies import db_session, email_client
+from src.app.dependencies import LoginTokenRepo, UoWDep, email_client
 from src.app.services.email import EmailClient, send_login_link_email
 from src.app.services.login_token import is_email_allowed, issue_login_token
 from src.app.settings import settings
@@ -27,7 +26,8 @@ class CreateLoginTokenRequest(BaseSchema):
 @router.post("/login-tokens", status_code=202, operation_id="createLoginToken")
 def create_login_token(
     body: CreateLoginTokenRequest,
-    db: Annotated[Session, Depends(db_session)],
+    tokens: LoginTokenRepo,
+    uow: UoWDep,
     mailer: Annotated[EmailClient, Depends(email_client)],
 ) -> Response:
     """Request a magic-link sign-in email (enumeration-safe).
@@ -48,7 +48,7 @@ def create_login_token(
     nonce = secrets.token_urlsafe(settings.LOGIN_TOKEN_SECRET_BYTES)
 
     if is_email_allowed(body.email):
-        issued = issue_login_token(db, body.email)
+        issued = issue_login_token(tokens, uow, body.email)
         nonce = issued.nonce
         try:
             send_login_link_email(mailer, to_email=body.email, token=issued.token)

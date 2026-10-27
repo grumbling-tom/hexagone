@@ -17,6 +17,7 @@ from .database import (
     engine,
     get_db,
 )
+from .gating import UnhandledPredicateError, gate
 from .models import (
     HexClaim,
     LoginToken,
@@ -28,8 +29,12 @@ from .models import (
     UserGroupMembership,
     UserSession,
 )
+from .policy import FieldRules, Operation, Policy, SystemPolicy, queryable_fields
 from .predicates import (
+    And,
+    Anyone,
     Equals,
+    FieldPredicate,
     Filter,
     GreaterThan,
     GreaterThanOrEqual,
@@ -39,6 +44,7 @@ from .predicates import (
     LessThan,
     LessThanOrEqual,
     Like,
+    Nobody,
     NotEquals,
     NotIn,
     Or,
@@ -46,12 +52,26 @@ from .predicates import (
     Range,
     Related,
 )
-from .repository import NotAuthorisedError, Repository
+from .repository import (
+    NotAuthorisedError,
+    PolicyConflictError,
+    ScopedRepository,
+    UnitOfWork,
+    UnscopedWriteError,
+    UnsortableFieldError,
+    forbid_unscoped_writes,
+    hidden_fields,
+    hide,
+)
 from .views import HexClaimByCell, View
 
 __all__ = [
+    "And",
+    "Anyone",
     "BaseModel",
     "Equals",
+    "FieldPredicate",
+    "FieldRules",
     "Filter",
     "GreaterThan",
     "GreaterThanOrEqual",
@@ -64,15 +84,24 @@ __all__ = [
     "LessThanOrEqual",
     "Like",
     "LoginToken",
+    "Nobody",
     "NotAuthorisedError",
     "NotEquals",
     "NotIn",
+    "Operation",
     "Or",
+    "Policy",
+    "PolicyConflictError",
     "Predicate",
     "Range",
     "Related",
-    "Repository",
+    "ScopedRepository",
     "SessionLocal",
+    "SystemPolicy",
+    "UnhandledPredicateError",
+    "UnitOfWork",
+    "UnscopedWriteError",
+    "UnsortableFieldError",
     "Upload",
     "UploadStatus",
     "UploadStatusValue",
@@ -83,5 +112,10 @@ __all__ = [
     "View",
     "check_database_health",
     "engine",
+    "forbid_unscoped_writes",
+    "gate",
     "get_db",
+    "hidden_fields",
+    "hide",
+    "queryable_fields",
 ]

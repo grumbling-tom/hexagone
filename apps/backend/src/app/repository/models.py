@@ -289,6 +289,11 @@ class UserGroupMembership(BaseModel):
     )
 
     user: Mapped[User] = relationship("User", lazy="selectin")
+    # Query-shape only (like UserGroup.members): lets the membership READ rule
+    # say "a membership of a group the viewer can read" with ``Related``.
+    user_group: Mapped[UserGroup] = relationship(
+        "UserGroup", viewonly=True, lazy="raise"
+    )
 
 
 class UserSession(BaseModel):

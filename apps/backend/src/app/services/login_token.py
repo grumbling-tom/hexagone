@@ -17,9 +17,14 @@ import secrets
 from datetime import UTC, datetime, timedelta
 
 from pydantic import BaseModel, ConfigDict
-from sqlalchemy.orm import Session as DBSession
 
-from src.app.repository import Equals, IsNull, LoginToken, Repository
+from src.app.repository import (
+    Equals,
+    IsNull,
+    LoginToken,
+    ScopedRepository,
+    UnitOfWork,
+)
 from src.app.settings import settings
 from src.app.utils import get_logger, mask_email
 
@@ -63,7 +68,9 @@ def is_email_allowed(email: str) -> bool:
     return email in settings.ALLOWED_EMAILS
 
 
-def issue_login_token(db: DBSession, email: str) -> IssuedLoginToken:
+def issue_login_token(
+    tokens: ScopedRepository[LoginToken], uow: UnitOfWork, email: str
+) -> IssuedLoginToken:
     """Issue a single-use magic-link token (and browser nonce) for *email*.
 
     Supersedes any outstanding token for the same email, so at most one token is
@@ -71,21 +78,21 @@ def issue_login_token(db: DBSession, email: str) -> IssuedLoginToken:
     plaintext secrets are returned to the caller and never stored or logged.
 
     Args:
-        db: Database session.
+        tokens: LoginToken repository (system-scoped: there's no viewer yet).
+        uow: Transaction boundary.
         email: Target email address, already ``EmailStr``-normalised by the
             request boundary — this service does not re-normalise.
 
     Returns:
         The plaintext token and nonce, to deliver over the two channels.
     """
-    repo = Repository(db, LoginToken)
     now = datetime.now(UTC)
 
     # Revoke any live token for this email (soft delete via revoked_at, keeping
     # the row for audit) — one live token per email. Filter on revoked_at IS
     # NULL so we only touch live tokens, never paginating over the accumulating
     # history of already-revoked/used rows.
-    live = repo.get_filtered(
+    live = tokens.get_filtered(
         filters=[
             Equals(field="email", value=email),
             IsNull(field="revoked_at"),
@@ -93,13 +100,13 @@ def issue_login_token(db: DBSession, email: str) -> IssuedLoginToken:
         page_size=100,
     )
     for token in live.items:
-        token.revoked_at = now
+        tokens.update(token.uid, {"revoked_at": now})
 
     plaintext_token = secrets.token_urlsafe(settings.LOGIN_TOKEN_SECRET_BYTES)
     plaintext_nonce = secrets.token_urlsafe(settings.LOGIN_TOKEN_SECRET_BYTES)
     expires_at = now + timedelta(minutes=settings.LOGIN_TOKEN_EXPIRY_MINUTES)
 
-    repo.add(
+    tokens.create(
         LoginToken(
             email=email,
             token_hash=_hash_secret(plaintext_token),
@@ -107,7 +114,7 @@ def issue_login_token(db: DBSession, email: str) -> IssuedLoginToken:
             expires_at=expires_at,
         )
     )
-    db.commit()
+    uow.commit()
 
     logger.info(
         "login_token_issued",
@@ -117,7 +124,9 @@ def issue_login_token(db: DBSession, email: str) -> IssuedLoginToken:
     return IssuedLoginToken(token=plaintext_token, nonce=plaintext_nonce)
 
 
-def _find_spendable_token(db: DBSession, token: str, nonce: str) -> LoginToken | None:
+def _find_spendable_token(
+    tokens: ScopedRepository[LoginToken], token: str, nonce: str
+) -> LoginToken | None:
     """Return the live, unspent ``LoginToken`` for *token* + *nonce*, else None.
 
     Non-consuming: runs every validity check (token hash match, browser-binding
@@ -126,7 +135,7 @@ def _find_spendable_token(db: DBSession, token: str, nonce: str) -> LoginToken |
     (which doesn't).
     """
     token_hash = _hash_secret(token)
-    matches = Repository(db, LoginToken).get_filtered(
+    matches = tokens.get_filtered(
         filters=[Equals(field="token_hash", value=token_hash)],
         page_size=1,
     )
@@ -168,7 +177,9 @@ def _find_spendable_token(db: DBSession, token: str, nonce: str) -> LoginToken |
     return login_token
 
 
-def verify_login_token(db: DBSession, token: str, nonce: str) -> str | None:
+def verify_login_token(
+    tokens: ScopedRepository[LoginToken], uow: UnitOfWork, token: str, nonce: str
+) -> str | None:
     """Consume a magic-link token and return the email it was issued for.
 
     **POST-only / single-use.** This is the spend step: on success it stamps
@@ -177,25 +188,28 @@ def verify_login_token(db: DBSession, token: str, nonce: str) -> str | None:
     ``peek_login_token`` for read-only validity checks.
 
     Args:
-        db: Database session.
+        tokens: LoginToken repository (system-scoped).
+        uow: Transaction boundary.
         token: Plaintext token from the magic link.
         nonce: Plaintext browser-binding nonce from the requester's cookie.
 
     Returns:
         The email address (lowercased) if token + nonce are valid, else None.
     """
-    login_token = _find_spendable_token(db, token, nonce)
+    login_token = _find_spendable_token(tokens, token, nonce)
     if login_token is None:
         return None
 
-    login_token.used_at = datetime.now(UTC)
-    db.commit()
+    login_token = tokens.update(login_token.uid, {"used_at": datetime.now(UTC)})
+    uow.commit()
 
     logger.info("login_token_verified", email=mask_email(login_token.email))
     return login_token.email
 
 
-def peek_login_token(db: DBSession, token: str, nonce: str) -> bool:
+def peek_login_token(
+    tokens: ScopedRepository[LoginToken], token: str, nonce: str
+) -> bool:
     """Return whether *token* + *nonce* is currently valid, without consuming it.
 
     Lets an idempotent GET landing page show "expired/invalid" without spending
@@ -203,4 +217,4 @@ def peek_login_token(db: DBSession, token: str, nonce: str) -> bool:
     that GET the link can't burn it. The token is only spent by
     ``verify_login_token`` on an explicit POST.
     """
-    return _find_spendable_token(db, token, nonce) is not None
+    return _find_spendable_token(tokens, token, nonce) is not None

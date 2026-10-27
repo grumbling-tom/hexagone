@@ -12,7 +12,9 @@ from sqlalchemy.orm import Session
 
 from src.app.repository import (
     HexClaim,
-    Repository,
+    ScopedRepository,
+    SystemPolicy,
+    UnitOfWork,
     Upload,
     UploadStatus,
     UploadStatusValue,
@@ -20,6 +22,7 @@ from src.app.repository import (
 )
 from src.app.services.gpx import Point
 from src.app.services.password import hash_password
+from src.app.services.permissions import ViewerPolicy
 from src.app.services.storage import S3StorageBackend
 from src.app.services.upload import (
     create_upload,
@@ -48,6 +51,29 @@ def s3_client() -> S3Client:
     return boto3.client("s3", region_name="eu-west-2")  # pyright: ignore[reportUnknownMemberType]
 
 
+@pytest.fixture
+def uploads(test_db: Session, test_user: User) -> ScopedRepository[Upload]:
+    """Upload repository scoped to ``test_user``."""
+    return ScopedRepository(test_db, Upload, ViewerPolicy(test_user))
+
+
+@pytest.fixture
+def process(test_db: Session) -> Callable[[str], None]:
+    """Run the worker on an object key, as the worker does: system-scoped."""
+
+    def _run(key: str) -> None:
+        process_upload(
+            ScopedRepository(test_db, Upload, SystemPolicy()),
+            ScopedRepository(test_db, UploadStatus, SystemPolicy()),
+            ScopedRepository(test_db, HexClaim, SystemPolicy()),
+            UnitOfWork(test_db),
+            key,
+            S3StorageBackend(),
+        )
+
+    return _run
+
+
 def _latest_status(db: Session, upload: Upload) -> UploadStatus:
     db.refresh(upload)
     return upload.statuses[-1]
@@ -62,9 +88,15 @@ def _hex_claims_for(db: Session, upload: Upload) -> list[HexClaim]:
     )
 
 
-def test_create_upload(test_db: Session, test_user: User):
+def test_create_upload(
+    test_db: Session,
+    test_user: User,
+    uploads: ScopedRepository[Upload],
+    uow: UnitOfWork,
+):
     upload = create_upload(
-        db=test_db,
+        uploads,
+        uow,
         user=test_user,
         original_filename="test.gpx",
         file_size_bytes=1024,
@@ -76,9 +108,15 @@ def test_create_upload(test_db: Session, test_user: User):
     assert upload.s3_key.startswith("v1/uploads/")
 
 
-def test_create_upload_persists(test_db: Session, test_user: User):
+def test_create_upload_persists(
+    test_db: Session,
+    test_user: User,
+    uploads: ScopedRepository[Upload],
+    uow: UnitOfWork,
+):
     upload = create_upload(
-        db=test_db,
+        uploads,
+        uow,
         user=test_user,
         original_filename="track.gpx",
         file_size_bytes=2048,
@@ -94,38 +132,52 @@ def test_create_upload_persists(test_db: Session, test_user: User):
     assert statuses[0].status == UploadStatusValue.UPLOAD_PENDING
 
 
-def test_list_uploads_excludes_pending(test_db: Session, test_user: User):
+def test_list_uploads_excludes_pending(
+    test_db: Session,
+    test_user: User,
+    uploads: ScopedRepository[Upload],
+    uow: UnitOfWork,
+):
     create_upload(
-        db=test_db,
+        uploads,
+        uow,
         user=test_user,
         original_filename="pending.gpx",
         file_size_bytes=100,
     )
 
-    result = list_uploads(db=test_db, user=test_user)
+    result = list_uploads(uploads)
     assert len(result.items) == 0
 
 
 def test_list_uploads_includes_pending_when_requested(
-    test_db: Session, test_user: User
+    test_db: Session,
+    test_user: User,
+    uploads: ScopedRepository[Upload],
+    uow: UnitOfWork,
 ):
     create_upload(
-        db=test_db,
+        uploads,
+        uow,
         user=test_user,
         original_filename="pending.gpx",
         file_size_bytes=100,
     )
 
     result = list_uploads(
-        db=test_db,
-        user=test_user,
+        uploads,
         statuses=[UploadStatusValue.UPLOAD_PENDING],
     )
     assert len(result.items) == 1
     assert result.items[0].current_status == UploadStatusValue.UPLOAD_PENDING
 
 
-def test_list_uploads_filters_by_user(test_db: Session, test_user: User):
+def test_list_uploads_filters_by_user(
+    test_db: Session,
+    test_user: User,
+    uploads: ScopedRepository[Upload],
+    uow: UnitOfWork,
+):
     other_user = User(
         email="other@example.com",
         password_hash=hash_password("pass"),
@@ -135,30 +187,35 @@ def test_list_uploads_filters_by_user(test_db: Session, test_user: User):
     test_db.refresh(other_user)
 
     create_upload(
-        db=test_db,
+        ScopedRepository(test_db, Upload, ViewerPolicy(other_user)),
+        uow,
         user=other_user,
         original_filename="other.gpx",
         file_size_bytes=100,
     )
 
     result = list_uploads(
-        db=test_db,
-        user=test_user,
+        uploads,
         statuses=[UploadStatusValue.UPLOAD_PENDING],
     )
     assert len(result.items) == 0
 
 
-def test_list_uploads_with_received_status(test_db: Session, test_user: User):
+def test_list_uploads_with_received_status(
+    test_db: Session,
+    test_user: User,
+    uploads: ScopedRepository[Upload],
+    uow: UnitOfWork,
+):
     upload = create_upload(
-        db=test_db,
+        uploads,
+        uow,
         user=test_user,
         original_filename="received.gpx",
         file_size_bytes=500,
     )
 
-    status_repo = Repository(test_db, UploadStatus)
-    status_repo.add(
+    test_db.add(
         UploadStatus(
             upload_uid=upload.uid,
             status=UploadStatusValue.UPLOAD_RECEIVED,
@@ -166,23 +223,27 @@ def test_list_uploads_with_received_status(test_db: Session, test_user: User):
     )
     test_db.commit()
 
-    result = list_uploads(db=test_db, user=test_user)
+    result = list_uploads(uploads)
     assert len(result.items) == 1
     assert result.items[0].current_status == UploadStatusValue.UPLOAD_RECEIVED
 
 
-def test_list_uploads_pagination_with_status_filter(test_db: Session, test_user: User):
-    status_repo = Repository(test_db, UploadStatus)
-
+def test_list_uploads_pagination_with_status_filter(
+    test_db: Session,
+    test_user: User,
+    uploads: ScopedRepository[Upload],
+    uow: UnitOfWork,
+):
     # Create 5 RECEIVED uploads
     for i in range(5):
         upload = create_upload(
-            db=test_db,
+            uploads,
+            uow,
             user=test_user,
             original_filename=f"received_{i}.gpx",
             file_size_bytes=100,
         )
-        status_repo.add(
+        test_db.add(
             UploadStatus(
                 upload_uid=upload.uid,
                 status=UploadStatusValue.UPLOAD_RECEIVED,
@@ -193,21 +254,21 @@ def test_list_uploads_pagination_with_status_filter(test_db: Session, test_user:
     # Create 5 PENDING uploads (excluded by default filter)
     for i in range(5):
         create_upload(
-            db=test_db,
+            uploads,
+            uow,
             user=test_user,
             original_filename=f"pending_{i}.gpx",
             file_size_bytes=100,
         )
 
     # First page: exactly 3 items
-    page1 = list_uploads(db=test_db, user=test_user, page_size=3)
+    page1 = list_uploads(uploads, page_size=3)
     assert len(page1.items) == 3
     assert page1.has_next is True
 
     # Second page: exactly 2 items
     page2 = list_uploads(
-        db=test_db,
-        user=test_user,
+        uploads,
         page_size=3,
         cursor=page1.next_cursor,
     )
@@ -222,9 +283,6 @@ def _create_upload_with_status(
     filename: str = "test.gpx",
 ) -> Upload:
     """Helper to create an upload and advance it to the given status."""
-    upload_repo = Repository(test_db, Upload)
-    status_repo = Repository(test_db, UploadStatus)
-
     upload = Upload(
         user_uid=test_user.uid,
         original_filename=filename,
@@ -232,16 +290,16 @@ def _create_upload_with_status(
         s3_bucket_name="test-bucket",
         s3_key=f"uploads/test/{filename}",
     )
-    upload_repo.add(upload)
+    test_db.add(upload)
     test_db.flush()
-    status_repo.add(
+    test_db.add(
         UploadStatus(
             upload_uid=upload.uid,
             status=UploadStatusValue.UPLOAD_PENDING,
         )
     )
     if status != UploadStatusValue.UPLOAD_PENDING:
-        status_repo.add(
+        test_db.add(
             UploadStatus(
                 upload_uid=upload.uid,
                 status=status,
@@ -252,7 +310,10 @@ def _create_upload_with_status(
     return upload
 
 
-def test_maybe_presigned_url_non_pending(test_db: Session, test_user: User):
+def test_maybe_presigned_url_non_pending(
+    test_db: Session,
+    test_user: User,
+):
     """Non-pending uploads should get a presigned GET URL."""
     upload = _create_upload_with_status(
         test_db, test_user, UploadStatusValue.UPLOAD_RECEIVED, "received.gpx"
@@ -265,7 +326,10 @@ def test_maybe_presigned_url_non_pending(test_db: Session, test_user: User):
     assert headers is None
 
 
-def test_maybe_presigned_url_get_url_for_received(test_db: Session, test_user: User):
+def test_maybe_presigned_url_get_url_for_received(
+    test_db: Session,
+    test_user: User,
+):
     """UPLOAD_RECEIVED uploads should get a GET URL with no required_headers."""
     upload = _create_upload_with_status(
         test_db, test_user, UploadStatusValue.UPLOAD_RECEIVED, "received.gpx"
@@ -278,7 +342,10 @@ def test_maybe_presigned_url_get_url_for_received(test_db: Session, test_user: U
     assert headers is None
 
 
-def test_maybe_presigned_url_get_url_for_success(test_db: Session, test_user: User):
+def test_maybe_presigned_url_get_url_for_success(
+    test_db: Session,
+    test_user: User,
+):
     """UPLOAD_SUCCESS uploads should get a GET URL with no required_headers."""
     upload = _create_upload_with_status(
         test_db, test_user, UploadStatusValue.UPLOAD_SUCCESS, "success.gpx"
@@ -291,11 +358,11 @@ def test_maybe_presigned_url_get_url_for_success(test_db: Session, test_user: Us
     assert headers is None
 
 
-def test_maybe_presigned_url_old_pending(test_db: Session, test_user: User):
+def test_maybe_presigned_url_old_pending(
+    test_db: Session,
+    test_user: User,
+):
     """Pending uploads older than the window should not get a presigned URL."""
-    upload_repo = Repository(test_db, Upload)
-    status_repo = Repository(test_db, UploadStatus)
-
     upload = Upload(
         user_uid=test_user.uid,
         original_filename="old.gpx",
@@ -304,9 +371,9 @@ def test_maybe_presigned_url_old_pending(test_db: Session, test_user: User):
         s3_key="uploads/test/old.gpx",
         created_at=datetime.now(UTC) - timedelta(minutes=10),
     )
-    upload_repo.add(upload)
+    test_db.add(upload)
     test_db.flush()
-    status_repo.add(
+    test_db.add(
         UploadStatus(
             upload_uid=upload.uid,
             status=UploadStatusValue.UPLOAD_PENDING,
@@ -321,10 +388,16 @@ def test_maybe_presigned_url_old_pending(test_db: Session, test_user: User):
     assert headers is None
 
 
-def test_maybe_presigned_url_recent_pending(test_db: Session, test_user: User):
+def test_maybe_presigned_url_recent_pending(
+    test_db: Session,
+    test_user: User,
+    uploads: ScopedRepository[Upload],
+    uow: UnitOfWork,
+):
     """Recent pending uploads should get a presigned URL and headers."""
     upload = create_upload(
-        db=test_db,
+        uploads,
+        uow,
         user=test_user,
         original_filename="new.gpx",
         file_size_bytes=1024,
@@ -351,6 +424,7 @@ def test_happy_path_inserts_hex_claims_and_marks_success(
     create_upload: Callable[..., Upload],
     make_square_loop: Callable[..., list[Point]],
     make_gpx_doc: Callable[[list[list[Point]]], bytes],
+    process: Callable[[str], None],
 ):
     start = datetime(2024, 1, 1, 12, 0, 0, tzinfo=UTC)
     pts = make_square_loop(start_time=start)
@@ -361,7 +435,7 @@ def test_happy_path_inserts_hex_claims_and_marks_success(
         Bucket=settings.HEXAGONE_S3_BUCKET, Key=upload.s3_key, Body=data
     )
 
-    process_upload(test_db, upload.s3_key, S3StorageBackend())
+    process(upload.s3_key)
 
     rows = _hex_claims_for(test_db, upload)
     assert len(rows) > 0
@@ -400,6 +474,7 @@ def test_two_overlapping_loops_produce_distinct_polygon_indices(
     create_upload: Callable[..., Upload],
     make_square_loop: Callable[..., list[Point]],
     make_gpx_doc: Callable[[list[list[Point]]], bytes],
+    process: Callable[[str], None],
 ):
     # Two identical square loops in two segments → cells fully overlap,
     # but each loop is a distinct polygon with its own polygon_index and
@@ -415,7 +490,7 @@ def test_two_overlapping_loops_produce_distinct_polygon_indices(
         Bucket=settings.HEXAGONE_S3_BUCKET, Key=upload.s3_key, Body=data
     )
 
-    process_upload(test_db, upload.s3_key, S3StorageBackend())
+    process(upload.s3_key)
 
     rows = _hex_claims_for(test_db, upload)
     poly_indices = {row.polygon_index for row in rows}
@@ -445,6 +520,7 @@ def test_no_timestamps_yields_completed_at_null(
     create_upload: Callable[..., Upload],
     make_square_loop: Callable[..., list[Point]],
     make_gpx_doc: Callable[[list[list[Point]]], bytes],
+    process: Callable[[str], None],
 ):
     pts = make_square_loop(start_time=None)
     data = make_gpx_doc([pts])
@@ -454,7 +530,7 @@ def test_no_timestamps_yields_completed_at_null(
         Bucket=settings.HEXAGONE_S3_BUCKET, Key=upload.s3_key, Body=data
     )
 
-    process_upload(test_db, upload.s3_key, S3StorageBackend())
+    process(upload.s3_key)
 
     rows = _hex_claims_for(test_db, upload)
     assert len(rows) > 0
@@ -469,6 +545,7 @@ def test_oversized_payload_marks_invalid(
     s3_client: S3Client,
     create_upload: Callable[..., Upload],
     monkeypatch: pytest.MonkeyPatch,
+    process: Callable[[str], None],
 ):
     # Tighten the cap so we don't have to push an actual 10 MiB blob.
     monkeypatch.setattr(settings, "MAX_GPX_BYTES", 16)
@@ -479,7 +556,7 @@ def test_oversized_payload_marks_invalid(
         Bucket=settings.HEXAGONE_S3_BUCKET, Key=upload.s3_key, Body=data
     )
 
-    process_upload(test_db, upload.s3_key, S3StorageBackend())
+    process(upload.s3_key)
 
     assert _hex_claims_for(test_db, upload) == []
     latest = _latest_status(test_db, upload)
@@ -491,6 +568,7 @@ def test_malformed_xml_marks_invalid(
     test_db: Session,
     s3_client: S3Client,
     create_upload: Callable[..., Upload],
+    process: Callable[[str], None],
 ):
     data = b"not xml at all"
     upload = create_upload("bad.gpx", file_size_bytes=len(data))
@@ -498,7 +576,7 @@ def test_malformed_xml_marks_invalid(
         Bucket=settings.HEXAGONE_S3_BUCKET, Key=upload.s3_key, Body=data
     )
 
-    process_upload(test_db, upload.s3_key, S3StorageBackend())
+    process(upload.s3_key)
 
     assert _hex_claims_for(test_db, upload) == []
     latest = _latest_status(test_db, upload)
@@ -510,6 +588,7 @@ def test_xxe_attempt_marks_invalid(
     test_db: Session,
     s3_client: S3Client,
     create_upload: Callable[..., Upload],
+    process: Callable[[str], None],
 ):
     data = (
         b'<?xml version="1.0"?>\n'
@@ -525,7 +604,7 @@ def test_xxe_attempt_marks_invalid(
         Bucket=settings.HEXAGONE_S3_BUCKET, Key=upload.s3_key, Body=data
     )
 
-    process_upload(test_db, upload.s3_key, S3StorageBackend())
+    process(upload.s3_key)
 
     assert _hex_claims_for(test_db, upload) == []
     latest = _latest_status(test_db, upload)
@@ -536,6 +615,7 @@ def test_billion_laughs_marks_invalid(
     test_db: Session,
     s3_client: S3Client,
     create_upload: Callable[..., Upload],
+    process: Callable[[str], None],
 ):
     lol = b"&lol;" * 10
     lol2 = b"&lol2;" * 10
@@ -555,7 +635,7 @@ def test_billion_laughs_marks_invalid(
         Bucket=settings.HEXAGONE_S3_BUCKET, Key=upload.s3_key, Body=data
     )
 
-    process_upload(test_db, upload.s3_key, S3StorageBackend())
+    process(upload.s3_key)
 
     assert _hex_claims_for(test_db, upload) == []
     latest = _latest_status(test_db, upload)
@@ -568,6 +648,7 @@ def test_no_closed_loops_succeeds_with_zero_rows(
     create_upload: Callable[..., Upload],
     make_open_track: Callable[..., list[Point]],
     make_gpx_doc: Callable[[list[list[Point]]], bytes],
+    process: Callable[[str], None],
 ):
     pts = make_open_track()
     data = make_gpx_doc([pts])
@@ -577,7 +658,7 @@ def test_no_closed_loops_succeeds_with_zero_rows(
         Bucket=settings.HEXAGONE_S3_BUCKET, Key=upload.s3_key, Body=data
     )
 
-    process_upload(test_db, upload.s3_key, S3StorageBackend())
+    process(upload.s3_key)
 
     assert _hex_claims_for(test_db, upload) == []
 
@@ -591,6 +672,7 @@ def test_replay_of_already_received_upload_is_a_noop(
     create_upload: Callable[..., Upload],
     make_square_loop: Callable[..., list[Point]],
     make_gpx_doc: Callable[[list[list[Point]]], bytes],
+    process: Callable[[str], None],
 ):
     # At-least-once delivery: a second notification for an upload already
     # past PENDING must not reprocess or append status rows.
@@ -609,7 +691,7 @@ def test_replay_of_already_received_upload_is_a_noop(
         Bucket=settings.HEXAGONE_S3_BUCKET, Key=upload.s3_key, Body=data
     )
 
-    process_upload(test_db, upload.s3_key, S3StorageBackend())
+    process(upload.s3_key)
 
     # No claims inserted, no extra status rows appended.
     assert _hex_claims_for(test_db, upload) == []
@@ -620,6 +702,9 @@ def test_replay_of_already_received_upload_is_a_noop(
     ]
 
 
-def test_unknown_key_is_a_noop(test_db: Session):
+def test_unknown_key_is_a_noop(
+    test_db: Session,
+    process: Callable[[str], None],
+):
     # A notification for an object with no matching Upload row must not raise.
-    process_upload(test_db, "v1/uploads/does-not-exist", S3StorageBackend())
+    process("v1/uploads/does-not-exist")

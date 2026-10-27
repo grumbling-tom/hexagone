@@ -1,17 +1,12 @@
 """Hex-claim service: list raw rows + aggregate by hex cell."""
 
-from sqlalchemy.orm import Session as DBSession
-
-from src.app.repository import HexClaim, HexClaimByCell, In, Repository
-from src.app.repository.models import User
-from src.app.services.permissions import permissions_predicates
+from src.app.repository import HexClaim, HexClaimByCell, In, Predicate, ScopedRepository
 from src.app.settings import settings
 from src.app.utils import PaginatedResult, SortOrder
 
 
 def list_hex_claims(  # noqa: PLR0913
-    db: DBSession,
-    user: User,
+    claims: ScopedRepository[HexClaim],
     *,
     page_size: int = settings.DEFAULT_PAGE_SIZE,
     cursor: str | None = None,
@@ -22,8 +17,7 @@ def list_hex_claims(  # noqa: PLR0913
     """List raw hex claims for the authenticated user.
 
     Args:
-        db: Database session.
-        user: The authenticated user.
+        claims: HexClaim repository (the policy narrows it to the viewer's own).
         page_size: Number of items per page.
         cursor: Pagination cursor.
         upload_uids: Optional filter — only claims belonging to these uploads.
@@ -33,12 +27,11 @@ def list_hex_claims(  # noqa: PLR0913
     Returns:
         Paginated list of HexClaim ORM instances.
     """
-    filters = permissions_predicates(user, HexClaim)
+    filters: list[Predicate] = []
     if upload_uids:
         filters.append(In(field="upload_uid", values=upload_uids))
 
-    repo = Repository(db, HexClaim)
-    return repo.get_filtered(
+    return claims.get_filtered(
         filters=filters,
         page_size=page_size,
         cursor=cursor,
@@ -48,8 +41,7 @@ def list_hex_claims(  # noqa: PLR0913
 
 
 def aggregate_hex_claims_by_cell(
-    db: DBSession,
-    user: User,
+    by_cell: ScopedRepository[HexClaimByCell],
     *,
     page_size: int = settings.DEFAULT_PAGE_SIZE,
     cursor: str | None = None,
@@ -61,9 +53,7 @@ def aggregate_hex_claims_by_cell(
     ``hex_claim_by_cell`` view; cursor pagination is fixed to ``h3_cell ASC``
     because that is the only sort key in the result that is unique per row.
     """
-    repo = Repository(db, HexClaimByCell)
-    return repo.get_filtered(
-        filters=permissions_predicates(user, HexClaimByCell),
+    return by_cell.get_filtered(
         page_size=page_size,
         cursor=cursor,
         sort_field=HexClaimByCell.h3_cell,
