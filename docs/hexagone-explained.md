@@ -121,7 +121,7 @@ The backend publishes a description of every endpoint. A tool called Orval turns
 
 ### Tests and automated checks
 
-Every commit runs ten checks on your laptop, and every pull request re-runs them on GitHub along with both test suites. A failing check usually says what to fix, and Claude Code can fix most of them.
+Every commit runs eleven checks on your laptop, and every pull request re-runs them on GitHub along with both test suites. A failing check usually says what to fix, and Claude Code can fix most of them.
 
 - **Tests:** `apps/backend/tests/`; web tests sit next to the file they test (`*.test.tsx`).
 - **Checks:** `lefthook.yml` (on commit), `.github/workflows/pr-checks.yml` (on pull request), `apps/web/scripts/check-imports.mjs` and `check-app-structure.mjs` (folder rules), `apps/backend/src/scripts/validate_migrations.py`.
@@ -138,7 +138,7 @@ There are no passwords. Someone enters their email; if it is on the allowlist, t
 
 You would touch it only to change who may sign in (the `ALLOWED_EMAILS` setting) or to finish removing the old password code (TASK-0021).
 
-- **Backend:** `routers/login_tokens.py`, `routers/user_sessions.py`, `routers/users.py`; `services/login_token.py`, `user_session.py`, `user.py`, `email.py`, `password.py` (old, due for removal); `dependencies.py`, where `authenticated_user` is the one line that makes an endpoint require sign-in.
+- **Backend:** `routers/login_tokens.py`, `routers/user_sessions.py`, `routers/users.py`; `services/login_token.py`, `user_session.py`, `user.py`, `email.py` and `resources/email_templates/` (the branded sign-in and welcome emails), `password.py` (old, due for removal); `dependencies.py`, where `authenticated_user` is the one line that makes an endpoint require sign-in.
 - **Web:** `app/login/`, `app/signup/` (redirects to login), `app/auth/verify/`, `features/auth/`; `middleware.ts` and `app/(authed)/layout.tsx` send signed-out visitors to the login page.
 - **Tables:** `user`, `user_session`, `login_token`. **Full design:** [`auth-architecture.md`](auth-architecture.md).
 
@@ -150,10 +150,10 @@ Kubernetes on the Mac mini runs the apps; Argo CD deploys whatever is on `main`;
 
 ### Logging and tracing
 
-The backend writes structured log lines with email addresses masked, and both apps print request timings to the console. If you add a call to an outside service, the house rule is a log line before and after it.
+Both apps write structured log lines with email addresses masked, and every request's lines share a `trace_id`, so one request can be followed from the web app into the backend. Health checks are left out of the logs. If you add a call to an outside service, the house rule is a log line before and after it.
 
-- **Backend:** `utils/logger.py`, `utils/redaction.py`, `telemetry.py`, `middleware.py` (an optional delay for testing slow responses).
-- **Web:** `instrumentation.ts`.
+- **Backend:** `utils/logger.py`, `utils/redaction.py`, `telemetry.py`, `middleware.py` (one log line per request, plus an optional delay for testing slow responses).
+- **Web:** `instrumentation.ts`, `src/lib/logger.ts`.
 
 ### Project tooling
 
@@ -258,7 +258,7 @@ The whole app runs on a laptop with Docker (start it with `colima start`), and a
 ### The life of a change
 
 1. **Branch.** Work happens on a branch, never directly on `main`.
-2. **Commit.** Lefthook runs ten checks on the changed files: formatting, lint, type checks, the import rules between web features, the one-migration-per-PR rule, and regenerating the API client.
+2. **Commit.** Lefthook runs eleven checks on the changed files: formatting, lint, type checks, the import rules between web features, the one-migration-per-PR rule, and regenerating the API client and the email colours.
 3. **Pull request.** GitHub Actions runs three jobs side by side: every hook again on the whole repo, the web tests (Vitest) and the backend tests (pytest).
 4. **Merge.** `deploy.yml` builds one image each for web and backend, tags them with the 7-character commit ID, pushes them to GitHub's registry, and commits that ID into `infra/k8s/production/kustomization.yaml`.
 5. **Roll out.** Argo CD, running on the Mac mini, sees the new commit and swaps in the new images. Before the new backend starts, it runs `alembic upgrade head` to apply any pending migrations.

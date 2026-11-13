@@ -180,6 +180,7 @@ Every pull request runs the pre-commit hooks on all files plus both test suites 
 Lefthook runs on every commit:
 
 - **API client** — regenerates the OpenAPI spec and typed client
+- **Email theme** — regenerates the email colours when `theme.css` changes
 - **Biome** and **Prettier** — lint + format staged JS/TS files
 - **Typecheck** — `tsc --noEmit` for type errors
 - **Import rules** and **app structure** — enforce the frontend folder rules
