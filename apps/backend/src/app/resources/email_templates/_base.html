@@ -1,0 +1,71 @@
+{# Branded shell for every transactional email. Layout is table-based and every
+   style is inlined from the `theme` token map (mirrored from the web app's
+   theme.css) because mail clients strip <head> CSS and don't support CSS
+   custom properties. The wordmark reuses the landing brand split: "Hexa" in
+   primary blue, "gone" in muted grey. Content templates fill {% block content %}. #}
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="x-apple-disable-message-reformatting" />
+    <title>{{ title }}</title>
+    {# Architects Daughter — the brand heading font, same source as the web app
+       (app/layout.tsx). Web fonts only load in clients that support them (Apple
+       Mail does; Gmail/Outlook don't and fall back to the inline `cursive`). The
+       MSO guard hides the <link> from Outlook, which ignores web fonts anyway.
+       The @import below covers clients that honour <style> but strip <link>. #}
+    <!--[if !mso]><!-->
+    <link
+      href="https://fonts.googleapis.com/css2?family=Architects+Daughter&display=swap"
+      rel="stylesheet"
+    />
+    <!--<![endif]-->
+    <style>
+      @import url("https://fonts.googleapis.com/css2?family=Architects+Daughter&display=swap");
+      /* Progressive enhancement only — most clients honour the inline styles
+         below; Gmail desktop additionally keeps these head rules. */
+      body {
+        margin: 0;
+        padding: 0;
+        background: {{ theme['color-bg'] }};
+      }
+      a {
+        color: {{ theme['color-link'] }};
+      }
+      @media (max-width: 600px) {
+        .email-container {
+          width: 100% !important;
+        }
+      }
+    </style>
+  </head>
+  <body style="margin: 0; padding: 0; background: {{ theme['color-bg'] }}; color: {{ theme['color-text'] }};">
+    {# Hidden preview text shown in the inbox list before the email is opened. #}
+    <span style="display: none; max-height: 0; overflow: hidden; opacity: 0; color: transparent;">{{ preheader }}</span>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background: {{ theme['color-bg'] }};">
+      <tr>
+        <td align="center" style="padding: 24px 16px;">
+          <table role="presentation" class="email-container" width="600" cellpadding="0" cellspacing="0" style="width: 600px; max-width: 600px; background: {{ theme['color-surface'] }}; border: {{ theme['sketch-border'] }}; border-radius: 8px;">
+            <tr>
+              <td style="padding: 24px 32px; border-bottom: 1px solid {{ theme['color-border-subtle'] }};">
+                <span style="font-family: {{ theme['font-heading'] }}; font-size: 24px; font-weight: bold;"><span style="color: {{ theme['color-primary-600'] }};">Hexa</span><span style="color: {{ theme['color-text-muted'] }};">gone</span></span>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding: 32px; font-family: {{ theme['font-body'] }}; font-size: 16px; line-height: 1.6; color: {{ theme['color-text'] }};">
+                {% block content %}{% endblock %}
+              </td>
+            </tr>
+            <tr>
+              <td style="padding: 24px 32px; border-top: 1px solid {{ theme['color-border-subtle'] }}; font-family: {{ theme['font-body'] }}; font-size: 13px; line-height: 1.5; color: {{ theme['color-text-muted'] }};">
+                <p style="margin: 0 0 4px;">Hexagone — claim the map by moving through it.</p>
+                <p style="margin: 0;"><a href="{{ app_base_url }}" style="color: {{ theme['color-link'] }};">{{ app_base_url }}</a></p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>

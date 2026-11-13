@@ -1,0 +1,8 @@
+{% extends "_base.html" %}
+{% from "_macros.html" import heading, button with context %}
+{% block content %}
+{{ heading("Welcome to Hexagone!") }}
+<p style="margin: 0 0 {{ theme['space-sm'] }};">Your account (<strong>{{ user_email }}</strong>) is ready to go.</p>
+<p style="margin: 0 0 {{ theme['space-sm'] }};">Open the map to start claiming hexes by moving through them.</p>
+{{ button(map_url, "Open the map") }}
+{% endblock %}

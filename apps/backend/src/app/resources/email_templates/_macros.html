@@ -1,0 +1,19 @@
+{# Reusable email fragments. Styling is inlined (mail clients strip <head>
+   styles) and driven by the brand tokens in `theme` — see email.py. #}
+
+{# A "bulletproof" CTA button: a table cell carries the background/border so it
+   renders in Outlook, with an <a> for the padded, tappable target elsewhere. #}
+{% macro button(href, label) -%}
+<table role="presentation" cellpadding="0" cellspacing="0" style="margin: {{ theme['space-sm'] }} 0;">
+  <tr>
+    <td style="border-radius: 8px; background: {{ theme['color-primary-600'] }}; border: 2px solid {{ theme['color-primary-700'] }};">
+      <a href="{{ href }}" style="display: inline-block; padding: 12px 28px; font-family: {{ theme['font-heading'] }}; font-size: 16px; line-height: 1; color: {{ theme['color-text-inverse'] }}; text-decoration: none;">{{ label }}</a>
+    </td>
+  </tr>
+</table>
+{%- endmacro %}
+
+{# Page heading, styled inline so it survives clients that drop <head> CSS. #}
+{% macro heading(text) -%}
+<h1 style="margin: 0 0 {{ theme['space-sm'] }}; font-family: {{ theme['font-heading'] }}; font-size: 28px; line-height: 1.2; color: {{ theme['color-text'] }};">{{ text }}</h1>
+{%- endmacro %}
