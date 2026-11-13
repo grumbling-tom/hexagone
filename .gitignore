@@ -25,3 +25,6 @@ __pycache__/
 !.vscode/settings.json
 
 sqlite.db
+
+# Personal GPS track kept locally as test data
+Morning_Run.gpx
