@@ -162,11 +162,11 @@ export default function UploadModal({
   const resolvedPercent =
     total === 0 ? 0 : Math.round(((doneCount + errorCount) / total) * 100);
 
-  // Stepper position: pressing Upload/Retry puts a run in flight and advances to
-  // Done (so Confirm goes solid); a failure drops back to Confirm; having files
-  // selected sits on Confirm; nothing selected is Select.
+  // Stepper position: completing every upload marks all three steps done (Done
+  // goes solid blue); a run in flight sits on Done; a failure drops back to
+  // Confirm; having files selected sits on Confirm; nothing selected is Select.
   const isDone = total > 0 && doneCount === total;
-  const currentStep = isUploading || isDone ? 2 : total > 0 ? 1 : 0;
+  const currentStep = isDone ? 3 : isUploading ? 2 : total > 0 ? 1 : 0;
 
   return (
     <div className="upload-modal">
@@ -215,23 +215,22 @@ export default function UploadModal({
           ))}
         </ol>
 
-        {isDone ? (
-          <div className="upload-modal__done">
-            <p className="upload-modal__done-text">
-              {total === 1
-                ? "Your file is uploaded and now processing."
-                : `All ${total} files are uploaded and now processing.`}
-            </p>
-            <button
-              type="button"
-              className="button button--primary"
-              onClick={() => onComplete()}
-            >
-              View your map
-            </button>
-          </div>
-        ) : (
-          <>
+        {/* Keep the file list and progress visible once everything's done —
+        swapping the whole body out for a bare confirmation is jarring. We only
+        hide the dropzone (no more files to add) and replace the footer's
+        actions with the completion message + CTA. */}
+        {/* Once an upload has started the dropzone collapses away (grid-rows
+        0fr + fading opacity) rather than vanishing abruptly. Kept mounted so
+        the transition can play; the input stays reachable for the ref. */}
+        {!isDone && (
+          <div
+            className={
+              hasStarted
+                ? "upload-modal__dropzone-wrap upload-modal__dropzone-wrap--collapsed"
+                : "upload-modal__dropzone-wrap"
+            }
+            aria-hidden={hasStarted}
+          >
             <button
               type="button"
               className="upload-modal__dropzone"
@@ -241,7 +240,7 @@ export default function UploadModal({
                 event.preventDefault();
                 addFiles(event.dataTransfer.files);
               }}
-              disabled={isUploading}
+              disabled={hasStarted}
             >
               <span className="upload-modal__dropzone-title">
                 Drag GPX files here!
@@ -261,123 +260,132 @@ export default function UploadModal({
                 event.target.value = "";
               }}
             />
+          </div>
+        )}
 
-            {files.length > 0 && (
-              <ul className="upload-modal__files">
-                {files.map((item) => (
-                  <li key={item.id} className="upload-modal__file">
-                    <span className="upload-modal__file-name">
-                      {item.file.name}
+        {files.length > 0 && (
+          <ul className="upload-modal__files">
+            {files.map((item) => (
+              <li key={item.id} className="upload-modal__file">
+                <span className="upload-modal__file-name">{item.file.name}</span>
+                <span className="upload-modal__file-status">
+                  {item.status === "uploading" && (
+                    <svg
+                      className="upload-modal__ring"
+                      viewBox="0 0 24 24"
+                      role="img"
+                      aria-label={`Uploading, ${item.progress}%`}
+                    >
+                      <circle
+                        className="upload-modal__ring-track"
+                        cx="12"
+                        cy="12"
+                        r={RING_RADIUS}
+                      />
+                      <circle
+                        className="upload-modal__ring-fill"
+                        cx="12"
+                        cy="12"
+                        r={RING_RADIUS}
+                        strokeDasharray={RING_CIRCUMFERENCE}
+                        strokeDashoffset={
+                          RING_CIRCUMFERENCE * (1 - item.progress / 100)
+                        }
+                      />
+                    </svg>
+                  )}
+                  {item.status === "done" && (
+                    <span
+                      className="upload-modal__file-done"
+                      role="img"
+                      aria-label="Uploaded"
+                    >
+                      ✓
                     </span>
-                    <span className="upload-modal__file-status">
-                      {item.status === "uploading" && (
-                        <svg
-                          className="upload-modal__ring"
-                          viewBox="0 0 24 24"
-                          role="img"
-                          aria-label={`Uploading, ${item.progress}%`}
-                        >
-                          <circle
-                            className="upload-modal__ring-track"
-                            cx="12"
-                            cy="12"
-                            r={RING_RADIUS}
-                          />
-                          <circle
-                            className="upload-modal__ring-fill"
-                            cx="12"
-                            cy="12"
-                            r={RING_RADIUS}
-                            strokeDasharray={RING_CIRCUMFERENCE}
-                            strokeDashoffset={
-                              RING_CIRCUMFERENCE * (1 - item.progress / 100)
-                            }
-                          />
-                        </svg>
-                      )}
-                      {item.status === "done" && (
-                        <span
-                          className="upload-modal__file-done"
-                          role="img"
-                          aria-label="Uploaded"
-                        >
-                          ✓
-                        </span>
-                      )}
-                      {item.status === "error" && (
-                        <span className="upload-modal__file-error">
-                          {item.error ?? "Failed"}
-                        </span>
-                      )}
-                      {item.status === "queued" && (
-                        <button
-                          type="button"
-                          className="upload-modal__file-remove"
-                          aria-label={`Remove ${item.file.name}`}
-                          onClick={() => removeFile(item.id)}
-                        >
-                          ×
-                        </button>
-                      )}
+                  )}
+                  {item.status === "error" && (
+                    <span className="upload-modal__file-error">
+                      {item.error ?? "Failed"}
                     </span>
-                  </li>
-                ))}
-              </ul>
-            )}
-
-            {hasStarted && (
-              <div className="upload-modal__overall">
-                <div className="upload-modal__overall-track">
-                  {/* Grey back-fill (done + failed counts) with the normal fill
-                  (done count only) layered on top, so 0→done is the normal
-                  colour, done→resolved is the grey failed shade, and the rest
-                  is the track. */}
-                  <progress
-                    className="upload-modal__overall-bar upload-modal__overall-bar--failed"
-                    value={resolvedPercent}
-                    max={100}
-                    aria-hidden="true"
-                  />
-                  <progress
-                    className="upload-modal__overall-bar upload-modal__overall-bar--done"
-                    value={donePercent}
-                    max={100}
-                    aria-label="Overall upload progress"
-                  />
-                </div>
-                <span className="upload-modal__overall-pct">
-                  {resolvedPercent}%
+                  )}
+                  {item.status === "queued" && (
+                    <button
+                      type="button"
+                      className="upload-modal__file-remove"
+                      aria-label={`Remove ${item.file.name}`}
+                      onClick={() => removeFile(item.id)}
+                    >
+                      ×
+                    </button>
+                  )}
                 </span>
-              </div>
-            )}
+              </li>
+            ))}
+          </ul>
+        )}
 
-            <footer className="upload-modal__footer">
-              <button
-                type="button"
-                className="button button--secondary"
-                onClick={onClose}
-                disabled={isUploading}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                className={
-                  isUploading
-                    ? "button button--primary button--pending"
-                    : "button button--primary"
-                }
-                onClick={handleSubmit}
-                disabled={!hasUploadable || isUploading}
-              >
-                {isUploading
-                  ? "Uploading"
-                  : hasErrors
-                    ? "Retry failed"
-                    : "Submit"}
-              </button>
-            </footer>
-          </>
+        {hasStarted && (
+          <div className="upload-modal__overall">
+            <div className="upload-modal__overall-track">
+              {/* Grey back-fill (done + failed counts) with the normal fill
+              (done count only) layered on top, so 0→done is the normal
+              colour, done→resolved is the grey failed shade, and the rest
+              is the track. */}
+              <progress
+                className="upload-modal__overall-bar upload-modal__overall-bar--failed"
+                value={resolvedPercent}
+                max={100}
+                aria-hidden="true"
+              />
+              <progress
+                className="upload-modal__overall-bar upload-modal__overall-bar--done"
+                value={donePercent}
+                max={100}
+                aria-label="Overall upload progress"
+              />
+            </div>
+            <span className="upload-modal__overall-pct">{resolvedPercent}%</span>
+          </div>
+        )}
+
+        {isDone ? (
+          <div className="upload-modal__done">
+            <p className="upload-modal__done-text">
+              {total === 1
+                ? "Your file is uploaded and now processing."
+                : `All ${total} files are uploaded and now processing.`}
+            </p>
+            <button
+              type="button"
+              className="button button--primary upload-modal__done-action"
+              onClick={() => onComplete()}
+            >
+              View your map
+            </button>
+          </div>
+        ) : (
+          <footer className="upload-modal__footer">
+            <button
+              type="button"
+              className="button button--secondary"
+              onClick={onClose}
+              disabled={isUploading}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              className={
+                isUploading
+                  ? "button button--primary button--pending"
+                  : "button button--primary"
+              }
+              onClick={handleSubmit}
+              disabled={!hasUploadable || isUploading}
+            >
+              {isUploading ? "Uploading" : hasErrors ? "Retry failed" : "Submit"}
+            </button>
+          </footer>
         )}
       </div>
     </div>
