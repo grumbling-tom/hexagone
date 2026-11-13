@@ -12,6 +12,8 @@ import { fetchClient } from '../../lib/fetch-client';
 
 
 
+type SecondParameter<T extends (...args: any) => any> = Parameters<T>[1];
+
 
   /**
  * Aggregate the user's hex claims along the requested dimension.
@@ -19,11 +21,11 @@ import { fetchClient } from '../../lib/fetch-client';
  */
 export const listAggregatedHexClaims = (
     params: ListAggregatedHexClaimsParams,
- ) => {
+ options?: SecondParameter<typeof fetchClient>,) => {
       return fetchClient<PaginatedResultAggregatedHexClaimByCell>(
       {url: `/api/v1/aggregated-hex-claims`, method: 'GET',
         params
     },
-      );
+      options);
     }
   export type ListAggregatedHexClaimsResult = NonNullable<Awaited<ReturnType<typeof listAggregatedHexClaims>>>

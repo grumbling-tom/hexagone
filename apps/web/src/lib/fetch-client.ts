@@ -26,17 +26,26 @@ export class ApiError<T> extends Error {
 
 export type ErrorType<E> = ApiError<E>;
 
-export async function fetchClient<T>(config: {
-  url: string;
-  method: string;
-  headers?: HeadersInit;
-  data?: unknown;
-  params?: Record<
-    string,
-    string | number | boolean | string[] | null | undefined
-  >;
-  signal?: AbortSignal;
-}): Promise<T> {
+// Per-call overrides orval threads through as each generated operation's second
+// argument (exposed via `SecondParameter<typeof fetchClient>`). Used to forward
+// headers a generated call can't express in its typed body — e.g. the Tigris
+// webhook's Bearer shared secret on the upload-processing-jobs ingress.
+export type FetchClientOptions = { headers?: HeadersInit };
+
+export async function fetchClient<T>(
+  config: {
+    url: string;
+    method: string;
+    headers?: HeadersInit;
+    data?: unknown;
+    params?: Record<
+      string,
+      string | number | boolean | string[] | null | undefined
+    >;
+    signal?: AbortSignal;
+  },
+  options?: FetchClientOptions,
+): Promise<T> {
   const cookieStore = await cookies();
   const url = new URL(config.url, env.BACKEND_ORIGIN);
 
@@ -58,6 +67,13 @@ export async function fetchClient<T>(config: {
   const headers = new Headers(config.headers);
   const jar = cookieStore.toString();
   if (jar) headers.set("cookie", jar);
+
+  // Caller-supplied headers (e.g. a forwarded Bearer secret) layer on last.
+  if (options?.headers) {
+    for (const [name, value] of new Headers(options.headers)) {
+      headers.set(name, value);
+    }
+  }
 
   const response = await fetch(url, {
     method: config.method,

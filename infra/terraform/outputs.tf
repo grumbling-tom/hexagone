@@ -11,3 +11,11 @@ output "tunnel_id" {
   description = "Cloudflare Tunnel ID."
   value       = cloudflare_zero_trust_tunnel_cloudflared.app.id
 }
+
+# Public apex the app is served on (derived from the Cloudflare zone, see
+# local.app_hostname in cloudflare.tf). prod-stack.sh reads this to point the
+# Tigris upload-notification webhook at https://<host>/api/upload-processing-jobs.
+output "app_hostname" {
+  description = "Public hostname the app is served on (e.g. hexagone.one)."
+  value       = local.app_hostname
+}

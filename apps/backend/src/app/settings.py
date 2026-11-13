@@ -6,6 +6,7 @@ from urllib.parse import parse_qs, quote_plus, urlencode, urlparse, urlunparse
 
 from pydantic import EmailStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from sqlalchemy import make_url
 
 
 class Settings(BaseSettings):
@@ -78,10 +79,29 @@ class Settings(BaseSettings):
 
     THROTTLE_DELAY_SECONDS: float | None = None
 
+    # Shared secret the Tigris object-notification webhook must present as a
+    # Bearer token on POST /api/v1/upload-processing-jobs. Required in PROD/STAGING.
+    UPLOAD_NOTIFICATION_SECRET: str = ""
+
     @property
     def session_expiry_seconds(self) -> int:
         """Compute session expiry in seconds from hours."""
         return self.SESSION_EXPIRY_HOURS * 3600
+
+    @property
+    def psycopg_conninfo(self) -> str:
+        """DATABASE_URL as a libpq conninfo string for psycopg3 (the worker).
+
+        The app's SQLAlchemy URL may carry a ``+psycopg2`` driver suffix that
+        psycopg3 doesn't understand; strip it so the worker's async
+        ``PsycopgConnector`` gets a plain ``postgresql://...`` URL (query params
+        such as ``sslmode=require`` are preserved).
+        """
+        return (
+            make_url(self.DATABASE_URL)
+            .set(drivername="postgresql")
+            .render_as_string(hide_password=False)
+        )
 
     @model_validator(mode="before")
     @classmethod
@@ -173,6 +193,14 @@ class Settings(BaseSettings):
     def check_resend_credentials(self: Settings) -> Settings:
         if self.ENV in ("PROD", "STAGING") and not self.RESEND_API_KEY:
             msg = "RESEND_API_KEY must be set in PROD/STAGING."
+            raise ValueError(msg)
+
+        return self
+
+    @model_validator(mode="after")
+    def check_upload_notification_secret(self: Settings) -> Settings:
+        if self.ENV in ("PROD", "STAGING") and not self.UPLOAD_NOTIFICATION_SECRET:
+            msg = "UPLOAD_NOTIFICATION_SECRET must be set in PROD/STAGING."
             raise ValueError(msg)
 
         return self

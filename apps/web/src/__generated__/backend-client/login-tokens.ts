@@ -11,6 +11,8 @@ import { fetchClient } from '../../lib/fetch-client';
 
 
 
+type SecondParameter<T extends (...args: any) => any> = Parameters<T>[1];
+
 
   /**
  * Request a magic-link sign-in email (enumeration-safe).
@@ -31,12 +33,12 @@ wins.
  */
 export const createLoginToken = (
     createLoginTokenRequest: CreateLoginTokenRequest,
- ) => {
+ options?: SecondParameter<typeof fetchClient>,) => {
       return fetchClient<unknown>(
       {url: `/api/v1/login-tokens`, method: 'POST',
       headers: {'Content-Type': 'application/json', },
       data: createLoginTokenRequest
     },
-      );
+      options);
     }
   export type CreateLoginTokenResult = NonNullable<Awaited<ReturnType<typeof createLoginToken>>>

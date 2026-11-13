@@ -14,6 +14,8 @@ import { fetchClient } from '../../lib/fetch-client';
 
 
 
+type SecondParameter<T extends (...args: any) => any> = Parameters<T>[1];
+
 
   /**
  * Create a new GPX file upload and return a presigned URL.
@@ -21,13 +23,13 @@ import { fetchClient } from '../../lib/fetch-client';
  */
 export const createUpload = (
     createUploadRequest: CreateUploadRequest,
- ) => {
+ options?: SecondParameter<typeof fetchClient>,) => {
       return fetchClient<UploadResponse>(
       {url: `/api/v1/uploads`, method: 'POST',
       headers: {'Content-Type': 'application/json', },
       data: createUploadRequest
     },
-      );
+      options);
     }
   /**
  * List the authenticated user's uploads, filtered by status.
@@ -35,12 +37,12 @@ export const createUpload = (
  */
 export const listUploads = (
     params?: ListUploadsParams,
- ) => {
+ options?: SecondParameter<typeof fetchClient>,) => {
       return fetchClient<PaginatedResultUploadResponse>(
       {url: `/api/v1/uploads`, method: 'GET',
         params
     },
-      );
+      options);
     }
   export type CreateUploadResult = NonNullable<Awaited<ReturnType<typeof createUpload>>>
 export type ListUploadsResult = NonNullable<Awaited<ReturnType<typeof listUploads>>>

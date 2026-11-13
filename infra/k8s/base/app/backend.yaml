@@ -3,9 +3,9 @@
 # Image: built from apps/backend/Dockerfile (production ASGI image, no Lambda
 # runtime) — see infra/k8s/README.md.
 # Non-secret config is inline below (in git). The only out-of-band object is the
-# `hexagone-backend-secrets` Secret (Tigris keys + Resend API key) — see the
-# README. DATABASE_URL is neither inline nor in that secret; it comes from the
-# CNPG-managed secret.
+# `hexagone-backend-secrets` Secret (Tigris keys, Resend API key, and the
+# upload-notification webhook secret) — see the README. DATABASE_URL is neither
+# inline nor in that secret; it comes from the CNPG-managed secret.
 apiVersion: apps/v1
 kind: Deployment
 metadata:

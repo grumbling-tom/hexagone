@@ -15,6 +15,8 @@ import { fetchClient } from '../../lib/fetch-client';
 
 
 
+type SecondParameter<T extends (...args: any) => any> = Parameters<T>[1];
+
 
   /**
  * Create a new group with the caller as owner and sole initial member.
@@ -22,13 +24,13 @@ import { fetchClient } from '../../lib/fetch-client';
  */
 export const createUserGroup = (
     createUserGroupRequest: CreateUserGroupRequest,
- ) => {
+ options?: SecondParameter<typeof fetchClient>,) => {
       return fetchClient<UserGroupResponse>(
       {url: `/api/v1/user-groups`, method: 'POST',
       headers: {'Content-Type': 'application/json', },
       data: createUserGroupRequest
     },
-      );
+      options);
     }
   /**
  * List the caller's non-archived groups, newest first.
@@ -36,12 +38,12 @@ export const createUserGroup = (
  */
 export const listUserGroups = (
     params?: ListUserGroupsParams,
- ) => {
+ options?: SecondParameter<typeof fetchClient>,) => {
       return fetchClient<PaginatedResultUserGroupResponse>(
       {url: `/api/v1/user-groups`, method: 'GET',
         params
     },
-      );
+      options);
     }
   /**
  * Return one group the caller belongs to. 404 if not a member.
@@ -49,11 +51,11 @@ export const listUserGroups = (
  */
 export const getUserGroup = (
     groupUid: string,
- ) => {
+ options?: SecondParameter<typeof fetchClient>,) => {
       return fetchClient<UserGroupResponse>(
       {url: `/api/v1/user-groups/${groupUid}`, method: 'GET'
     },
-      );
+      options);
     }
   /**
  * Rename a group. Owner only.
@@ -62,13 +64,13 @@ export const getUserGroup = (
 export const updateUserGroup = (
     groupUid: string,
     updateUserGroupRequest: UpdateUserGroupRequest,
- ) => {
+ options?: SecondParameter<typeof fetchClient>,) => {
       return fetchClient<UserGroupResponse>(
       {url: `/api/v1/user-groups/${groupUid}`, method: 'PATCH',
       headers: {'Content-Type': 'application/json', },
       data: updateUserGroupRequest
     },
-      );
+      options);
     }
   /**
  * Soft-delete (archive) a group. Owner only.
@@ -76,11 +78,11 @@ export const updateUserGroup = (
  */
 export const deleteUserGroup = (
     groupUid: string,
- ) => {
+ options?: SecondParameter<typeof fetchClient>,) => {
       return fetchClient<void>(
       {url: `/api/v1/user-groups/${groupUid}`, method: 'DELETE'
     },
-      );
+      options);
     }
   export type CreateUserGroupResult = NonNullable<Awaited<ReturnType<typeof createUserGroup>>>
 export type ListUserGroupsResult = NonNullable<Awaited<ReturnType<typeof listUserGroups>>>

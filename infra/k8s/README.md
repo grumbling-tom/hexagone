@@ -88,7 +88,14 @@ security add-generic-password -a "$USER" -s cloudflare-api-token -w           # 
 security add-generic-password -a "$USER" -s hexagone-tigris-access-key-id -w  # Tigris key   (tid_…)
 security add-generic-password -a "$USER" -s hexagone-tigris-secret-access-key -w  # Tigris secret (tsec_…)
 security add-generic-password -a "$USER" -s hexagone-resend-api-key -w        # Resend key   (re_…)
+security add-generic-password -a "$USER" -s hexagone-upload-notification-secret -w  # Upload-webhook shared secret (any strong random string)
 ```
+
+The upload-notification secret is the Bearer token the Tigris object
+notification sends to the backend's upload-processing-jobs webhook. `up` seeds
+the *same* value into both `hexagone-backend-secrets` (so the backend validates
+the token) and the Tigris notification config (so Tigris sends it), so generate
+any strong random string — e.g. `openssl rand -hex 32`.
 
 The Tigris keys are reused for the Terraform state backend and for
 `hexagone-backend-secrets`; the Cloudflare token is `TF_VAR_cloudflare_api_token`.
