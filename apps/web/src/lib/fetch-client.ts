@@ -1,8 +1,10 @@
 import "server-only";
 
+import { context, propagation } from "@opentelemetry/api";
 import { cookies } from "next/headers";
 import setCookieParser from "set-cookie-parser";
 import { env } from "@/config/env";
+import { logger } from "@/lib/logger";
 
 // Next.js is the sole entrypoint: this client runs server-side only (RSC + Server
 // Actions) and talks to the backend over the cluster network. BACKEND_ORIGIN is
@@ -59,13 +61,44 @@ export async function fetchClient<T>(config: {
   const jar = cookieStore.toString();
   if (jar) headers.set("cookie", jar);
 
-  const response = await fetch(url, {
+  // Continue the same OpenTelemetry trace on the backend by injecting the active
+  // context as a W3C `traceparent` header. Next's fetch instrumentation is meant
+  // to do this automatically, but it doesn't reliably propagate to our backend
+  // origin in this setup, so we inject explicitly — this is what makes the
+  // backend's log lines share a trace_id with the `backend_request` line below
+  // (FastAPIInstrumentor extracts the header and continues the trace).
+  propagation.inject(context.active(), headers, {
+    set: (carrier: Headers, key: string, value: string) =>
+      carrier.set(key, value),
+  });
+
+  // Log every backend call with the active trace id, so a web log line
+  // correlates to the backend log lines for the same request (see lib/logger).
+  const startedAt = performance.now();
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      method: config.method,
+      headers,
+      body: config.data ? JSON.stringify(config.data) : undefined,
+      signal: config.signal,
+      // Per-user data: never cache across requests.
+      cache: "no-store",
+    });
+  } catch (error) {
+    logger.error("backend_request_failed", {
+      method: config.method,
+      path: url.pathname,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    throw error;
+  }
+
+  logger.info("backend_request", {
     method: config.method,
-    headers,
-    body: config.data ? JSON.stringify(config.data) : undefined,
-    signal: config.signal,
-    // Per-user data: never cache across requests.
-    cache: "no-store",
+    path: url.pathname,
+    status: response.status,
+    duration_ms: Math.round(performance.now() - startedAt),
   });
 
   // Propagate the backend's Set-Cookie back to the browser (login/signup set

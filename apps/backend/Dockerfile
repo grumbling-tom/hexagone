@@ -37,4 +37,7 @@ COPY ./alembic.ini ./
 EXPOSE 8000
 
 # Default to the server; the migration init container overrides this with alembic.
-CMD ["uvicorn", "src.app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# --no-access-log: uvicorn's stdlib access log is replaced by AccessLogMiddleware
+# (src/app/middleware.py), which logs through structlog so each request line
+# carries the trace_id/span_id and the health probe is skipped.
+CMD ["uvicorn", "src.app.main:app", "--host", "0.0.0.0", "--port", "8000", "--no-access-log"]
