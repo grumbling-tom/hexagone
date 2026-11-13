@@ -79,12 +79,15 @@ interface UploadListProps {
     params: ListUploadsParams,
   ) => Promise<PaginatedResultUploadResponse>;
   requestUpload: (data: CreateUploadRequest) => Promise<UploadResponse>;
+  // Server action that processes a landed file and returns its final status.
+  processUpload: (uploadUid: string) => Promise<UploadResponse>;
 }
 
 export default function UploadList({
   initialUploads,
   fetchUploads,
   requestUpload,
+  processUpload,
 }: UploadListProps) {
   const [data, setData] = useState(initialUploads);
   const [sortField, setSortField] = useState<UploadSortField>(
@@ -216,6 +219,7 @@ export default function UploadList({
         <h2>Upload a GPX file</h2>
         <UploadForm
           requestUpload={requestUpload}
+          processUpload={processUpload}
           onUploadComplete={handleUploadComplete}
         />
         <UploadHelp className="upload-section__help" />

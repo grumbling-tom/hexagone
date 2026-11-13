@@ -9,11 +9,14 @@ import UploadHelp from "@/features/uploads/components/UploadHelp";
 
 interface UploadEmptyStateProps {
   requestUpload: (data: CreateUploadRequest) => Promise<UploadResponse>;
+  // Server action that processes a landed file and returns its final status.
+  processUpload: (uploadUid: string) => Promise<UploadResponse>;
   onUploadComplete?: () => void;
 }
 
 export default function UploadEmptyState({
   requestUpload,
+  processUpload,
   onUploadComplete,
 }: UploadEmptyStateProps) {
   return (
@@ -26,6 +29,7 @@ export default function UploadEmptyState({
       <UploadHelp className="upload-empty-state__help" />
       <UploadForm
         requestUpload={requestUpload}
+        processUpload={processUpload}
         onUploadComplete={onUploadComplete}
       />
     </div>

@@ -45,6 +45,12 @@ def _mock_s3() -> Generator[None]:  # pyright: ignore[reportUnusedFunction]
 
 
 @pytest.fixture
+def s3_client() -> S3Client:
+    """Return a boto3 S3 client wired to the moto bucket above."""
+    return boto3.client("s3", region_name="eu-west-2")  # pyright: ignore[reportUnknownMemberType]
+
+
+@pytest.fixture
 def test_db() -> Generator[Session]:
     """Yield an in-memory SQLite database session for testing."""
     engine = create_engine(

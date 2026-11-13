@@ -1,9 +1,10 @@
 "use client";
 
 import { useRef, useState } from "react";
-import type {
-  CreateUploadRequest,
-  UploadResponse,
+import {
+  type CreateUploadRequest,
+  type UploadResponse,
+  UploadStatusValue,
 } from "@/__generated__/backend-client/backend.schemas";
 
 type Status =
@@ -11,6 +12,7 @@ type Status =
   | "selected"
   | "creating"
   | "uploading"
+  | "processing"
   | "success"
   | "error";
 
@@ -19,12 +21,15 @@ interface UploadFormProps {
   // returns a presigned URL. The file bytes are then PUT directly to object
   // storage from the browser — that leg does not touch the backend API.
   requestUpload: (data: CreateUploadRequest) => Promise<UploadResponse>;
+  // Server action that processes a landed file and returns its final status.
+  processUpload: (uploadUid: string) => Promise<UploadResponse>;
   onUploadComplete?: () => void;
   className?: string;
 }
 
 export default function UploadForm({
   requestUpload,
+  processUpload,
   onUploadComplete,
   className = "",
 }: UploadFormProps) {
@@ -33,7 +38,8 @@ export default function UploadForm({
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const isBusy = status === "creating" || status === "uploading";
+  const isBusy =
+    status === "creating" || status === "uploading" || status === "processing";
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -79,11 +85,27 @@ export default function UploadForm({
       setStatus("uploading");
 
       const headers: Record<string, string> = upload.required_headers ?? {};
-      await fetch(upload.presigned_url, {
+      const put = await fetch(upload.presigned_url, {
         method: "PUT",
         headers,
         body: selectedFile,
       });
+      if (!put.ok) {
+        throw new Error(`Upload failed (${put.status}). Please try again.`);
+      }
+
+      setStatus("processing");
+      let processed: UploadResponse;
+      try {
+        processed = await processUpload(upload.uid);
+      } catch {
+        throw new Error("Couldn't process the file. Please try again.");
+      }
+      if (processed.current_status === UploadStatusValue.UPLOAD_INVALID) {
+        throw new Error(
+          `That file couldn't be used: ${processed.current_status_detail ?? "invalid GPX"}.`,
+        );
+      }
 
       setStatus("success");
       setSelectedFile(null);
@@ -123,7 +145,11 @@ export default function UploadForm({
             onClick={handleConfirm}
             disabled={isBusy}
           >
-            {isBusy ? "Uploading…" : "Upload"}
+            {status === "processing"
+              ? "Processing…"
+              : isBusy
+                ? "Uploading…"
+                : "Upload"}
           </button>
           <button
             type="button"
@@ -141,7 +167,7 @@ export default function UploadForm({
       )}
       {status === "success" && (
         <span className="upload-form__message upload-form__message--success">
-          File uploaded successfully. It will be processed shortly.
+          File uploaded and added to your map.
         </span>
       )}
       {status === "error" && (

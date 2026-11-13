@@ -33,6 +33,7 @@ class UploadResponse(BaseSchema):
     file_size_bytes: int
     created_at: datetime
     current_status: str
+    current_status_detail: str | None = None
     presigned_url: str | None = None
     required_headers: dict[str, str] | None = None
 

@@ -119,12 +119,15 @@ export type UploadResponseRequiredHeaders = UploadResponseRequiredHeadersAnyOf |
 
 export type UploadResponsePresignedUrl = string | null;
 
+export type UploadResponseCurrentStatusDetail = string | null;
+
 /**
  * Response body for upload endpoints.
  */
 export interface UploadResponse {
   created_at: string;
   current_status: string;
+  current_status_detail?: UploadResponseCurrentStatusDetail;
   file_size_bytes: number;
   original_filename: string;
   presigned_url?: UploadResponsePresignedUrl;
@@ -323,6 +326,13 @@ export interface CreateUserGroupRequest {
 export interface CreateUploadRequest {
   file_size_bytes: number;
   original_filename: string;
+}
+
+/**
+ * Request body for processing an upload.
+ */
+export interface CreateUploadProcessingJobRequest {
+  upload_uid: string;
 }
 
 /**

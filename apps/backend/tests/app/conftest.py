@@ -1,4 +1,4 @@
-"""Shared fixtures for the upload-processing service tests.
+"""Shared GPX fixtures for the upload-processing service and router tests.
 
 Provides factory fixtures for synthesising GPX payloads inline. These
 were previously private helper functions duplicated across

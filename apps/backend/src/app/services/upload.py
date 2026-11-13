@@ -151,6 +151,7 @@ def list_uploads(  # noqa: PLR0913
     statuses: list[UploadStatusValue] | None = None,
     sort_field: str = "created_at",
     sort_order: SortOrder = SortOrder.DESC,
+    upload_uid: str | None = None,
 ) -> PaginatedResult[Upload]:
     """List uploads for the authenticated user, filtered by status.
 
@@ -162,6 +163,7 @@ def list_uploads(  # noqa: PLR0913
         statuses: Filter by most recent status values.
         sort_field: Column name to sort by.
         sort_order: Sort direction.
+        upload_uid: Optional filter to a single upload.
 
     Returns:
         Paginated list of Upload ORM instances.
@@ -175,6 +177,8 @@ def list_uploads(  # noqa: PLR0913
 
     filters = permissions_predicates(user, Upload)
     filters.append(In(field="current_status", values=statuses))
+    if upload_uid is not None:
+        filters.append(Equals(field="uid", value=upload_uid))
 
     upload_repo = Repository(db, Upload)
     return upload_repo.get_filtered(
@@ -184,6 +188,53 @@ def list_uploads(  # noqa: PLR0913
         sort_field=getattr(Upload, sort_field),
         sort_order=sort_order,
     )
+
+
+def get_upload(db: DBSession, user: User, upload_uid: str) -> Upload | None:
+    """Return one of the user's uploads, whatever its status, or None."""
+    try:
+        return list_uploads(
+            db, user, statuses=list(UploadStatusValue), upload_uid=upload_uid
+        ).items[0]
+    except IndexError:
+        return None
+
+
+class UploadNotInStorageError(Exception):
+    """Raised when processing is requested before the file has landed in storage."""
+
+    def __init__(self, upload_uid: str) -> None:
+        super().__init__(f"Upload {upload_uid} has no file in storage yet")
+        self.upload_uid = upload_uid
+
+
+def process_user_upload(
+    db: DBSession, user: User, upload_uid: str, storage: StorageBackend
+) -> Upload | None:
+    """Process one of the user's uploads now, once its file is in storage.
+
+    Called by the browser straight after it finishes PUTting the file to the
+    presigned URL. Processing runs in the request, synchronously: simple to
+    run and debug, at the cost of the caller waiting for large files. The
+    work itself is ``process_upload``, so moving this to a background worker
+    later only changes how it is triggered.
+
+    Returns None when the upload doesn't exist or isn't the user's. Raises
+    ``UploadNotInStorageError`` if the upload is still pending but its file
+    hasn't landed, leaving it pending so the caller can try again. An upload
+    that has already been processed is returned unchanged.
+    """
+    upload = get_upload(db, user, upload_uid)
+    if upload is None:
+        return None
+
+    if upload.current_status == UploadStatusValue.UPLOAD_PENDING:
+        if not storage.object_exists(upload.s3_key):
+            raise UploadNotInStorageError(upload_uid)
+        process_upload(db, upload.s3_key, storage)
+        db.refresh(upload)
+
+    return upload
 
 
 def find_upload_by_s3_key(db: DBSession, key: str) -> Upload | None:
@@ -199,9 +250,9 @@ def process_upload(db: DBSession, key: str, storage: StorageBackend) -> None:
     """Process an uploaded GPX object: parse it and record hex claims.
 
     Extracted from the former AWS Lambda S3-event handler — called with an
-    object key once the file has landed in storage (today from the Tigris
-    object-notification webhook via a background worker), and knows nothing
-    about how it was triggered.
+    object key once the file has landed in storage (today from
+    ``process_user_upload``, when the browser reports the upload finished), and
+    knows nothing about how it was triggered.
 
     Idempotent on upload status: only an upload still in ``UPLOAD_PENDING`` is
     processed, so at-least-once delivery (a duplicate notification, a retried
@@ -209,8 +260,8 @@ def process_upload(db: DBSession, key: str, storage: StorageBackend) -> None:
     (``UPLOAD_INVALID``), not an error — only unexpected infrastructure
     failures propagate, so the caller's queue can retry those.
 
-    The caller owns the session lifecycle (e.g. the worker opens one via
-    ``get_db()``); this function manages its own commits within it.
+    The caller owns the session lifecycle (e.g. the request's session); this
+    function manages its own commits within it.
     """
     upload = find_upload_by_s3_key(db, key)
 
