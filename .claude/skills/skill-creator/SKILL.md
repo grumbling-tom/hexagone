@@ -69,7 +69,7 @@ For **full mode only**, also ask:
 5. **What should the skill explicitly NOT do?** Boundaries prevent scope creep.
 
 
-6. **Does this skill compose with existing skills?** Check the `skills/` directory. The skill might reference other skills by name, or other skills might want to call this one.
+6. **Does this skill compose with existing skills?** Check the `.claude/skills/` directory. The skill might reference other skills by name, or other skills might want to call this one.
 
 
 ### Phase 2: Design Challenge (Full Mode Only)
@@ -124,7 +124,7 @@ Generate the skill files, then critique your own output against these checks:
 - **Negative space check**: Could following these instructions produce a harmful or destructive result? Add explicit warnings or confirmation gates.
 - **Secrets check**: Never hardcode API keys, passwords, tokens, or credentials. Use environment variables or MCP connections.
 - **Token budget check**: Is the SKILL.md body under 500 lines? If not, split content into reference files.
-- **Overlap check**: Does this skill overlap with or compose well with existing skills in `skills/`?
+- **Overlap check**: Does this skill overlap with or compose well with existing skills in `.claude/skills/`?
 
 
 Present the critique alongside the draft.
@@ -136,11 +136,11 @@ Present the critique alongside the draft.
 Only after review is acknowledged, create the skill:
 
 
-1. Create the directory: `skills/<skill-name>/`
+1. Create the directory: `.claude/skills/<skill-name>/`
 2. Write `SKILL.md` with validated frontmatter and instructions
 3. Create any `references/`, `scripts/`, or `assets/` subdirectories as determined in Phase 3
 4. If the skill needs per-user setup, create a `config.json.example` with documented fields
-5. Confirm the skill is visible by listing the `skills/` directory
+5. Confirm the skill is visible by listing the `.claude/skills/` directory
 
 
 ## Skill File Format
