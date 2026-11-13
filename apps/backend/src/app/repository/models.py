@@ -108,6 +108,11 @@ class Upload(BaseModel):
 
         return self.statuses[-1].status  # TODO: Return an UploadStatusValue enum
 
+    @property
+    def current_status_detail(self) -> str | None:
+        """Return the detail on the most recent status, e.g. why it is invalid."""
+        return self.statuses[-1].detail if self.statuses else None
+
     @current_status.inplace.expression
     @classmethod
     def _current_status_expression(cls) -> ScalarSelect[str]:

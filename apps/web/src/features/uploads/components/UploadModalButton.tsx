@@ -10,6 +10,8 @@ import UploadModal from "./UploadModal";
 interface UploadModalButtonProps {
   // Server action that creates the upload record and returns a presigned URL.
   requestUpload: (data: CreateUploadRequest) => Promise<UploadResponse>;
+  // Server action that processes a landed file and returns its final status.
+  processUpload: (uploadUid: string) => Promise<UploadResponse>;
   // Where to go once the user has uploaded at least one file. Supplied by the
   // app layer (a server action that redirects) so this feature never imports
   // routing — it just calls the function it is handed.
@@ -18,6 +20,7 @@ interface UploadModalButtonProps {
 
 export default function UploadModalButton({
   requestUpload,
+  processUpload,
   onComplete,
 }: UploadModalButtonProps) {
   const [open, setOpen] = useState(false);
@@ -34,6 +37,7 @@ export default function UploadModalButton({
       {open && (
         <UploadModal
           requestUpload={requestUpload}
+          processUpload={processUpload}
           onComplete={onComplete}
           onClose={() => setOpen(false)}
         />

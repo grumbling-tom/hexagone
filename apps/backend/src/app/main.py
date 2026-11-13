@@ -11,6 +11,9 @@ from src.app.routers.hex_claims import (
     hex_claims_router,
 )
 from src.app.routers.login_tokens import router as login_tokens_router
+from src.app.routers.upload_processing_jobs import (
+    router as upload_processing_jobs_router,
+)
 from src.app.routers.uploads import router as uploads_router
 from src.app.routers.user_groups import router as user_groups_router
 from src.app.routers.user_sessions import router as user_sessions_router
@@ -53,6 +56,9 @@ def create_app(settings: Settings = settings) -> FastAPI:
     api_v1_router.include_router(user_sessions_router, tags=["user-sessions"])
     api_v1_router.include_router(login_tokens_router, tags=["login-tokens"])
     api_v1_router.include_router(uploads_router, tags=["uploads"])
+    api_v1_router.include_router(
+        upload_processing_jobs_router, tags=["upload-processing-jobs"]
+    )
     api_v1_router.include_router(hex_claims_router, tags=["hex-claims"])
     api_v1_router.include_router(
         aggregated_hex_claims_router, tags=["aggregated-hex-claims"]

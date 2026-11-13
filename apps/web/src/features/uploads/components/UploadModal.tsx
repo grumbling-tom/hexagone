@@ -1,12 +1,22 @@
 "use client";
 
 import { useRef, useState } from "react";
-import type {
-  CreateUploadRequest,
-  UploadResponse,
+import {
+  type CreateUploadRequest,
+  type UploadResponse,
+  UploadStatusValue,
 } from "@/__generated__/backend-client/backend.schemas";
 
-type FileStatus = "queued" | "uploading" | "done" | "error";
+// "processing": bytes are in storage and the backend is turning them into
+// hexagons. "invalid": processed, but the file couldn't be used (a terminal
+// outcome, so it isn't retried). "error": something failed that a retry may fix.
+type FileStatus =
+  | "queued"
+  | "uploading"
+  | "processing"
+  | "done"
+  | "invalid"
+  | "error";
 
 interface FileItem {
   id: string;
@@ -14,10 +24,15 @@ interface FileItem {
   status: FileStatus;
   progress: number;
   error?: string;
+  // Set once the bytes are in storage, so a retry only re-runs processing
+  // instead of creating a second upload record.
+  uploadUid?: string;
 }
 
 interface UploadModalProps {
   requestUpload: (data: CreateUploadRequest) => Promise<UploadResponse>;
+  // Server action that processes a landed file and returns its final status.
+  processUpload: (uploadUid: string) => Promise<UploadResponse>;
   onComplete: () => void | Promise<void>;
   onClose: () => void;
 }
@@ -61,6 +76,7 @@ const STEPS = ["Select", "Confirm", "Done"] as const;
 
 export default function UploadModal({
   requestUpload,
+  processUpload,
   onComplete,
   onClose,
 }: UploadModalProps) {
@@ -97,26 +113,56 @@ export default function UploadModal({
   const removeFile = (id: string) =>
     setFiles((prev) => prev.filter((item) => item.id !== id));
 
-  // Create the upload record, then PUT the bytes to the presigned URL. Resolves
-  // true on success; on failure it records the error on the item and resolves
-  // false (so a Promise.all of several uploads never short-circuits).
+  // Create the upload record, PUT the bytes to the presigned URL, then ask the
+  // backend to process them. Resolves true once the file has an outcome (on
+  // the map, or rejected as invalid); on failure it records the error on the
+  // item and resolves false (so a Promise.all of several uploads never
+  // short-circuits).
   const uploadOne = async (item: FileItem): Promise<boolean> => {
-    updateFile(item.id, { status: "uploading", progress: 0, error: undefined });
+    let uploadUid = item.uploadUid;
     try {
-      const upload = await requestUpload({
-        original_filename: item.file.name,
-        file_size_bytes: item.file.size,
-      });
-      if (!upload.presigned_url) {
-        throw new Error("No upload URL returned.");
+      if (!uploadUid) {
+        updateFile(item.id, {
+          status: "uploading",
+          progress: 0,
+          error: undefined,
+        });
+        const upload = await requestUpload({
+          original_filename: item.file.name,
+          file_size_bytes: item.file.size,
+        });
+        if (!upload.presigned_url) {
+          throw new Error("No upload URL returned.");
+        }
+        await putWithProgress(
+          upload.presigned_url,
+          upload.required_headers ?? {},
+          item.file,
+          (percent) => updateFile(item.id, { progress: percent }),
+        );
+        uploadUid = upload.uid;
       }
-      await putWithProgress(
-        upload.presigned_url,
-        upload.required_headers ?? {},
-        item.file,
-        (percent) => updateFile(item.id, { progress: percent }),
-      );
-      updateFile(item.id, { status: "done", progress: 100 });
+      updateFile(item.id, {
+        status: "processing",
+        progress: 100,
+        error: undefined,
+        uploadUid,
+      });
+
+      let processed: UploadResponse;
+      try {
+        processed = await processUpload(uploadUid);
+      } catch {
+        throw new Error("Couldn't process the file. Try again.");
+      }
+      if (processed.current_status === UploadStatusValue.UPLOAD_INVALID) {
+        updateFile(item.id, {
+          status: "invalid",
+          error: processed.current_status_detail ?? "Invalid GPX file",
+        });
+      } else {
+        updateFile(item.id, { status: "done" });
+      }
       return true;
     } catch (err) {
       updateFile(item.id, {
@@ -151,13 +197,10 @@ export default function UploadModal({
   // rings instead.) The bar shows once at least one file has started.
   const total = files.length;
   const doneCount = files.filter((item) => item.status === "done").length;
-  const errorCount = files.filter((item) => item.status === "error").length;
-  const hasStarted = files.some(
-    (item) =>
-      item.status === "uploading" ||
-      item.status === "done" ||
-      item.status === "error",
-  );
+  const invalidCount = files.filter((item) => item.status === "invalid").length;
+  const errorCount =
+    files.filter((item) => item.status === "error").length + invalidCount;
+  const hasStarted = files.some((item) => item.status !== "queued");
   const donePercent = total === 0 ? 0 : Math.round((doneCount / total) * 100);
   const resolvedPercent =
     total === 0 ? 0 : Math.round(((doneCount + errorCount) / total) * 100);
@@ -165,7 +208,7 @@ export default function UploadModal({
   // Stepper position: pressing Upload/Retry puts a run in flight and advances to
   // Done (so Confirm goes solid); a failure drops back to Confirm; having files
   // selected sits on Confirm; nothing selected is Select.
-  const isDone = total > 0 && doneCount === total;
+  const isDone = total > 0 && doneCount + invalidCount === total;
   const currentStep = isUploading || isDone ? 2 : total > 0 ? 1 : 0;
 
   return (
@@ -218,9 +261,15 @@ export default function UploadModal({
         {isDone ? (
           <div className="upload-modal__done">
             <p className="upload-modal__done-text">
-              {total === 1
-                ? "Your file is uploaded and now processing."
-                : `All ${total} files are uploaded and now processing.`}
+              {invalidCount === 0
+                ? total === 1
+                  ? "Your run is on the map."
+                  : `All ${total} runs are on your map.`
+                : doneCount === 0
+                  ? total === 1
+                    ? "That file couldn't be read, so nothing was added."
+                    : "None of these files could be read, so nothing was added."
+                  : `${doneCount} of ${total} files added to your map. ${invalidCount} couldn't be read.`}
             </p>
             <button
               type="button"
@@ -304,7 +353,23 @@ export default function UploadModal({
                           ✓
                         </span>
                       )}
-                      {item.status === "error" && (
+                      {item.status === "processing" && (
+                        <svg
+                          className="upload-modal__ring"
+                          viewBox="0 0 24 24"
+                          role="img"
+                          aria-label="Processing"
+                        >
+                          <circle
+                            className="upload-modal__ring-fill"
+                            cx="12"
+                            cy="12"
+                            r={RING_RADIUS}
+                          />
+                        </svg>
+                      )}
+                      {(item.status === "error" ||
+                        item.status === "invalid") && (
                         <span className="upload-modal__file-error">
                           {item.error ?? "Failed"}
                         </span>

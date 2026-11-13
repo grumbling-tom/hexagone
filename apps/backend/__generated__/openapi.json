@@ -526,6 +526,72 @@
         }
       }
     },
+    "/api/v1/upload-processing-jobs": {
+      "post": {
+        "tags": [
+          "upload-processing-jobs"
+        ],
+        "summary": "Create Upload Processing Job",
+        "description": "Process an uploaded GPX file and return the upload with its final status.\n\n`current_status` comes back as `UPLOAD_SUCCESS`, or `UPLOAD_INVALID` with\nthe reason in `current_status_detail`. Calling it again for an upload\nthat has already been processed is a no-op that returns it unchanged.",
+        "operationId": "createUploadProcessingJob",
+        "parameters": [
+          {
+            "name": "sessionid",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Sessionid"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateUploadProcessingJobRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UploadResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Upload not found"
+          },
+          "409": {
+            "description": "The file has not landed in storage yet"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/hex-claims": {
       "get": {
         "tags": [
@@ -1107,6 +1173,20 @@
         "title": "CreateLoginTokenRequest",
         "description": "Request body for requesting a magic-link sign-in email."
       },
+      "CreateUploadProcessingJobRequest": {
+        "properties": {
+          "upload_uid": {
+            "type": "string",
+            "title": "Upload Uid"
+          }
+        },
+        "type": "object",
+        "required": [
+          "upload_uid"
+        ],
+        "title": "CreateUploadProcessingJobRequest",
+        "description": "Request body for processing an upload."
+      },
       "CreateUploadRequest": {
         "properties": {
           "original_filename": {
@@ -1610,6 +1690,17 @@
           "current_status": {
             "type": "string",
             "title": "Current Status"
+          },
+          "current_status_detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Status Detail"
           },
           "presigned_url": {
             "anyOf": [

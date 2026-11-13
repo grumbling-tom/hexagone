@@ -4,7 +4,10 @@ import { listUploads } from "@/__generated__/backend-client/uploads";
 import OnboardingChoices from "@/features/onboarding/components/OnboardingChoices";
 import { finishOnboarding } from "@/features/onboarding/server/finishOnboarding";
 import UploadModalButton from "@/features/uploads/components/UploadModalButton";
-import { requestUpload } from "@/features/uploads/server/uploads";
+import {
+  processUpload,
+  requestUpload,
+} from "@/features/uploads/server/uploads";
 
 export default async function WelcomePage() {
   // "New user" = no uploads that have reached the backend (RECEIVED / SUCCESS /
@@ -33,6 +36,7 @@ export default async function WelcomePage() {
         uploadSlot={
           <UploadModalButton
             requestUpload={requestUpload}
+            processUpload={processUpload}
             onComplete={finishOnboarding}
           />
         }

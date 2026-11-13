@@ -5,7 +5,6 @@ from __future__ import annotations
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 
-import boto3
 import pytest
 from mypy_boto3_s3 import S3Client
 from sqlalchemy.orm import Session
@@ -40,12 +39,6 @@ def _fine_h3_resolution(monkeypatch: pytest.MonkeyPatch) -> None:  # pyright: ig
     tests don't depend on the ambient ``H3_RESOLUTION`` setting.
     """
     monkeypatch.setattr(settings, "H3_RESOLUTION", 12)
-
-
-@pytest.fixture
-def s3_client() -> S3Client:
-    """Return a boto3 S3 client wired to the moto bucket from conftest."""
-    return boto3.client("s3", region_name="eu-west-2")  # pyright: ignore[reportUnknownMemberType]
 
 
 def _latest_status(db: Session, upload: Upload) -> UploadStatus:

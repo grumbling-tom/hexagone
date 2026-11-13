@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Literal
 
 import boto3
 from botocore.config import Config
+from botocore.exceptions import ClientError
 
 from src.app.settings import settings
 from src.app.utils import get_logger
@@ -42,6 +43,14 @@ class StorageBackend(ABC):
 
         Returns:
             Presigned URL string.
+        """
+
+    @abstractmethod
+    def object_exists(self, key: str) -> bool:
+        """Return whether an object has landed at ``key``.
+
+        Args:
+            key: Object key in the bucket.
         """
 
     @abstractmethod
@@ -138,6 +147,23 @@ class S3StorageBackend(StorageBackend):
             **{f"x-amz-meta-{k.lower()}": v for k, v in (file_metadata or {}).items()},
         }
         return url, headers
+
+    def object_exists(self, key: str) -> bool:
+        """Check for an object with a HEAD request, without downloading it."""
+        logger.info("s3_head_object_pending", key=key)
+        try:
+            self._client.head_object(Bucket=settings.HEXAGONE_S3_BUCKET, Key=key)
+        except ClientError as e:
+            if e.response.get("Error", {}).get("Code") in {
+                "404",
+                "NoSuchKey",
+                "NotFound",
+            }:
+                logger.info("s3_head_object_missing", key=key)
+                return False
+            raise
+        logger.info("s3_head_object_success", key=key)
+        return True
 
     def get_object(self, key: str) -> bytes:
         """Retrieve an object from S3."""
