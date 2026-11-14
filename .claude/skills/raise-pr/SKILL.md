@@ -3,7 +3,7 @@ name: raise-pr
 description: Opens a GitHub PR in this repo's house style (One-liner / Context / Technical Decisions / Testing). Use when asked to raise, open, ship or put up a PR, even without naming this skill.
 dependencies: git, gh (authenticated for this repo)
 user-invocable: true
-allowed-tools: Bash(git status:*) Bash(git branch:*) Bash(git log:*) Bash(git diff:*) Bash(git rev-parse:*) Bash(git fetch:*) Bash(git merge-base:*) Bash(gh pr list:*) Bash(gh pr view:*) Bash(gh pr create:*) Bash(gh pr edit:*) Bash(gh pr ready:*) Bash(gh issue view:*) Read Grep Glob
+allowed-tools: Bash(git status:*) Bash(git branch:*) Bash(git log:*) Bash(git diff:*) Bash(git rev-parse:*) Bash(git fetch:*) Bash(git merge-base:*) Bash(git push:*) Bash(gh pr list:*) Bash(gh pr view:*) Bash(gh pr create:*) Bash(gh pr edit:*) Bash(gh pr ready:*) Bash(gh issue view:*) Read Grep Glob
 argument-hint: "[optional notes to include]"
 ---
 
@@ -13,7 +13,7 @@ Turn the current branch into a pull request, ready for review, whose title and b
 
 The body explains **why**, not what: the diff already shows what changed. Spend the words on motivation, alternatives rejected, trade-offs accepted and what's deliberately not solved. The house voice is first person, plain and honest about limitations, with bullets over prose and no `feat:` / `fix:` prefixes.
 
-Nothing leaves the machine without the user's say-so: draft first, push only on a yes, create only after the body is approved.
+Asking for a PR is the go-ahead: don't stop to confirm the push, the title or the body. Review, edits and merging happen in the GitHub UI. Only stop to ask when the answer changes what goes into the PR (uncommitted changes, a stacked base).
 
 If the user names an issue, or the branch name or commits reference one, add `Closes #<n>` as the last Context bullet. Don't search for issues or create them.
 
@@ -31,7 +31,7 @@ Run `git fetch origin` first, then these in parallel:
 Then decide:
 
 - **Uncommitted changes:** ask whether to commit them first or leave them out.
-- **No upstream, or upstream isn't `origin/<this branch>`:** propose `git push -u origin <branch>` and run it only if the user agrees.
+- **No upstream, or upstream isn't `origin/<this branch>`:** run `git push -u origin <branch>` and carry on. Never push to `main`.
 - **Stacked on another open PR:** if `git merge-base --is-ancestor origin/<their headRefName> HEAD` succeeds for an open PR whose branch isn't in `origin/main`, ask whether to target that branch. If yes, diff against it instead of `origin/main`, pass `--base <their branch>` and add "Not to be merged before #N." under the One-liner.
 
 ## 2. Draft
@@ -76,11 +76,7 @@ This PR <one sentence on what it does and the outcome>.
 - Drop `## Technical Decisions` for a single-decision change, and `## TODOs` when nothing is deferred.
 - Only list testing you've seen happen in this session or the user has described. Anything else goes in as "Not yet …".
 
-## 3. Confirm
-
-Show the title and body and ask: "Does this look right, or anything to adjust before I open the PR?" Wait for approval. If the user rewrites more than wording, ask what the draft got wrong and suggest adding it to Gotchas below.
-
-## 4. Open
+## 3. Open
 
 ```bash
 gh pr create --title "<title>" --body "$(cat <<'EOF'
@@ -89,7 +85,9 @@ EOF
 )"
 ```
 
-Open it ready for review. Add `--draft` only if the user asks for a draft. Then run `gh pr view <n> --json isDraft,url` and return the URL.
+Open it ready for review. Add `--draft` only if the user asks for a draft. Then run `gh pr view <n> --json isDraft,url` and return the URL with the title.
+
+If the user later asks for changes to the description, update it with `gh pr edit <n> --body-file <file>`. If they had to rewrite more than wording, ask what the draft got wrong and suggest adding it to Gotchas below.
 
 ## Gotchas
 
