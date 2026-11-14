@@ -9,7 +9,7 @@ argument-hint: "[optional notes to include]"
 
 # Raise PR
 
-Turn the current branch into a draft pull request whose title and body read like the ones already in this repo. Tell the user you're running the `raise-pr` skill before you start.
+Turn the current branch into a pull request, ready for review, whose title and body read like the ones already in this repo. Tell the user you're running the `raise-pr` skill before you start.
 
 The body explains **why**, not what: the diff already shows what changed. Spend the words on motivation, alternatives rejected, trade-offs accepted and what's deliberately not solved. The house voice is first person, plain and honest about limitations, with bullets over prose and no `feat:` / `fix:` prefixes.
 
@@ -83,17 +83,17 @@ Show the title and body and ask: "Does this look right, or anything to adjust be
 ## 4. Open
 
 ```bash
-gh pr create --draft --title "<title>" --body "$(cat <<'EOF'
+gh pr create --title "<title>" --body "$(cat <<'EOF'
 <body>
 EOF
 )"
 ```
 
-Drop `--draft` only if the user asked for ready-for-review. Then run `gh pr view <n> --json isDraft,url` and return the URL.
+Open it ready for review. Add `--draft` only if the user asks for a draft. Then run `gh pr view <n> --json isDraft,url` and return the URL.
 
 ## Gotchas
 
-- `gh pr create --draft` has come back as a non-draft PR (#74). Always check `isDraft` afterwards and fix it with `gh pr ready <n> --undo`.
+- `gh pr create --draft` has come back as a non-draft PR (#74). Always check `isDraft` matches what was asked: fix an unwanted draft with `gh pr ready <n>`, and an unwanted ready PR with `gh pr ready <n> --undo`.
 - A branch created with `git checkout -b <name> origin/main` tracks `origin/main`, so it looks as if it has an upstream. Check that the upstream is `origin/<branch>`, otherwise a push goes to main.
 - Local `main` is often stale. Diff against `origin/main` after fetching, or the PR description picks up already-merged work.
 - The generated API client (`apps/web/src/__generated__/`) and lockfiles swell the diff. Mention that they were regenerated; don't describe them.
