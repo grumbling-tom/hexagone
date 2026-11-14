@@ -15,7 +15,7 @@ The body explains **why**, not what: the diff already shows what changed. Spend 
 
 Nothing leaves the machine without the user's say-so: draft first, push only on a yes, create only after the body is approved.
 
-Plane is out of scope. Don't search for or reference work items; the `manage-plane` skill handles them.
+Plane is out of scope. Don't search for or reference work items.
 
 ## 1. Gather context
 
