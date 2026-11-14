@@ -150,10 +150,9 @@ export default function Dialog() {
 }
 ```
 
-## Task & Project Tracking (Plane)
+## Task Tracking (GitHub Issues)
 
-This project tracks tasks and milestones in **Plane** (free tier), reached through the Plane MCP server configured in `.mcp.json` (its tools are prefixed `mcp__plane__`). The model maps as: a **Module** is a milestone/epic; a **Work Item** is a task, associated to its module. Statuses are Plane states (Todo / In Progress / Done).
+Tasks are tracked as **GitHub issues** on this repo. Use the `gh` CLI: `gh issue list`, `gh issue view <n>`, `gh issue create`, `gh issue comment`.
 
-- Read or author work items with the `mcp__plane__*` tools — e.g. `list_work_items`, `search_work_items`, `retrieve_work_item`, `create_work_item`, `update_work_item`; modules via `list_modules` / `create_module` / `manage_module_work_items`.
-- The MCP server authenticates with a personal access token from the `PLANE_API_KEY` env var (plus `PLANE_WORKSPACE_SLUG`); these are supplied by the environment and never committed.
-- Don't create work items or modules autonomously — propose, then let the user decide.
+- Don't create, close or relabel issues autonomously: propose, then let the user decide.
+- When a PR delivers an issue, put `Closes #<n>` in the PR body so the issue closes on merge.

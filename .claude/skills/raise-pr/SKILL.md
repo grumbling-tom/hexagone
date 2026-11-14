@@ -3,7 +3,7 @@ name: raise-pr
 description: Opens a GitHub PR in this repo's house style (One-liner / Context / Technical Decisions / Testing). Use when asked to raise, open, ship or put up a PR, even without naming this skill.
 dependencies: git, gh (authenticated for this repo)
 user-invocable: true
-allowed-tools: Bash(git status:*) Bash(git branch:*) Bash(git log:*) Bash(git diff:*) Bash(git rev-parse:*) Bash(git fetch:*) Bash(git merge-base:*) Bash(gh pr list:*) Bash(gh pr view:*) Bash(gh pr create:*) Bash(gh pr edit:*) Bash(gh pr ready:*) Read Grep Glob
+allowed-tools: Bash(git status:*) Bash(git branch:*) Bash(git log:*) Bash(git diff:*) Bash(git rev-parse:*) Bash(git fetch:*) Bash(git merge-base:*) Bash(gh pr list:*) Bash(gh pr view:*) Bash(gh pr create:*) Bash(gh pr edit:*) Bash(gh pr ready:*) Bash(gh issue view:*) Read Grep Glob
 argument-hint: "[optional notes to include]"
 ---
 
@@ -15,7 +15,7 @@ The body explains **why**, not what: the diff already shows what changed. Spend 
 
 Nothing leaves the machine without the user's say-so: draft first, push only on a yes, create only after the body is approved.
 
-Plane is out of scope. Don't search for or reference work items.
+If the user names an issue, or the branch name or commits reference one, add `Closes #<n>` as the last Context bullet. Don't search for issues or create them.
 
 ## 1. Gather context
 
