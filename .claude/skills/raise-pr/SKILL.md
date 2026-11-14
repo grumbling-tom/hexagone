@@ -1,105 +1,133 @@
 ---
 name: raise-pr
-description: Open a GitHub pull request with a title and body that match this project's established style (One-liner / Context / Technical Decisions / Testing). Use this whenever the user asks to raise, open, ship, or put up a PR — even if they don't mention the skill explicitly. Announce that you're invoking this skill before proceeding. Defaults to draft PRs.
+description: Opens a GitHub PR in this repo's house style (One-liner / Context / Technical Decisions / Testing). Use when asked to raise, open, ship or put up a PR, even without naming this skill.
+dependencies: git, gh (authenticated for this repo)
 user-invocable: true
-allowed-tools: Bash(git status:*) Bash(git branch:*) Bash(git log:*) Bash(git diff:*) Bash(git rev-parse:*) Bash(gh pr list:*) Bash(gh pr create:*) Bash(gh pr view:*) Read Grep Glob mcp__plane__list_work_items mcp__plane__search_work_items mcp__plane__retrieve_work_item
+allowed-tools: Bash(git status:*) Bash(git branch:*) Bash(git log:*) Bash(git diff:*) Bash(git rev-parse:*) Bash(git fetch:*) Bash(git merge-base:*) Bash(gh pr list:*) Bash(gh pr view:*) Bash(gh pr create:*) Bash(gh pr edit:*) Bash(gh pr ready:*) Bash(gh issue view:*) Read Grep Glob
 argument-hint: "[optional notes to include]"
 ---
 
-You are raising a pull request in this project. Before you start, tell the user you're invoking the `raise-pr` skill so they know this flow is running.
+# Raise PR
 
-## Principles
+Turn the current branch into a draft pull request whose title and body read like the ones already in this repo. Tell the user you're running the `raise-pr` skill before you start.
 
-- **Match the house style, don't invent one.** This project has a distinct PR voice. Read recent merged PRs to absorb it — first person, casual, honest about trade-offs, bullets over prose, and no `feat:` / `fix:` title prefixes.
-- **Explain the *why*, not the *what*.** The diff shows what changed. The PR body should explain the motivation, the alternatives considered, and the trade-offs taken. If you find yourself paraphrasing the diff, cut it.
-- **Draft with the user, not for them.** Show the draft before creating the PR and let them edit. The user cares about tone and framing — don't ship without their eyes on it.
+The body explains **why**, not what: the diff already shows what changed. Spend the words on motivation, alternatives rejected, trade-offs accepted and what's deliberately not solved. The house voice is first person, plain and honest about limitations, with bullets over prose and no `feat:` / `fix:` prefixes.
 
-## Workflow
+Nothing leaves the machine without the user's say-so: draft first, push only on a yes, create only after the body is approved.
 
-### 1. Gather context
+If the user names an issue, or the branch name or commits reference one, add `Closes #<n>` as the last Context bullet. Don't search for issues or create them.
 
-Run these in parallel:
+## 1. Gather context
 
-- `git status` — any uncommitted changes?
-- `git branch --show-current` — current branch
-- `git log main..HEAD --oneline` — all commits on this branch
-- `git diff main...HEAD` — full diff against main (use `...` not `..`)
-- `git rev-parse --abbrev-ref --symbolic-full-name @{u}` (or similar) — does the branch have an upstream?
-- `gh pr list --state merged --limit 3 --json title,body` — recent merged PRs as a style reference
-- `mcp__plane__search_work_items` (with keywords from the branch name / diff, or `list_work_items` to browse) — find the Plane work item this work belongs to
+Run `git fetch origin` first, then these in parallel:
 
-If there are uncommitted changes, stop and ask the user whether to commit them first or leave them out.
+- `git status`: anything uncommitted?
+- `git branch --show-current`
+- `git rev-parse --abbrev-ref --symbolic-full-name @{u}`: the upstream, if any
+- `git log origin/main..HEAD --oneline` and `git diff origin/main...HEAD` (three dots)
+- `gh pr list --state merged --limit 3 --json title,body`: style reference
+- `gh pr list --state open --json number,title,headRefName`: possible base PRs
 
-If the branch has no upstream, stop and ask the user to push it first (e.g. `git push -u origin <branch>`). This skill does not push branches itself.
+Then decide:
 
-**Check for the Plane work item.** Identify the item this PR delivers (match the diff against open items; `retrieve_work_item` the likely candidate to confirm). The PR body must reference it (see the body structure). If no item fits, tell the user and ask whether to proceed without one or create one first — don't invent an item ID, and don't create the item yourself from this skill. This skill only reads Plane; moving the item to Done once the PR is open is covered by the `/manage-plane` skill.
+- **Uncommitted changes:** ask whether to commit them first or leave them out.
+- **No upstream, or upstream isn't `origin/<this branch>`:** propose `git push -u origin <branch>` and run it only if the user agrees.
+- **Stacked on another open PR:** if `git merge-base --is-ancestor origin/<their headRefName> HEAD` succeeds for an open PR whose branch isn't in `origin/main`, ask whether to target that branch. If yes, diff against it instead of `origin/main`, pass `--base <their branch>` and add "Not to be merged before #N." under the One-liner.
 
-### 2. Understand the change
+## 2. Draft
 
-Read the diff and commits holistically — not just the most recent commit. Ask yourself:
+Read every commit and the whole diff, not just the last commit. If the motivation or how it was tested isn't clear from the diff, commits or conversation, ask rather than guess. Fold in any notes passed as the argument.
 
-- What problem does this PR solve?
-- What alternatives were considered? (Check commits, comments, and any related discussion.)
-- What trade-offs did the approach make?
-- How should a reviewer verify this works?
+**Title:** under 70 characters, sentence case, no prefix. Real examples: *"Process uploads as soon as the browser finishes uploading them"*, *"Uploads frontend"*, *"DBT database access"*.
 
-If anything is unclear from the diff alone, ask the user rather than guessing.
-
-### 3. Draft the PR
-
-**Title:** short (under 70 chars), sentence case, no conventional-commits prefix. Examples from this repo: *"First pass on costs savings by removing NAT Gateway"*, *"DBT database access"*, *"Uploads frontend"*.
-
-**Body structure:**
+**Body:**
 
 ```markdown
 ## One-liner
 
-This PR <one-sentence summary of what the PR does>.
-
-<If dependent on another PR: "Not to be merged before #N.">
+This PR <one sentence on what it does and the outcome>.
 
 ## Context
 
-- <Why this PR exists — backstory, motivation>
-- <Bullet points; link to related PRs with #N>
-- Plane: <work-item-id> <short item title> (omit this line only if the user confirmed there's no item)
+- <Why it exists: backstory, the problem, related PRs as #N>
 
 ## Technical Decisions
 
-### <Decision topic>
+### <Decision>
 
 - <What was chosen and why>
-- <Alternatives considered and why rejected>
+- <Alternatives considered and why they lost>
 - <Trade-offs accepted>
+
+## TODOs
+
+### <Deferred follow-up>
+
+- <What and why it's deferred>
 
 ## Testing
 
-- <Steps a reviewer can follow to verify>
-- <Include real commands, curl snippets, or screenshot placeholders where useful>
+- <What was actually run, with real commands and results>
+- <What hasn't been checked yet, said plainly>
 
 🤖 Generated with [Claude Code](https://claude.com/claude-code)
 ```
 
-Notes on the structure:
+- Drop `## Technical Decisions` for a single-decision change, and `## TODOs` when nothing is deferred.
+- Only list testing you've seen happen in this session or the user has described. Anything else goes in as "Not yet …".
 
-- Omit `## Technical Decisions` entirely if the PR is a simple, single-decision change — not every PR needs it.
-- Optional `## TODOs` section (before `## Testing`) for known follow-ups you're deliberately deferring. Use subheadings per TODO.
-- Be honest about trade-offs and limitations — this project's PRs routinely call out what's *not* being solved, and reviewers value that.
+## 3. Confirm
 
-### 4. Confirm with the user
+Show the title and body and ask: "Does this look right, or anything to adjust before I open the PR?" Wait for approval. If the user rewrites more than wording, ask what the draft got wrong and suggest adding it to Gotchas below.
 
-Show the drafted title and body. Ask: "Does this look right, or anything to adjust before I open the PR?" Wait for approval.
+## 4. Open
 
-### 5. Open the PR
+```bash
+gh pr create --draft --title "<title>" --body "$(cat <<'EOF'
+<body>
+EOF
+)"
+```
 
-Once approved:
+Drop `--draft` only if the user asked for ready-for-review. Then run `gh pr view <n> --json isDraft,url` and return the URL.
 
-- Create the PR as a **draft** by default: `gh pr create --draft --title "..." --body "$(cat <<'EOF' … EOF)"`. Pass the body via heredoc to preserve formatting.
-- If the user explicitly asked for ready-for-review, drop `--draft`.
-- Return the PR URL.
+## Gotchas
 
-## Do not
+- `gh pr create --draft` has come back as a non-draft PR (#74). Always check `isDraft` afterwards and fix it with `gh pr ready <n> --undo`.
+- A branch created with `git checkout -b <name> origin/main` tracks `origin/main`, so it looks as if it has an upstream. Check that the upstream is `origin/<branch>`, otherwise a push goes to main.
+- Local `main` is often stale. Diff against `origin/main` after fetching, or the PR description picks up already-merged work.
+- The generated API client (`apps/web/src/__generated__/`) and lockfiles swell the diff. Mention that they were regenerated; don't describe them.
 
-- Do not create the PR before the user has approved the draft.
-- Do not invent testing steps you haven't verified are runnable — if you're unsure, ask the user how they tested it.
-- Do not skip the Claude Code attribution footer.
+## Example
+
+Request: "open the PR" on a branch adding an upload-processing endpoint, after tests and a `docker compose` run in this session.
+
+Output (trimmed from #75):
+
+```markdown
+Process uploads as soon as the browser finishes uploading them
+
+## One-liner
+
+This PR adds an endpoint the browser calls once a GPX file has landed in storage, which runs `process_upload` there and then, so uploads finally turn into hexagons on the map.
+
+## Context
+
+- Nothing has called `process_upload` since the AWS Lambda trigger was removed (#33), so every upload stays at `UPLOAD_PENDING`.
+- #36 fixes this with a worker and a Tigris webhook. That's the better long-term shape, but it's ~1,000 lines with failing tests, so I wanted the smallest fix I fully understand.
+
+## Technical Decisions
+
+### Process in the request, triggered by the browser
+
+- After the PUT succeeds, the web app calls `POST /api/v1/upload-processing-jobs`; 404 if it's not the caller's upload, 409 if the file isn't in storage yet.
+- Trade-off accepted: the person waits while their file is processed (0.58 s for 570 KB locally). A worker is the fix once uploads grow.
+
+## Testing
+
+- `cd apps/backend && ENV=TEST uv run pytest`: 228 passed, including 7 new endpoint tests.
+- End to end against `docker compose`: 409 before the upload, `UPLOAD_SUCCESS` with 18 hexagons after, no duplicates on a third call.
+- Not yet clicked through in a browser.
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
+```

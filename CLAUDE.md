@@ -150,14 +150,9 @@ export default function Dialog() {
 }
 ```
 
-## Task Lifecycle (run at session start)
+## Task Tracking (GitHub Issues)
 
-At the **start of each session**, run the start-of-session step of the `manage-plane` skill: find the Plane work item this session's work maps to and move it to **In Progress** (ask if no item clearly fits; never create one autonomously). Then keep its description in sync if the scope changes during implementation, and move it to **Done** when you open a PR. The `manage-plane` skill is the full procedure — invoke it (`/manage-plane`) for the details.
+Tasks are tracked as **GitHub issues** on this repo. Use the `gh` CLI: `gh issue list`, `gh issue view <n>`, `gh issue create`, `gh issue comment`.
 
-## Task & Project Tracking (Plane)
-
-This project tracks tasks and milestones in **Plane** (free tier), reached through the Plane MCP server configured in `.mcp.json` (its tools are prefixed `mcp__plane__`). The model maps as: a **Module** is a milestone/epic; a **Work Item** is a task, associated to its module. Statuses are Plane states (Todo / In Progress / Done).
-
-- Read or author work items with the `mcp__plane__*` tools — e.g. `list_work_items`, `search_work_items`, `retrieve_work_item`, `create_work_item`, `update_work_item`; modules via `list_modules` / `create_module` / `manage_module_work_items`.
-- The MCP server authenticates with a personal access token from the `PLANE_API_KEY` env var (plus `PLANE_WORKSPACE_SLUG`); these are supplied by the environment and never committed.
-- Don't create work items or modules autonomously — propose, then let the user decide. Day-to-day task state is handled by the `manage-plane` skill (see above).
+- Don't create, close or relabel issues autonomously: propose, then let the user decide.
+- When a PR delivers an issue, put `Closes #<n>` in the PR body so the issue closes on merge.

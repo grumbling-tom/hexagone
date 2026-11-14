@@ -159,7 +159,7 @@ Both apps write structured log lines with email addresses masked, and every requ
 
 These files steer Claude Code and the team's process rather than the app. `apps/backend/CLAUDE.md` is worth reading once: it is the clearest statement of the backend's house rules.
 
-- `CLAUDE.md` files (rules for Claude Code), `.claude/skills/` (raising PRs, updating Plane tasks), `.mcp.json` (the Plane connection), `.github/PULL_REQUEST_TEMPLATE.md`, `resources/` (Excalidraw wireframes), `docs/`.
+- `CLAUDE.md` files (rules for Claude Code), `.claude/skills/` (raising PRs, creating new skills, frontend design), `.github/PULL_REQUEST_TEMPLATE.md`, `resources/` (Excalidraw wireframes), `docs/`.
 
 ## How data moves through it
 
@@ -292,7 +292,7 @@ The biggest gap: uploaded runs do not become hexagons in production. The process
 | Backups run every 6 hours | Up to 6 hours of data could be lost | Accepted trade-off |
 | Repo docs are partly out of date | The upload section of `README.md` describes S3 plus Lambda | None |
 
-Task statuses come from the in-repo backlog as last committed on 2026-06-19. Current statuses live in Plane, the team's task tracker.
+Task statuses come from the in-repo backlog as last committed on 2026-06-19. Tasks are now tracked as GitHub issues on the repo.
 
 ### Where an analytics engineer fits
 
